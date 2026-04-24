@@ -250,6 +250,8 @@ class GPSJammerHandheld:
             f"State: {self.current_state}"
         )
 
+
+# อันนี้เพิ่มมาไว้ทดสอบโหมดพรีวิวโดยไม่ต้องใช้ฮาร์ดแวร์จริง
     def _generate_preview_samples(self):
         noise = np.random.normal(loc=0.0, scale=0.25, size=self.sample_count).astype(np.complex64)
         phase = 2.0 * np.pi * 10.0 * np.arange(self.sample_count) / self.sample_count
