@@ -139,7 +139,7 @@ sudo raspi-config nonint do_spi 0
 ### 4. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/gnss-jamming-detector-handheld.git
+git clone https://github.com/67010655/gnss-jamming-detector-handheld.git
 cd gnss-jamming-detector-handheld
 ```
 
