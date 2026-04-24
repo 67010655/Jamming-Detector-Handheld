@@ -1,0 +1,5 @@
+numpy
+Pillow
+pyrtlsdr
+luma.core
+luma.lcd
