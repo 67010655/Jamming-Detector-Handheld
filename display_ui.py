@@ -2,9 +2,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from luma.core.interface.serial import spi
 from luma.lcd.device import ili9488
-
 from dsp import scale_points
-
 
 class DisplayUI:
     def __init__(self, app):
