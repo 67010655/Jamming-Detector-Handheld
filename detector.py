@@ -8,30 +8,30 @@ from led_control import LEDController
 
 class GPSJammerHandheld:
     def __init__(self, preview=False):
-        self.running = False
         self.preview = preview
-        self.w = config.WIDTH
-        self.h = config.HEIGHT
+        self.running = False
+        self.w = 480
+        self.h = 320
 
-        self.sample_count = config.SAMPLE_COUNT
+        self.sample_count = 8192
         self._window = np.hanning(self.sample_count).astype(np.float32)
-        self.center_freq_hz = config.CENTER_FREQ
-        self.sample_rate_hz = config.SAMPLE_RATE
-        self.gain_db = config.GAIN
+        self.center_freq_hz = 1575.42e6
+        self.sample_rate_hz = 1.024e6
+        self.gain_db = 0.0
 
-        self.target_fps = config.FPS
+        self.target_fps = 10
 
-        self.alpha_idle = config.ALPHA_IDLE
-        self.alpha_alert = config.ALPHA_ALERT
+        self.alpha_idle = 0.97
+        self.alpha_alert = 0.998
 
-        self.floor_rise_threshold_db = config.FLOOR_RISE_THRESHOLD
-        self.peak_threshold_db = config.PEAK_THRESHOLD
+        self.floor_rise_threshold_db = 3.2
+        self.peak_threshold_db = 24.0
 
-        self.warn_floor_rise_threshold_db = config.WARN_FLOOR
-        self.warn_peak_threshold_db = config.WARN_PEAK
+        self.warn_floor_rise_threshold_db = 2.0
+        self.warn_peak_threshold_db = 18.0
 
-        self.hit_frames_required = config.HIT_FRAMES
-        self.clear_frames_required = config.CLEAR_FRAMES
+        self.hit_frames_required = 3
+        self.clear_frames_required = 6
 
         self.frame_count = 0
         self.start_time = time.time()
