@@ -5,7 +5,6 @@ Controls 3 LEDs on GPIO pins to indicate detector state:
 - YELLOW LED: WATCH state
 - GREEN LED: SCANNING state
 """
-
 import config
 
 class LEDController:
