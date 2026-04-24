@@ -69,12 +69,10 @@ class DisplayUI:
         short = {"SCANNING": "SCAN", "WATCH": "WTCH", "JAMMING": "JAM!"}
         draw.text((340, 8), short.get(state, state), fill=status_color)
 
-        graph_top = 72
+        graph_top = 62
         graph_bottom = 218
         graph_left = 100
 
-        draw.line((0, 66, 0, 220), fill=(20,20,20), width=1)
-        draw.line((99, 66, 99, 220), fill=(30,30,30), width=1)
         bear_str = self._draw_polar(draw, status_color)
 
         import time
