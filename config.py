@@ -20,3 +20,9 @@ WARN_PEAK = 12.0
 DC_BINS = 10
 HIT_FRAMES = 3
 CLEAR_FRAMES = 6
+
+# LED GPIO Configuration (avoid pins used by LCD: physical pins 2,4,6,18,19,21,22,23,24)
+# Physical pins map to: 5V, 5V, GND, GPIO24, GPIO10, GPIO9, GPIO25, GPIO11, GPIO8
+LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
+LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)
+LED_GREEN_PIN = 26      # GPIO26 (Physical Pin 37) for GREEN LED (SCANNING state)

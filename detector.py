@@ -4,6 +4,7 @@ import numpy as np
 import config
 from dsp import compute_power, remove_dc_spike, smooth_noise
 from display_ui import DisplayUI
+from led_control import LEDController
 
 class GPSJammerHandheld:
     def __init__(self, preview=False):
@@ -47,8 +48,10 @@ class GPSJammerHandheld:
         if not self.preview:
             self._init_sdr()
             self._calibrate()
+            self.led = LEDController(enabled=True)
         else:
             self.noise_floor = -90.0
+            self.led = LEDController(enabled=False)
             print("[INFO] Preview mode: synthetic spectrum is enabled.")
 
         self.ui = DisplayUI(self, preview=self.preview)
@@ -124,6 +127,7 @@ class GPSJammerHandheld:
         alpha = self.alpha_alert if self.jammer_active else self.alpha_idle
         self.noise_floor = smooth_noise(self.noise_floor, current_floor, alpha)
         self.current_state = state
+        self.led.set_state(state)
         score = int(np.clip(max(floor_rise * 12.0, peak_diff * 6.0), 0, 99))
 
         return {
@@ -210,6 +214,9 @@ class GPSJammerHandheld:
         print("\n[SYSTEM] Stopping...")
         uptime = max(0.001, time.time() - self.start_time)
         print(f"[STATS] Uptime: {uptime:.1f}s  Frames: {self.frame_count}  Rate: {self.frame_count / uptime:.1f} FPS")
+
+        if self.led is not None:
+            self.led.cleanup()
 
         if self.device is not None:
             try:
