@@ -1,18 +1,30 @@
 import numpy as np
-from PIL import Image, ImageDraw
-from luma.core.interface.serial import spi
-from luma.lcd.device import ili9488
+from PIL import Image, ImageDraw, ImageFont
 from dsp import scale_points
 
 class DisplayUI:
-    def __init__(self, app):
+    def __init__(self, app, preview=False):
         self.app = app
-        self._init_display()
+        self.preview = preview
+        self._preview_shown = False
+        if not self.preview:
+            self._init_display()
         self._init_drawing()
         self._bearing_log = []
 
+    def _get_text_size(self, text, font):
+        draw = self.app._draw
+        if hasattr(draw, "textbbox"):
+            left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+            return right - left, bottom - top
+        if hasattr(font, "getsize"):
+            return font.getsize(text)
+        return len(text) * 8, 12
+
     def _init_display(self):
         print("[SYSTEM] Initializing Display...")
+        from luma.core.interface.serial import spi
+        from luma.lcd.device import ili9488
 
         serial = spi(
             port=0,
@@ -26,7 +38,7 @@ class DisplayUI:
             serial,
             width=self.app.w,
             height=self.app.h,
-            rotate=0
+            rotate=1
         )
 
     def _init_drawing(self):
@@ -37,6 +49,19 @@ class DisplayUI:
         )
 
         self.app._draw = ImageDraw.Draw(self.app._img)
+        self._load_fonts()
+
+    def _load_fonts(self):
+        try:
+            self._status_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 32)
+            self._state_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 20)
+        except Exception:
+            try:
+                self._status_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
+                self._state_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+            except Exception:
+                self._status_font = ImageFont.load_default()
+                self._state_font = ImageFont.load_default()
 
     def draw_ui(self, metrics, power):
         draw = self.app._draw
@@ -67,7 +92,10 @@ class DisplayUI:
         draw.text((14, 34), f"1575.42MHz  G:{self.app.gain_db}dB", fill=(100,100,100))
 
         short = {"SCANNING": "SCAN", "WATCH": "WTCH", "JAMMING": "JAM!"}
-        draw.text((340, 8), short.get(state, state), fill=status_color)
+        status_text = short.get(state, state)
+        status_width, status_height = self._get_text_size(status_text, self._status_font)
+        status_x = max(340, self.app.w - status_width - 10)
+        draw.text((status_x, 8), status_text, fill=status_color, font=self._status_font)
 
         graph_top = 62
         graph_bottom = 218
@@ -78,9 +106,9 @@ class DisplayUI:
         import time
         uptime = int(time.time() - self.app.start_time)
         up_str = f"{uptime//60:02d}:{uptime%60:02d}"
-        draw.text((4,  72), "STATE",   fill=(0, 60, 30))
-        draw.text((4,  84), short.get(state, state), fill=status_color)
-        draw.text((4, 150), "BRG",      fill=(0, 60, 30))
+        draw.text((4,  72), "STATE",   fill=(0, 60, 30), font=self._state_font)
+        draw.text((4,  84), short.get(state, state), fill=status_color, font=self._status_font)
+        draw.text((4, 150), "BRG",      fill=(0, 60, 30), font=self._state_font)
         draw.text((4, 162), bear_str,    fill=status_color)
         draw.text((4, 195), up_str,     fill=(0, 150, 80))
 
@@ -131,7 +159,16 @@ class DisplayUI:
             draw.rectangle((bar_x, bar_y, bar_x+fill_w, bar_y+bar_h), fill=status_color)
 
         draw.text((10, 288), f"MARGIN: {peak-(nf+self.app.warn_peak_threshold_db):+.1f}dB", fill=(0,60,30))
-        self.app.device.display(self.app._img)
+        if self.preview:
+            self.app._img.save("preview.png")
+            if not self._preview_shown:
+                try:
+                    self.app._img.show()
+                except Exception:
+                    pass
+                self._preview_shown = True
+        else:
+            self.app.device.display(self.app._img)
         
     def record_bearing(self, angle_deg, peak_dbfs):
         norm = float(np.clip((peak_dbfs + 90) / 30.0, 0.0, 1.0))
@@ -170,7 +207,7 @@ class DisplayUI:
             rad = np.radians(angle_deg - 90)
             px = int(cx + np.cos(rad) * r * norm)
             py = int(cy + np.sin(rad) * r * norm)
-            draw.line((cx, cy, px, py), fill=color, width=1)
+            draw.line((cx, cy, px, py), fill=color, width=0)
             draw.ellipse((px-3, py-3, px+3, py+3), fill=color)
 
         draw.ellipse((cx-2, cy-2, cx+2, cy+2), fill=color)
