@@ -1,184 +1,330 @@
-# GNSS Jamming Detector — Handheld
+# 📡 GNSS Jamming Detector — Handheld
 
 [![Status](https://img.shields.io/badge/status-development-orange.svg)](README.md)
-[![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi-blue.svg)](README.md)
+[![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%20Zero%202W-red.svg)](README.md)
 [![Language](https://img.shields.io/badge/language-Python%203-brightgreen.svg)](README.md)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
-[![Type](https://img.shields.io/badge/type-prototype-blueviolet.svg)](README.md)
+[![Type](https://img.shields.io/badge/type-Educational%20Prototype-blueviolet.svg)](README.md)
 
-Short description
------------------
+A portable, low-cost handheld device for detecting and monitoring GNSS (GPS/GLONASS/Galileo) jamming signals in real time. Built on a Raspberry Pi Zero 2 W with an RTL-SDR USB dongle and a directional LPDA antenna, this project samples RF energy, computes a power spectrum, tracks a dynamic noise floor, and raises a jamming/watch alert on an ILI9488 SPI TFT display.
 
-GNSS Jamming Detector — Handheld is an educational prototype for detecting interference against GNSS L1 (1575.42 MHz) using a Raspberry Pi Zero 2 W, an RTL‑SDR USB dongle and a directional LPDA antenna. The project samples RF, computes a spectrum, tracks a noise floor, and raises a jamming/watch indication on a small ILI9488 SPI TFT display.
+> ⚠️ **Educational Prototype** — This is a student-built passive receiver. It does not transmit any signals and must not be used for operational, safety-critical, or legal jamming-mitigation decisions.
 
-Screenshots / Demo
-------------------
+---
 
-Placeholder images and demo GIFs should be added here when available. You can drop screenshots into the repository and reference them below.
+## 📸 Screenshots / Demo
 
-Overview
---------
+> 📷 Screenshots and demo GIFs will be added after hardware assembly is complete.
+>
+> Planned additions:
+> - `docs/screenshot_lcd_ui.jpg` — LCD dashboard in the field
+> - `docs/demo_detection.gif` — Live spectrum scanning demo
+> - `docs/architecture.png` — System block diagram
 
-GNSS jamming is when an emitter transmits signals that raise the noise floor or mask legitimate GNSS satellite signals, causing receivers to lose lock or produce incorrect positioning. This project demonstrates a passive, low-cost detector that monitors spectrum energy around GPS L1 and alerts when the spectral noise floor and peak patterns indicate possible jamming.
+---
 
-This repository is a student-built educational prototype — it is not certified, should not be used for operational safety decisions, and does not transmit any signals.
+## 🔍 Overview
 
-Features
---------
+GNSS signals (e.g., GPS L1 at 1575.42 MHz) are extremely weak by the time they reach Earth's surface, making them highly susceptible to intentional interference known as **jamming** — where a nearby emitter raises the noise floor or masks satellite signals, causing receivers to lose lock or produce incorrect positioning.
 
-| Feature | Status | Notes |
-|---|---:|---|
-| Real-time FFT spectrum display | Implemented | Spectrum rendering to ILI9488 display (`display_ui.py`) |
-| Noise-floor baseline and smoothing | Implemented | Exponential moving average with alert modes (`dsp.py`, `detector.py`) |
-| Jamming detection scoring & thresholds | Implemented | Multi‑metric scoring (floor rise, peak diff) |
-| Directional bearing logging (manual input) | Implemented | Accepts bearing via stdin; simple logging & visualization |
-| Auto-calibration routine | Implemented | Short warm-up sampling to establish baseline NF |
-| Data logging to SD / CSV | Planned | Useful for post-analysis |
-| Network alerts / remote monitoring | Planned | MQTT / HTTP webhook ideas |
-| Improved UI and touch controls | In Progress | UI enhancements and interaction
+This handheld detector uses a **Software Defined Radio (RTL-SDR)** to passively monitor the GNSS frequency band. It performs real-time **FFT-based spectral analysis**, estimates a dynamic noise floor using exponential moving average smoothing, and scores the signal environment using multiple metrics (noise floor rise, peak differential). When thresholds are exceeded, an alert is raised on the LCD display.
 
-Hardware Requirements
----------------------
+A directional **LPDA antenna** allows the user to perform a manual **bearing sweep** — rotating the antenna and logging signal strength at each orientation — to estimate the approximate direction of the jamming source.
+
+---
+
+## ✨ Features
+
+| Feature | Status | Implementation |
+|---|---|---|
+| Real-time FFT spectrum display | ✅ Implemented | `display_ui.py` → ILI9488 display |
+| Noise floor baseline & smoothing | ✅ Implemented | Exponential moving average (`dsp.py`, `detector.py`) |
+| Jamming detection scoring & thresholds | ✅ Implemented | Multi-metric scoring: floor rise + peak differential |
+| Auto-calibration routine | ✅ Implemented | Short warm-up sampling to establish baseline NF |
+| Directional bearing logging (manual) | ✅ Implemented | Accepts bearing via stdin; polar plot visualization |
+| Data logging to CSV / SD card | 🔜 Planned | For post-mission analysis |
+| Network alerts / remote monitoring | 🔜 Planned | MQTT / HTTP webhook |
+| Improved UI and touch controls | 🔧 In Progress | UI enhancements and interaction |
+
+---
+
+## 🔧 Hardware Requirements
 
 | Component | Notes |
 |---|---|
-| Raspberry Pi Zero 2 W | Tested platform |
-| RTL‑SDR USB dongle | Any RTL2832-based device with `librtlsdr` support |
-| LPDA directional antenna (800–2700 MHz) | 8–9 dBi recommended for directionality |
-| 3.5" TFT SPI display (ILI9488) | Driver: `luma.lcd.device.ili9488` |
-| USB power, microSD card | Standard Pi setup |
+| **Raspberry Pi Zero 2 W** | Main compute unit — tested platform |
+| **RTL-SDR USB Dongle** | Any RTL2832-based device with `librtlsdr` support |
+| **LPDA Directional Antenna** | 800 MHz–2700 MHz, 8–9 dBi gain for directionality |
+| **3.5" TFT SPI Display (ILI9488)** | Driver: `luma.lcd.device.ili9488` |
+| **USB OTG Adapter** | For connecting RTL-SDR to Pi Zero's micro-USB port |
+| **Power Bank** | Portable power supply _(model TBC)_ |
+| **microSD Card** | Standard Pi OS installation |
 
-Software Requirements
----------------------
+> 💡 The LPDA antenna covers all primary GNSS frequency bands:
+> - **GPS L1:** 1575.42 MHz
+> - **GLONASS L1:** ~1602 MHz
+> - **Galileo E1:** 1575.42 MHz
 
-- Python 3.7+ (3.9+ recommended on Pi OS)
-- NumPy
-- Pillow
-- pyrtlsdr (Python wrapper around librtlsdr)
-- luma.core and luma.lcd (display drivers)
-- System: `librtlsdr` (native RTL-SDR library), SPI enabled in Raspberry Pi config
+---
 
-Installation
-------------
+## 💻 Software Requirements
+
+**Operating System:** Raspberry Pi OS (Bullseye / Bookworm), 32-bit recommended for Pi Zero 2 W
+
+**Python Version:** Python 3.7+ (3.9+ recommended)
+
+**Python Dependencies** (see `requirements.txt`):
+
+```
+numpy
+Pillow
+pyrtlsdr
+luma.core
+luma.lcd
+```
+
+**System Dependencies:**
+
+```
+librtlsdr-dev
+rtl-sdr
+```
+
+**SPI must be enabled** in `raspi-config` for the ILI9488 display to function.
+
+**Development Tools:**
+- Visual Studio Code (remote SSH or local)
+- Thonny IDE (for on-device development)
+
+---
+
+## 🚀 Installation
 
 The steps below outline a minimal setup on Raspberry Pi OS (Bullseye/Bookworm). Adapt package manager commands if you use a different distribution.
 
-1. Update system and install native deps
+### 1. Update system and install native dependencies
 
 ```bash
 sudo apt update
 sudo apt install -y build-essential git python3 python3-pip python3-venv \
-	librtlsdr-dev rtl-sdr
+    librtlsdr-dev rtl-sdr
 ```
 
-2. Disable the kernel driver for RTL-SDR devices (so librtl can access the dongle). Add the following to `/etc/modprobe.d/rtl-sdr-blacklist.conf`:
+### 2. Disable the default DVB-T kernel driver
+
+The default kernel driver conflicts with `librtlsdr`. Create a blacklist file:
+
+```bash
+sudo nano /etc/modprobe.d/rtl-sdr-blacklist.conf
+```
+
+Add this line:
 
 ```text
 blacklist dvb_usb_rtl28xxu
 ```
 
-Then reboot.
+Then reboot:
 
-3. Enable SPI
+```bash
+sudo reboot
+```
+
+### 3. Enable SPI interface
 
 ```bash
 sudo raspi-config nonint do_spi 0
 ```
 
-4. Create a Python virtual environment and install Python packages
+### 4. Clone the repository
+
+```bash
+git clone https://github.com/YOUR_USERNAME/gnss-jamming-detector-handheld.git
+cd gnss-jamming-detector-handheld
+```
+
+### 5. Create a virtual environment and install Python packages
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
-pip install numpy pillow pyrtlsdr luma.core luma.lcd
+pip install -r requirements.txt
 ```
 
-5. (Optional) If you plan to run headless at boot, set up a systemd service or a supervised launcher.
+### 6. Verify RTL-SDR is recognized
 
-Usage
------
+```bash
+rtl_test -t
+```
 
-1. Edit runtime parameters in [config.py](config.py). Key parameters:
+A successful output confirms the dongle is accessible. If not, double-check the blacklist and reboot.
 
-- `WIDTH`, `HEIGHT` — display resolution
-- `SAMPLE_COUNT` — FFT sample size
-- `CENTER_FREQ`, `SAMPLE_RATE`, `GAIN` — SDR tuning and gain
-- Thresholds and smoothing alphas for detection behavior
+---
 
-2. Run the application (from repository root):
+## ▶️ Usage
+
+### 1. Configure parameters
+
+Edit `config.py` before running. Key parameters:
+
+```python
+WIDTH, HEIGHT       # Display resolution
+SAMPLE_COUNT        # FFT sample size
+CENTER_FREQ         # Target frequency in Hz (default: 1575.42e6 = GPS L1)
+SAMPLE_RATE         # SDR sample rate
+GAIN                # SDR gain (tune for your RF environment)
+# Thresholds and smoothing alphas for detection behaviour
+```
+
+> 💡 Adjust detection thresholds based on your local RF environment. Higher thresholds reduce false positives in noisy areas.
+
+### 2. Run the application
 
 ```bash
 source venv/bin/activate
 python3 main.py
 ```
 
-3. Optional: supply direction (bearing) samples to the program via stdin (used to visualize bearing on the polar plot). Example:
+### 3. Supply bearing input (optional)
+
+While the program is running, type an integer bearing value (0–359°) and press **Enter** to log a directional sample. The polar plot on the display will update accordingly.
 
 ```bash
-# type an integer (0-359) and press Enter while the program runs
+# Example: type 90 and press Enter to log East direction
+90
 ```
 
-Project Structure
------------------
+---
 
-- [main.py](main.py) — Entry point that instantiates and runs the app.
-- [config.py](config.py) — Central configuration and tuning parameters.
-- [detector.py](detector.py) — Main application class `GPSJammerHandheld`: SDR initialization, main loop, detection logic and state machine.
-- [dsp.py](dsp.py) — Signal processing helpers: windowing, FFT, power calculation and DC spike removal.
-- [display_ui.py](display_ui.py) — UI rendering code for the ILI9488 display using `luma.lcd`.
-
-How It Works
-------------
-
-ASCII flow diagram:
+## 📁 Project Structure
 
 ```
-+----------------+     +-------------+     +-----------------+     +--------------+
-| RTL-SDR input  | --> | Windowing & | --> | FFT -> Power    | --> | Detection &  |
-| (samples)      |     | DC removal  |     | (dB spectrum)   |     | Scoring      |
-+----------------+     +-------------+     +-----------------+     +--------------+
-																  |
-																  v
-														 +--------------------+
-														 | Display & Bearing  |
-														 | visualization      |
-														 +--------------------+
+gnss-jamming-detector-handheld/
+│
+├── main.py             # Entry point — instantiates and runs the app
+├── config.py           # Central configuration and tuning parameters
+├── detector.py         # Main app class GPSJammerHandheld: SDR init,
+│                       # main loop, detection logic and state machine
+├── dsp.py              # DSP helpers: windowing, FFT, power calculation,
+│                       # DC spike removal, noise floor smoothing
+├── display_ui.py       # UI rendering for ILI9488 display via luma.lcd
+│
+├── requirements.txt    # Python dependencies (pip install -r requirements.txt)
+├── LICENSE             # MIT License
+├── .gitignore          # Git ignore rules (.venv, __pycache__, etc.)
+└── README.md           # Project documentation
 ```
 
-Explanation of steps and files:
+---
 
-- Sampling (RTl‑SDR): `detector._init_sdr()` and `detector.run()` read blocks of IQ samples from the RTL‑SDR.
-- Windowing & DC spike removal: `dsp.compute_power()` applies a window, computes an FFT and converts magnitude to dB. `dsp.remove_dc_spike()` removes center DC artifacts common to RTL devices.
-- Detection & scoring: `detector._detect_jamming()` compares percentiles and peaks against baseline noise floor, applies smoothing (`dsp.smooth_noise`) and maintains a simple hit/clear counter to latch alarm state.
-- UI: `display_ui.draw_ui()` renders the spectrum, noise floor, score and a polar bearing plot on the ILI9488 display.
+## ⚙️ How It Works
 
-Future Improvements (Checklist)
------------------------------
+```
++------------------+     +-------------------+     +--------------------+
+| RTL-SDR Input    | --> | Windowing &       | --> | FFT → Power (dB)   |
+| IQ samples       |     | DC Spike Removal  |     | Spectrum           |
+| detector.py      |     | dsp.py            |     | dsp.py             |
++------------------+     +-------------------+     +--------------------+
+                                                            |
+                                                            v
+                                                  +---------------------+
+                                                  | Noise Floor         |
+                                                  | Estimation &        |
+                                                  | Smoothing (EMA)     |
+                                                  | dsp.py              |
+                                                  +---------------------+
+                                                            |
+                                                            v
+                                                  +---------------------+
+                                                  | Detection & Scoring |
+                                                  | floor rise +        |
+                                                  | peak differential   |
+                                                  | detector.py         |
+                                                  +---------------------+
+                                                            |
+                                          +-----------------+-----------------+
+                                          |                                   |
+                                          v                                   v
+                                  +--------------+                   +----------------+
+                                  | No Jamming   |                   | ALERT / WATCH  |
+                                  | Normal UI    |                   | Log Bearing    |
+                                  +--------------+                   +----------------+
+                                          |                                   |
+                                          +------------------+----------------+
+                                                             |
+                                                             v
+                                                  +---------------------+
+                                                  | LCD Dashboard       |
+                                                  | Spectrum + Score +  |
+                                                  | Polar Bearing Plot  |
+                                                  | display_ui.py       |
+                                                  +---------------------+
+```
 
-- [ ] Add persistent CSV/SD logging of raw metrics and spectra
-- [ ] Add automated antenna sweeping + servo control to auto‑triangulate bearings
-- [ ] Add optional network reporting (MQTT/HTTP) for remote alerts
-- [ ] Improve calibration (noise floor drift compensation, environmental profiles)
-- [ ] Add unit tests for DSP routines
-- [ ] Create an installable `requirements.txt` and packaging script
+**Step-by-step explanation:**
 
-Disclaimer
-----------
+1. **IQ Sampling** — `detector._init_sdr()` and `detector.run()` tune the RTL-SDR to `CENTER_FREQ` (GPS L1: 1575.42 MHz) and read blocks of raw IQ samples continuously.
 
-This project is a passive receiver prototype for educational and research purposes only. It does not transmit. It is not certified and should not be used for legal, safety-critical, or operational jamming mitigation. Laws regarding RF monitoring vary by country — ensure you follow local regulations.
+2. **Windowing & DC Spike Removal** — `dsp.compute_power()` applies a window function before FFT to reduce spectral leakage. `dsp.remove_dc_spike()` suppresses the center DC artifact common to direct-conversion RTL-SDR devices.
 
-License
--------
+3. **FFT → Power Spectrum** — The windowed IQ samples are transformed via Fast Fourier Transform and converted to a dB-scale power spectrum for analysis.
 
-This project is released under the MIT License. See [LICENSE](LICENSE) for the full text.
+4. **Noise Floor Estimation & Smoothing** — A dynamic noise floor baseline is maintained using an **Exponential Moving Average (EMA)** via `dsp.smooth_noise`. This adapts to the local RF environment over time.
 
-Author
-------
+5. **Detection & Scoring** — `detector._detect_jamming()` applies a **multi-metric scoring system**: comparing percentile power levels and spectral peaks against the baseline. A hit/clear counter latches the alarm state to prevent flickering.
 
-Student project — Space and Geospatial Engineering, King Mongkut's Institute of Technology Ladkrabang (KMITL).
+6. **Bearing Estimation** — The user manually rotates the directional LPDA antenna and inputs bearing values (0–359°) via stdin. Signal strength at each bearing is logged and visualized as a polar plot, indicating the likely direction of the jamming source.
 
-Acknowledgements
-----------------
+7. **LCD Display** — `display_ui.draw_ui()` renders the full dashboard on the ILI9488 display: live spectrum, noise floor overlay, detection score, alert status, and the polar bearing plot.
 
-Built with Python, NumPy and the RTL‑SDR community tools. Inspiration and components from open GNSS research and hobbyist SDR communities.
+---
+
+## 🔮 Future Improvements
+
+- [ ] Add persistent CSV / SD card logging of raw metrics and detection events
+- [ ] Add automated antenna sweeping with servo control for auto-triangulation of bearings
+- [ ] Add optional network reporting (MQTT / HTTP webhook) for remote alerts
+- [ ] Improve noise floor calibration: drift compensation and environmental profiles
+- [ ] Add unit tests for DSP routines (`dsp.py`)
+- [ ] Add multi-band scanning (GPS L2, L5, GLONASS, BeiDou, Galileo E5)
+- [ ] Serve a local Wi-Fi web dashboard via Pi's built-in wireless for remote monitoring
+- [ ] Integrate GPS module to timestamp and geolocate detection events
+
+---
+
+## ⚠️ Disclaimer
+
+This project is developed **solely for educational and research purposes** as part of an academic program in Space and Geospatial Engineering at KMITL.
+
+- This device is a **passive receiver only** — it does **not** transmit any signals.
+- Detection accuracy of this prototype is **not guaranteed** and has not been independently verified.
+- This project is **not certified** and must not be used for safety-critical, operational, or legal jamming-mitigation applications.
+- Laws regarding RF monitoring vary by country — **ensure you comply with local regulations** before deploying this device.
+- This project is not affiliated with any government agency or commercial organization.
+
+---
+
+## 📄 License
+
+This project is released under the **MIT License** — see [LICENSE](LICENSE) for the full text.
+
+---
+
+## 👤 Author
+
+67010655 — Space and Geospatial Engineering Student
+King Mongkut's Institute of Technology Ladkrabang (KMITL), Thailand
+
+> Built as an academic project exploring RF signal processing, Software Defined Radio, and portable embedded systems.
+
+---
+
+## 🙏 Acknowledgements
+
+Built with Python, NumPy, and the RTL-SDR open-source community tools.
+Inspiration and components drawn from open GNSS research and hobbyist SDR communities.
+
+---
+
+_If you find this project useful or interesting, feel free to ⭐ star the repository!_
