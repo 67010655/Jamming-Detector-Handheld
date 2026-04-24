@@ -27,7 +27,7 @@ class LEDController:
         
         if self.enabled:
             try:
-                import RPi.GPIO as GPIO
+                import RPi.GPIO as GPIO # Import here to avoid issues in preview mode      
                 self.gpio = GPIO
                 self.gpio.setmode(GPIO.BCM)
                 self.gpio.setwarnings(False)
