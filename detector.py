@@ -1,35 +1,36 @@
 import time
 import numpy as np
-from rtlsdr import RtlSdr
 
+import config
 from dsp import compute_power, remove_dc_spike, smooth_noise
 from display_ui import DisplayUI
 
 class GPSJammerHandheld:
-    def __init__(self):
+    def __init__(self, preview=False):
         self.running = False
-        self.w = 480
-        self.h = 320
+        self.preview = preview
+        self.w = config.WIDTH
+        self.h = config.HEIGHT
 
-        self.sample_count = 8192
+        self.sample_count = config.SAMPLE_COUNT
         self._window = np.hanning(self.sample_count).astype(np.float32)
-        self.center_freq_hz = 1575.42e6
-        self.sample_rate_hz = 1.024e6
-        self.gain_db = 0.0
+        self.center_freq_hz = config.CENTER_FREQ
+        self.sample_rate_hz = config.SAMPLE_RATE
+        self.gain_db = config.GAIN
 
-        self.target_fps = 10
+        self.target_fps = config.FPS
 
-        self.alpha_idle = 0.97
-        self.alpha_alert = 0.998
+        self.alpha_idle = config.ALPHA_IDLE
+        self.alpha_alert = config.ALPHA_ALERT
 
-        self.floor_rise_threshold_db = 3.2
-        self.peak_threshold_db = 24.0
+        self.floor_rise_threshold_db = config.FLOOR_RISE_THRESHOLD
+        self.peak_threshold_db = config.PEAK_THRESHOLD
 
-        self.warn_floor_rise_threshold_db = 2.0
-        self.warn_peak_threshold_db = 18.0
+        self.warn_floor_rise_threshold_db = config.WARN_FLOOR
+        self.warn_peak_threshold_db = config.WARN_PEAK
 
-        self.hit_frames_required = 3
-        self.clear_frames_required = 6
+        self.hit_frames_required = config.HIT_FRAMES
+        self.clear_frames_required = config.CLEAR_FRAMES
 
         self.frame_count = 0
         self.start_time = time.time()
@@ -43,12 +44,22 @@ class GPSJammerHandheld:
         self.device = None
         self.sdr = None
 
-        self._init_sdr()
-        self._calibrate()
-        self.ui = DisplayUI(self)
+        if not self.preview:
+            self._init_sdr()
+            self._calibrate()
+        else:
+            self.noise_floor = -90.0
+            print("[INFO] Preview mode: synthetic spectrum is enabled.")
+
+        self.ui = DisplayUI(self, preview=self.preview)
         
     def _init_sdr(self):
         print("[SYSTEM] Initializing RTL-SDR...")
+        try:
+            from rtlsdr import RtlSdr
+        except ImportError as exc:
+            raise RuntimeError("RTL-SDR library is not installed. Install pyrtlsdr to run on hardware.") from exc
+
         try:
             self.sdr = RtlSdr()
             self.sdr.sample_rate = self.sample_rate_hz
@@ -134,16 +145,34 @@ class GPSJammerHandheld:
         while self.running:
             frame_start = time.time()
             try:
-                samples = self.sdr.read_samples(self.sample_count)
+                if self.preview:
+                    samples = self._generate_preview_samples()
+                else:
+                    samples = self.sdr.read_samples(self.sample_count)
+
                 power = compute_power(samples, self._window)
                 power = remove_dc_spike(power)
 
                 metrics = self._detect_jamming(power)
-                import select, sys
-                if select.select([sys.stdin], [], [], 0)[0]:
+                if not self.preview:
                     try:
-                        angle = int(input())
-                        self.ui.record_bearing(angle, metrics["peak_p"])
+                        import sys
+                        if sys.platform == "win32":
+                            import msvcrt
+                            if msvcrt.kbhit():
+                                try:
+                                    angle = int(sys.stdin.readline().strip())
+                                    self.ui.record_bearing(angle, metrics["peak_p"])
+                                except Exception:
+                                    pass
+                        else:
+                            import select
+                            if select.select([sys.stdin], [], [], 0)[0]:
+                                try:
+                                    angle = int(input())
+                                    self.ui.record_bearing(angle, metrics["peak_p"])
+                                except Exception:
+                                    pass
                     except Exception:
                         pass
                 self._debug_print(power)
@@ -220,3 +249,11 @@ class GPSJammerHandheld:
             f"Margin: {margin:+5.2f} | "
             f"State: {self.current_state}"
         )
+
+    def _generate_preview_samples(self):
+        noise = np.random.normal(loc=0.0, scale=0.25, size=self.sample_count).astype(np.complex64)
+        phase = 2.0 * np.pi * 10.0 * np.arange(self.sample_count) / self.sample_count
+        tone = np.exp(1j * phase).astype(np.complex64)
+        if np.random.rand() > 0.7:
+            return 0.2 * tone + noise
+        return noise
