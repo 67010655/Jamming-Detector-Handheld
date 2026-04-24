@@ -189,7 +189,9 @@ class GPSJammerHandheld:
             except KeyboardInterrupt:
                 self.running = False
             except Exception as exc:
+                import traceback
                 print(f"[ERROR] Runtime loop: {exc}")
+                traceback.print_exc()
                 time.sleep(0.2)
 
     def _debug_print(self, current_power):
