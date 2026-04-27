@@ -23,7 +23,7 @@ def scale_points(power, nf, width, graph_top, graph_bottom):
     if len(power_resampled) > display_pts:
         power_resampled = power_resampled[:display_pts]
 
-    y_vals = graph_bottom - (power_resampled - (nf - 18.0)) * 3.6
+    y_vals = graph_bottom - (power_resampled - (nf - 25.0)) * 4.5
     y_vals = np.clip(
         y_vals,
         graph_top + 2,
