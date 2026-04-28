@@ -40,8 +40,8 @@ class DisplayUI:
 
         self.app.device = ili9488(
             serial,
-            width=self.app.w,
-            height=self.app.h,
+            width=self.app.h,
+            height=self.app.w,
             rotate=1
         )
 
