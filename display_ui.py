@@ -40,9 +40,9 @@ class DisplayUI:
 
         self.app.device = ili9488(
             serial,
-            width=self.app.h,
-            height=self.app.w,
-            rotate=1
+            width=self.app.w,
+            height=self.app.h,
+            rotate=0
         )
 
     def _init_drawing(self):
