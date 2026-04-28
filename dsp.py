@@ -18,16 +18,19 @@ def scale_points(power, nf, width, graph_top, graph_bottom):
     if usable == 0:
         return []
 
-    power_resampled = power[:usable].reshape(-1, step).mean(axis=1)
+    # Prefer max pooling for downsampled spectrum to preserve strong jammer bands.
+    if step > 1:
+        power_resampled = power[:usable].reshape(-1, step).max(axis=1)
+    else:
+        power_resampled = power[:usable]
 
     if len(power_resampled) > display_pts:
         power_resampled = power_resampled[:display_pts]
 
-    # Use a fixed vertical display range relative to the noise floor.
-    # This keeps the scanning baseline lower and makes jammer bands show
-    # as a raised section, rather than lifting the entire spectrum.
-    display_floor_db = nf - 45.0
-    display_span_db = 65.0
+    # Use a lower baseline and limited span so noise stays near the bottom,
+    # while jammer activity rises as a clear frequency band.
+    display_floor_db = nf - 10.0
+    display_span_db = 50.0
     normalized = np.clip(power_resampled - display_floor_db, 0.0, display_span_db)
     y_vals = graph_bottom - (normalized / display_span_db) * (graph_bottom - graph_top - 4)
     y_vals = np.clip(y_vals, graph_top + 2, graph_bottom - 2).astype(np.int32)

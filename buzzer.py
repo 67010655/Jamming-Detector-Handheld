@@ -73,15 +73,12 @@ class BuzzerController:
 
         self.current_state = state
         if state == "SCANNING":
-            print("[BUZZER] SCANNING notification")
             self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.10, frequency_hz=900)
             time.sleep(2.0)
         elif state == "WATCH":
-            print("[BUZZER] WATCH notification")
             self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1200)
             time.sleep(1.0)
         elif state == "JAMMING":
-            print("[BUZZER] JAMMING notification")
             self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.05, frequency_hz=1500)
             time.sleep(0.5)
 

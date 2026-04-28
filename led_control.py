@@ -65,13 +65,10 @@ class LEDController:
             # Turn on appropriate LED
             if state == "JAMMING":
                 self.gpio.output(self.red_pin, self.gpio.HIGH)
-                print("[LED] RED - JAMMING")
             elif state == "WATCH":
                 self.gpio.output(self.yellow_pin, self.gpio.HIGH)
-                print("[LED] YELLOW - WATCH")
             elif state == "SCANNING":
                 self.gpio.output(self.green_pin, self.gpio.HIGH)
-                print("[LED] GREEN - SCANNING")
         except Exception as e:
             print(f"[LED] Error setting state: {e}")
     
