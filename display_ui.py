@@ -82,7 +82,7 @@ class DisplayUI:
         self._f_title     = _try(bold, 15)
         self._f_subtitle  = _try(regular, 11)
         self._f_status    = _try(bold, 28)
-        self._f_state_big = _try(bold, 24)
+        self._f_state_big = _try(bold, 18)
         self._f_score_big = _try(mono, 36)
         self._f_score_sub = _try(regular, 14)
         self._f_label     = _try(regular, 10)
@@ -90,8 +90,8 @@ class DisplayUI:
         self._f_unit      = _try(regular, 10)
         self._f_brg       = _try(bold, 16)
         self._f_compass   = _try(regular, 10)
-        self._f_small     = _try(regular, 10)
-        self._f_footer    = _try(regular, 9)
+        self._f_small     = _try(bold, 10)
+        self._f_footer    = _try(bold, 8)
         self._f_fps       = _try(bold, 18)
         self._f_fps_label = _try(regular, 10)
 
@@ -201,7 +201,7 @@ class DisplayUI:
         # Header bottom line
         draw.line((BD, content_top, W - BD, content_top), fill=line_col, width=1)
 
-        draw.text((BD + 8, BD + 6), "GNSS L1 JAMMER DETECTOR",
+        draw.text((BD + 8, BD + 6), "GNSS L1 JAMMEING DETECTOR",
                   fill=(220, 220, 220), font=self._f_title)
 
         bw = self.app.sample_rate_hz / 2e6  # ±bandwidth in MHz
@@ -210,7 +210,7 @@ class DisplayUI:
                   fill=dim_txt, font=self._f_subtitle)
 
         # Status text (right side of header)
-        short = {"SCANNING": "SCAN", "WATCH": "WTCH", "JAMMING": "JAM!"}
+        short = {"SCANNING": "SCANNING", "WATCH": "WATCH", "JAMMING": "JAMMING"}
         st_txt = short.get(state, state)
         sw, _ = self._get_text_size(st_txt, self._f_status)
         draw.text((W - BD - sw - 10, BD + 8), st_txt,

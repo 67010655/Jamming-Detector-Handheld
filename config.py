@@ -24,3 +24,4 @@ CLEAR_FRAMES = 6
 LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
 LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)
 LED_GREEN_PIN = 26      # GPIO26 (Physical Pin 37) for GREEN LED (SCANNING state)
+BUZZER_PIN = 18         # GPIO18 (Physical Pin 12) for piezo buzzer

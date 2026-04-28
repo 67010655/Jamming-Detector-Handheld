@@ -5,6 +5,7 @@ import config
 from dsp import compute_power, remove_dc_spike, smooth_noise
 from display_ui import DisplayUI
 from led_control import LEDController
+from buzzer import BuzzerController
 
 class GPSJammerHandheld:
     def __init__(self, preview=False):
@@ -49,12 +50,15 @@ class GPSJammerHandheld:
             self._init_sdr()
             self._calibrate()
             self.led = LEDController(enabled=True)
+            self.buzzer = BuzzerController(enabled=True)
         else:
             self.noise_floor = -90.0
             self.led = LEDController(enabled=False)
+            self.buzzer = BuzzerController(enabled=False)
             print("[INFO] Preview mode: synthetic spectrum is enabled.")
 
         self.ui = DisplayUI(self, preview=self.preview)
+        self.buzzer.play_startup()
         
     def _init_sdr(self):
         print("[SYSTEM] Initializing RTL-SDR...")
@@ -128,6 +132,7 @@ class GPSJammerHandheld:
         self.noise_floor = smooth_noise(self.noise_floor, current_floor, alpha)
         self.current_state = state
         self.led.set_state(state)
+        self.buzzer.set_state(state)
         score = int(np.clip(max(floor_rise * 12.0, peak_diff * 6.0), 0, 99))
 
         return {
@@ -219,6 +224,9 @@ class GPSJammerHandheld:
 
         if self.led is not None:
             self.led.cleanup()
+
+        if getattr(self, 'buzzer', None) is not None:
+            self.buzzer.cleanup()
 
         if self.device is not None:
             try:
