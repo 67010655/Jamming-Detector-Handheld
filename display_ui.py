@@ -138,11 +138,12 @@ class DisplayUI:
         fps_val = self._fps_display if self._fps_display > 0 else self.app.target_fps
 
         state = metrics["state"]
-        nf    = self.app.noise_floor
+        nf    = metrics.get("noise_floor", self.app.noise_floor)
         peak  = metrics["peak_p"]
         rise  = metrics["floor_rise"]
         score = metrics.get("score", 0)
-
+        margin_val = metrics.get("margin", 0.0)
+        
         # ── theme (state-based color) ───────────────────────────────
         if state == "JAMMING":
             accent  = (255, 80, 90)     # Red
@@ -379,7 +380,6 @@ class DisplayUI:
         draw.line((0, foot_t, W, foot_t), fill=accent, width=1)
 
         # Margin text (right side)
-        margin_val = peak - (nf + self.app.warn_peak_threshold_db)
         margin_txt = f"MARGIN:{margin_val:+.1f}dB"
         max_mw, _ = self._get_text_size("MARGIN:+99.9dB", self._f_small)
         fixed_margin_x = W - max_mw - 10
