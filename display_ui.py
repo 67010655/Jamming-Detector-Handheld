@@ -91,7 +91,7 @@ class DisplayUI:
         self._f_unit      = _try(regular, 9)    # Units (dBFS, dB)
         self._f_brg       = _try(bold, 16)      # Bearing value
         self._f_compass   = _try(regular, 9)    # Compass N/S/E/W
-        self._f_small     = _try(bold, 10)      # Small text
+        self._f_small     = _try(bold, 9)      # Small text
         self._f_footer    = _try(bold, 8)       # Footer
         self._f_fps       = _try(bold, 16)      # FPS number
         self._f_fps_label = _try(regular, 9)    # FPS label
