@@ -263,3 +263,89 @@ canvas {
     display: flex;
     align-items: baseline;
 }
+
+/* ========================================= */
+/* Responsive Design (Tablet & Mobile)       */
+/* ========================================= */
+
+/* iPad / Tablet */
+@media (max-width: 1024px) {
+    body {
+        align-items: flex-start;
+        overflow-y: auto;
+    }
+
+    .dashboard-container {
+        height: auto;
+        max-height: none;
+    }
+
+    .main-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .spectrum-panel {
+        order: -1;
+        /* Spectrum on top */
+        min-height: 450px;
+    }
+
+    .left-panel,
+    .right-panel {
+        flex-direction: row;
+        justify-content: space-around;
+        align-items: center;
+        padding: 16px;
+    }
+
+    .mt-auto {
+        margin-top: 0;
+    }
+
+    .bar-container {
+        display: none;
+        /* Hide vertical bar on smaller screens */
+    }
+}
+
+/* Mobile Phones */
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 10px;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+    }
+
+    .spectrum-panel {
+        min-height: 400px;
+    }
+
+    .left-panel,
+    .right-panel {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .metrics-row {
+        grid-template-columns: 1fr 1fr;
+        /* 2x2 grid for metrics */
+        gap: 12px;
+    }
+
+    .score-value {
+        font-size: 3rem;
+    }
+
+    .value {
+        font-size: 1.5rem;
+    }
+
+    .state-value {
+        font-size: 1.5rem;
+    }
+}
