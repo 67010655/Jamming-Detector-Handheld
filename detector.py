@@ -140,6 +140,12 @@ class GPSJammerHandheld:
         self.buzzer.set_state(state)
         score = int(np.clip(max(floor_rise * 12.0, peak_diff * 6.0), 0, 99))
 
+        if self.jammer_active:
+            threshold = self.noise_floor + self.peak_threshold_db
+        else:
+            threshold = self.noise_floor + self.warn_peak_threshold_db
+        margin = peak_p - threshold
+
         return {
             "avg_p": avg_p,
             "peak_p": peak_p,
@@ -149,6 +155,9 @@ class GPSJammerHandheld:
             "state": state,
             "jammer": self.jammer_active,
             "score": score,
+            "noise_floor": self.noise_floor,
+            "threshold": threshold,
+            "margin": margin
         }
     
     def run(self):

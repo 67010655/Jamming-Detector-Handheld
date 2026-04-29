@@ -104,27 +104,22 @@ async function fetchStatus() {
             const shortMap = { "SCANNING": "SCAN", "WATCH": "WTCH", "JAMMING": "JAM!" };
             document.getElementById('state-text').innerText = shortMap[m.state] || m.state;
 
-            document.getElementById('nf-val').innerText = m.floor_rise !== undefined ? (m.peak_p - m.floor_rise - m.peak_diff).toFixed(1) : "-90.0";
-            // Wait, proper NF is missing from metrics dict in detector.py! 
-            // Let's rely on calculating it or just printing floor_rise.
-            // Actually, we can just show the values given
-            document.getElementById('peak-val').innerText = m.peak_p ? m.peak_p.toFixed(1) : "0.0";
-            document.getElementById('base-val').innerText = m.baseline_p ? m.baseline_p.toFixed(1) : "0.0";
-            document.getElementById('rise-val').innerText = m.floor_rise ? `+${m.floor_rise.toFixed(1)}` : "0.0";
-
-            document.getElementById('score-text').innerText = m.score ? m.score.toString().padStart(2, '0') : "00";
-
+            document.getElementById('nf-val').innerText = m.noise_floor !== undefined ? m.noise_floor.toFixed(1) : "-90.0"; 
+            document.getElementById('peak-val').innerText = m.peak_p !== undefined ? m.peak_p.toFixed(1) : "0.0";
+            document.getElementById('base-val').innerText = m.baseline_p !== undefined ? m.baseline_p.toFixed(1) : "0.0";
+            document.getElementById('rise-val').innerText = m.floor_rise !== undefined ? `+${m.floor_rise.toFixed(1)}` : "+0.0";
+            
+            document.getElementById('score-text').innerText = m.score !== undefined ? m.score.toString().padStart(2, '0') : "00";
+            
             // Score bar height
             let pct = Math.min(100, Math.max(0, (m.score / 99) * 100));
             document.getElementById('score-bar').style.height = `${pct}%`;
-
-            // Calculate Margin (Using default thresholds from detector.py since not passed explicitly)
-            // Warn peak threshold is 18.0
-            let warn_peak_thresh = 18.0;
-            // Margin = peak_diff - warn_peak_thresh
-            let margin = m.peak_diff - warn_peak_thresh;
-            let marginStr = margin > 0 ? `+${margin.toFixed(1)}` : margin.toFixed(1);
-            document.getElementById('margin-text').innerText = `${marginStr} dB`;
+            
+            // Exact Margin from Python logic
+            if (m.margin !== undefined) {
+                let marginStr = m.margin > 0 ? `+${m.margin.toFixed(1)}` : m.margin.toFixed(1);
+                document.getElementById('margin-text').innerText = `${marginStr} dB`;
+            }
         }
 
         // Update Uptime

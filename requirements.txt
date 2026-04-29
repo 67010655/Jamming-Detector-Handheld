@@ -3,3 +3,6 @@ Pillow
 pyrtlsdr
 luma.core
 luma.lcd
+flask
+RPi.GPIO
+spidev
