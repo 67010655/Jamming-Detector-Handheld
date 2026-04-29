@@ -6,6 +6,7 @@ from dsp import compute_power, remove_dc_spike, smooth_noise
 from display_ui import DisplayUI
 from led_control import LEDController
 from buzzer import BuzzerController
+import web_server
 
 class GPSJammerHandheld:
     def __init__(self, preview=False):
@@ -58,6 +59,10 @@ class GPSJammerHandheld:
             print("[INFO] Preview mode: synthetic spectrum is enabled.")
 
         self.ui = DisplayUI(self, preview=self.preview)
+        
+        # Start background web dashboard
+        web_server.start_server(port=8080)
+        
         self.buzzer.play_startup()
         
     def _init_sdr(self):
@@ -188,6 +193,10 @@ class GPSJammerHandheld:
                     self._debug_print(power)
                 self.ui.draw_ui(metrics, power)
                 self.frame_count += 1
+
+                # Update web server state
+                uptime = int(time.time() - self.start_time)
+                web_server.update_state(metrics, power, uptime)
 
                 elapsed = time.time() - frame_start
                 if elapsed < frame_period:

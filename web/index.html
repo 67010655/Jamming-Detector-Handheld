@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNSS Jammer Dashboard</title>
+    <!-- Modern clean font -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body data-state="SCANNING">
+    <div class="dashboard-container">
+        <!-- Header Section -->
+        <header class="header panel">
+            <div class="header-titles">
+                <h1>GNSS JAMMING DETECTOR HANDHELD V1.0</h1>
+                <h2>1575.42 MHz | GNSS L1 Band | KMITL SPACE AND GEOSPATIAL ENGINEERING</h2>
+            </div>
+            <div class="header-status">
+                <div class="status-badge" id="state-badge">SCANNING</div>
+            </div>
+        </header>
+
+        <!-- Main Layout Grid -->
+        <main class="main-grid">
+
+            <!-- Left Side: State & Time -->
+            <aside class="left-panel panel">
+                <div class="metric-block center-text">
+                    <span class="label">SYSTEM STATE</span>
+                    <span class="value state-value" id="state-text">SCANNING</span>
+                </div>
+
+                <div class="metric-block center-text mt-auto">
+                    <span class="label">UPTIME</span>
+                    <span class="value small-value" id="uptime-text">00:00:00</span>
+                </div>
+            </aside>
+
+            <!-- Center: Spectrum Graph -->
+            <section class="spectrum-panel panel">
+                <div class="spectrum-header">
+                    <span class="label">LIVE RF SPECTRUM</span>
+                    <span class="label">dBFS</span>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="spectrumCanvas" width="800" height="400"></canvas>
+                </div>
+                <!-- Metrics Row under graph -->
+                <div class="metrics-row">
+                    <div class="metric-col">
+                        <span class="label">NOISE FLOOR</span>
+                        <div class="val-unit"><span class="value" id="nf-val">-90.0</span><span class="unit">dBFS</span>
+                        </div>
+                    </div>
+                    <div class="metric-col">
+                        <span class="label">PEAK SIGNAL</span>
+                        <div class="val-unit"><span class="value" id="peak-val">-80.0</span><span
+                                class="unit">dBFS</span></div>
+                    </div>
+                    <div class="metric-col">
+                        <span class="label">BASELINE</span>
+                        <div class="val-unit"><span class="value" id="base-val">-85.0</span><span
+                                class="unit">dBFS</span></div>
+                    </div>
+                    <div class="metric-col">
+                        <span class="label">FLOOR RISE</span>
+                        <div class="val-unit"><span class="value" id="rise-val">+0.0</span><span class="unit">dB</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Side: Score & Margin -->
+            <aside class="right-panel panel">
+                <div class="metric-block center-text">
+                    <span class="label">THREAT SCORE</span>
+                    <div class="score-container">
+                        <span class="score-value" id="score-text">00</span>
+                        <span class="score-max">/99</span>
+                    </div>
+                </div>
+
+                <div class="bar-container">
+                    <div class="bar-fill" id="score-bar"></div>
+                </div>
+
+                <div class="metric-block center-text mt-auto">
+                    <span class="label">MARGIN</span>
+                    <span class="value small-value" id="margin-text">+0.0 dB</span>
+                </div>
+            </aside>
+
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
