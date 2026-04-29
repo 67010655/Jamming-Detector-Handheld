@@ -184,7 +184,8 @@ class GPSJammerHandheld:
                                     pass
                     except Exception:
                         pass
-                self._debug_print(power)
+                if self.frame_count % 10 == 0:
+                    self._debug_print(power)
                 self.ui.draw_ui(metrics, power)
                 self.frame_count += 1
 

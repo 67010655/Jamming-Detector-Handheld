@@ -1,13 +1,6 @@
-"""
-Buzzer control module for Raspberry Pi.
-
-This module provides a simple buzzer interface for startup and state
-notifications. The buzzer uses PWM on a GPIO pin and can be disabled for
-preview mode or on systems without GPIO access.
-"""
-
 import time
-
+import threading
+import queue
 import config
 
 
@@ -18,6 +11,10 @@ class BuzzerController:
         self.gpio = None
         self.pwm = None
         self.current_state = None
+
+        self._queue = queue.Queue()
+        self._running = True
+        self._thread = threading.Thread(target=self._worker, daemon=True)
 
         if self.enabled:
             try:
@@ -31,6 +28,26 @@ class BuzzerController:
             except Exception as exc:
                 print(f"[BUZZER] Warning: GPIO unavailable: {exc}")
                 self.enabled = False
+
+        self._thread.start()
+
+    def _worker(self):
+        while self._running:
+            try:
+                task = self._queue.get(timeout=0.5)
+            except queue.Empty:
+                continue
+
+            if task is None:
+                break
+                
+            pulses, pulse_duration, gap_duration, frequency_hz = task
+            for index in range(pulses):
+                self._buzz(pulse_duration, frequency_hz)
+                if index < pulses - 1:
+                    time.sleep(gap_duration)
+                    
+            self._queue.task_done()
 
     def _buzz(self, duration_s, frequency_hz=1200, duty_cycle=50):
         if not self.enabled or self.gpio is None:
@@ -56,10 +73,15 @@ class BuzzerController:
                 pass
 
     def _tone(self, pulses=2, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1200):
-        for index in range(pulses):
-            self._buzz(pulse_duration, frequency_hz)
-            if index < pulses - 1:
-                time.sleep(gap_duration)
+        # Clear any pending tones so the new state overrides immediately
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+                self._queue.task_done()
+            except queue.Empty:
+                break
+                
+        self._queue.put((pulses, pulse_duration, gap_duration, frequency_hz))
 
     def play_startup(self):
         """Play a short startup chime when the device starts."""
@@ -74,16 +96,16 @@ class BuzzerController:
         self.current_state = state
         if state == "SCANNING":
             self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.10, frequency_hz=900)
-            time.sleep(0.5)
         elif state == "WATCH":
             self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1200)
-            time.sleep(0.5)
         elif state == "JAMMING":
             self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.05, frequency_hz=1500)
-            time.sleep(0.5)
 
     def cleanup(self):
         """Clean up GPIO resources used by the buzzer."""
+        self._running = False
+        self._queue.put(None)  # Wake up thread to exit
+        
         if self.enabled and self.gpio is not None:
             try:
                 self.gpio.output(self.buzzer_pin, self.gpio.LOW)

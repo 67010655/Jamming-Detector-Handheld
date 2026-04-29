@@ -2,6 +2,7 @@ import time
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from dsp import scale_points
+
 class DisplayUI:
     def __init__(self, app, preview=False):
         self.app = app
@@ -79,21 +80,22 @@ class DisplayUI:
                     continue
             return ImageFont.load_default()
 
-        self._f_title     = _try(bold, 15)
-        self._f_subtitle  = _try(regular, 11)
-        self._f_status    = _try(bold, 28)
-        self._f_state_big = _try(bold, 18)
-        self._f_score_big = _try(mono, 36)
-        self._f_score_sub = _try(regular, 14)
-        self._f_label     = _try(regular, 10)
-        self._f_value     = _try(bold, 22)
-        self._f_unit      = _try(regular, 10)
-        self._f_brg       = _try(bold, 16)
-        self._f_compass   = _try(regular, 10)
-        self._f_small     = _try(bold, 10)
-        self._f_footer    = _try(bold, 8)
-        self._f_fps       = _try(bold, 18)
-        self._f_fps_label = _try(regular, 10)
+        self._f_title     = _try(bold, 12)      # Title font
+        self._f_subtitle  = _try(regular, 10)   # Subtitle
+        self._f_status    = _try(bold, 20)      # Status badge
+        self._f_state_big = _try(bold, 26)      # STATE value (SCAN/WTCH/JAM!)
+        self._f_score_big = _try(mono, 36)      # Score number (02/28/82)
+        self._f_score_sub = _try(regular, 12)   # /99
+        self._f_label     = _try(regular, 9)    # Small labels
+        self._f_value     = _try(bold, 22)      # Metric values
+        self._f_unit      = _try(regular, 9)    # Units (dBFS, dB)
+        self._f_brg       = _try(bold, 16)      # Bearing value
+        self._f_compass   = _try(regular, 9)    # Compass N/S/E/W
+        self._f_small     = _try(bold, 10)      # Small text
+        self._f_footer    = _try(bold, 8)       # Footer
+        self._f_fps       = _try(bold, 16)      # FPS number
+        self._f_fps_label = _try(regular, 9)    # FPS label
+        self._f_dblabel   = _try(regular, 8)    # dB axis labels
 
     # ── helpers ─────────────────────────────────────────────────────
     @staticmethod
@@ -113,10 +115,12 @@ class DisplayUI:
         ys = np.array([p[1] for p in pts], dtype=np.float64)
         x_new = np.linspace(xs[0], xs[-1], n)
         y_new = np.interp(x_new, xs, ys)
-        k = max(5, n // 40)
+        k = max(7, min(11, n // 30))
         if k % 2 == 0:
             k += 1
-        y_s = np.convolve(y_new, np.ones(k) / k, mode='same')
+        pad_w = k // 2
+        y_padded = np.pad(y_new, pad_width=pad_w, mode='edge')
+        y_s = np.convolve(y_padded, np.ones(k) / k, mode='valid')
         return list(zip(x_new.astype(int), np.clip(y_s, ys.min(), ys.max()).astype(int)))
 
     # ── main draw ───────────────────────────────────────────────────
@@ -139,305 +143,277 @@ class DisplayUI:
         rise  = metrics["floor_rise"]
         score = metrics.get("score", 0)
 
-        # ── theme ───────────────────────────────────────────────────
+        # ── theme (state-based color) ───────────────────────────────
         if state == "JAMMING":
-            accent  = (255, 80, 80)
-            border  = (120, 30, 30)
-            hdr_bg  = (40, 6, 6)
-            lbl     = (100, 30, 30)
-            grid    = (30, 10, 10)
-            fill_c  = (45, 8, 8)
+            accent  = (255, 80, 90)     # Red
+            border_c = (255, 80, 90)
+            hdr_bg  = (40, 8, 10)
+            grid    = (60, 20, 25)
+            fill_c  = (80, 15, 20)
         elif state == "WATCH":
-            accent  = (255, 200, 50)
-            border  = (120, 90, 20)
-            hdr_bg  = (40, 30, 5)
-            lbl     = (100, 75, 18)
-            grid    = (30, 22, 5)
-            fill_c  = (35, 25, 4)
-        else:
-            accent  = (0, 220, 120)
-            border  = (0, 70, 40)
-            hdr_bg  = (4, 28, 16)
-            lbl     = (0, 60, 32)
-            grid    = (0, 20, 12)
-            fill_c  = (0, 28, 15)
+            accent  = (255, 220, 50)    # Yellow
+            border_c = (255, 220, 50)
+            hdr_bg  = (50, 44, 10)
+            grid    = (80, 70, 15)
+            fill_c  = (100, 80, 10)
+        else:  # SCANNING
+            accent  = (0, 255, 136)     # Green
+            border_c = (0, 255, 136)
+            hdr_bg  = (8, 40, 20)
+            grid    = (0, 80, 50)
+            fill_c  = (0, 100, 60)
 
-        line_col = self._dim(accent, 0.25)
-        dim_txt  = self._dim(accent, 0.40)
+        white_high = (255, 255, 255)
+        white_low  = (255, 255, 255)      # 100% white
+        lbl_white  = (255, 255, 255)      # 100% white
 
-        # ── layout constants ────────────────────────────────────────
-        BD      = 2       # border width
-        HDR_H   = 42      # header height
-        SIDE_W  = 108     # left panel width
-        RIGHT_W = 66      # right score panel width
-        METRIC_H = 62     # bottom metrics row height
-        BOTTOM_H = 30     # footer bar height
-
-        # Derived positions
-        content_top    = BD + HDR_H
-        content_bottom = H - BD - BOTTOM_H
-        spec_left      = BD + SIDE_W
-        spec_right     = W - BD - RIGHT_W
-        spec_top       = content_top
-        spec_bottom    = content_bottom - METRIC_H
-        metric_top     = spec_bottom
-        metric_bottom  = content_bottom
-        right_left     = spec_right
-        right_right    = W - BD
-        footer_top     = content_bottom
-        footer_bottom  = H - BD
+        # ── layout constants (EXACT to prompt) ──────────────────────
+        hdr_t, hdr_b = 0, 44
+        lp_l, lp_r = 0, 106
+        rp_l, rp_r = 418, 480
+        spec_l, spec_r = 106, 418
+        spec_t, spec_b = 44, 232
+        met_t, met_b = 232, 284
+        foot_t, foot_b = 284, 320
 
         # ════════════════════════════════════════════════════════════
-        # BACKGROUND + BORDER
+        # BACKGROUND
         # ════════════════════════════════════════════════════════════
-        draw.rectangle((0, 0, W - 1, H - 1), fill=(8, 8, 8))
-        # Outer border
-        draw.rectangle((0, 0, W - 1, H - 1), outline=border, width=BD)
+        draw.rectangle((0, 0, W - 1, H - 1), fill=(3, 3, 3))
 
         # ════════════════════════════════════════════════════════════
-        # HEADER
+        # HEADER (y=0..44)
         # ════════════════════════════════════════════════════════════
-        draw.rectangle((BD, BD, W - BD - 1, BD + HDR_H - 1), fill=hdr_bg)
-        # Header bottom line
-        draw.line((BD, content_top, W - BD, content_top), fill=line_col, width=1)
+        draw.rectangle((0, hdr_t, W, hdr_b), fill=hdr_bg)
+        draw.line((0, hdr_b, W, hdr_b), fill=accent, width=1)
 
-        draw.text((BD + 8, BD + 6), "GNSS L1 JAMMEING DETECTOR",
-                  fill=(220, 220, 220), font=self._f_title)
+        # Title left
+        draw.text((8, 5), "GNSS L1 JAMMING DETECTOR HANDHELD", fill=white_high, font=self._f_title)
 
-        bw = self.app.sample_rate_hz / 2e6  # ±bandwidth in MHz
+        # Subtitle: frequency | band | gain
+        bw = self.app.sample_rate_hz / 2e6
         sub_text = f"1575.42 MHz  |  GPS L1  |  G:{self.app.gain_db}dB"
-        draw.text((BD + 8, BD + 24), sub_text,
-                  fill=dim_txt, font=self._f_subtitle)
+        draw.text((8, 23), sub_text, fill=accent, font=self._f_subtitle)
 
-        # Status text (right side of header)
-        short = {"SCANNING": "SCANNING", "WATCH": "WATCH", "JAMMING": "JAMMING"}
-        st_txt = short.get(state, state)
-        sw, _ = self._get_text_size(st_txt, self._f_status)
-        draw.text((W - BD - sw - 10, BD + 8), st_txt,
-                  fill=accent, font=self._f_status)
+        # State text top-right (no border, full text)
+        sw, sh = self._get_text_size(state, self._f_status)
+        badge_x = W - sw - 14
+        badge_y = 10
+        draw.text((badge_x, badge_y), state, fill=accent, font=self._f_status)
+
+        # Short state text for the left panel
+        short_state = {"SCANNING": "SCAN", "WATCH": "WTCH", "JAMMING": "JAM!"}
+        st_txt = short_state.get(state, state)
 
         # ════════════════════════════════════════════════════════════
-        # LEFT PANEL
+        # LEFT PANEL (x=0..106)
         # ════════════════════════════════════════════════════════════
-        lp_l = BD
-        lp_r = BD + SIDE_W
-        lp_t = content_top
-        lp_b = content_bottom
-        draw.rectangle((lp_l, lp_t, lp_r, lp_b), fill=(6, 6, 6))
-        # Right separator
-        draw.line((lp_r, lp_t, lp_r, lp_b), fill=line_col, width=1)
+        draw.rectangle((lp_l, hdr_b, lp_r, foot_t), fill=(6, 6, 6))
+        draw.line((lp_r, hdr_b, lp_r, foot_t), fill=accent, width=1)
 
-        # STATE label + value
-        draw.text((lp_l + 6, lp_t + 4), "STATE", fill=lbl, font=self._f_label)
-        draw.text((lp_l + 6, lp_t + 16), st_txt, fill=accent,
-                  font=self._f_state_big)
+        # STATE text large
+        draw.text((lp_l + 8, hdr_b + 8), "STATE", fill=lbl_white, font=self._f_label)
+        draw.text((lp_l + 8, hdr_b + 20), st_txt, fill=accent, font=self._f_state_big)
 
-        # Compass
-        compass_cx = lp_l + SIDE_W // 2
-        compass_cy = lp_t + 130
-        compass_r  = 38
-        self._draw_polar(draw, accent, lbl, compass_cx, compass_cy, compass_r)
+        # Polar compass chart center
+        compass_cx = lp_l + (lp_r - lp_l) // 2
+        compass_cy = hdr_b + 105
+        self._draw_polar(draw, accent, compass_cx, compass_cy, 36)
 
-        # BRG
+        # BEARING + uptime bottom
         best = self.get_best_bearing()
-        bear_str = f"{best:03d}deg" if best is not None else "---"
-        brg_y = lp_b - 58
-        draw.text((lp_l + 6, brg_y), "BRG", fill=lbl, font=self._f_label)
-        draw.text((lp_l + 6, brg_y + 12), bear_str, fill=accent,
-                  font=self._f_brg)
+        bear_str = f"{best} DEG" if best is not None else "---"
+        brg_y = compass_cy + 54
+        draw.text((lp_l + 8, brg_y), "BEARING", fill=lbl_white, font=self._f_label)
+        draw.text((lp_l + 8, brg_y + 14), bear_str, fill=accent, font=self._f_brg)
 
-        # Uptime
         uptime = int(time.time() - self.app.start_time)
-        up_str = f"{uptime // 60}:{uptime % 60:02d}"
-        draw.text((lp_l + 6, lp_b - 18), up_str,
-                  fill=dim_txt, font=self._f_small)
+        hrs = uptime // 3600
+        mins = (uptime % 3600) // 60
+        secs = uptime % 60
+        up_str = f"UPTIME: {hrs:02d}:{mins:02d}:{secs:02d}"
+        draw.text((lp_l + 8, foot_t - 16), up_str, fill=white_high, font=self._f_small)
 
         # ════════════════════════════════════════════════════════════
-        # SPECTRUM AREA
+        # RIGHT PANEL (x=418..480)
         # ════════════════════════════════════════════════════════════
-        draw.rectangle((spec_left, spec_top, spec_right, spec_bottom),
-                       fill=(4, 4, 4))
+        draw.rectangle((rp_l, hdr_b, rp_r, foot_t), fill=(6, 6, 6))
+        draw.line((rp_l, hdr_b, rp_l, foot_t), fill=accent, width=1)
 
-        # Spectrum title
-        spec_title = f"SPECTRUM  1575.42MHz  +-{bw:.3f}MHz"
-        draw.text((spec_left + 6, spec_top + 3), spec_title,
-                  fill=lbl, font=self._f_label)
+        draw.text((rp_l + 8, hdr_b + 8), "SCORE", fill=lbl_white, font=self._f_label)
+        score_str = f"{score:02d}"
+        ssw, ssh = self._get_text_size(score_str, self._f_score_big)
+        score_x = rp_l + ((rp_r - rp_l) - ssw) // 2
+        draw.text((score_x, hdr_b + 22), score_str, fill=accent, font=self._f_score_big)
 
-        # Grid
-        gh = spec_bottom - spec_top
-        gw = spec_right - spec_left
-        for i in range(1, 5):
-            y = spec_top + int(gh * i / 5)
-            draw.line((spec_left, y, spec_right, y), fill=grid, width=1)
+        sw99, _ = self._get_text_size("/99", self._f_score_sub)
+        sub_x = rp_l + ((rp_r - rp_l) - sw99) // 2
+        draw.text((sub_x, hdr_b + 58), "/99", fill=white_high, font=self._f_score_sub)
+
+        # Vertical bar fill bottom-up
+        bar_x = rp_l + 10
+        bar_w = (rp_r - rp_l) - 20
+        bar_top_y = hdr_b + 80
+        bar_bot_y = foot_t - 42
+        bar_h = bar_bot_y - bar_top_y
+
+        draw.rectangle((bar_x, bar_top_y, bar_x + bar_w, bar_bot_y), fill=(18, 18, 18), outline=self._dim(accent, 0.40), width=1)
+        fill_h = int(bar_h * score / 99)
+        if fill_h > 0:
+            draw.rectangle((bar_x + 1, bar_bot_y - fill_h, bar_x + bar_w - 1, bar_bot_y), fill=accent)
+
+        # FPS bottom
+        fps_y = foot_t - 36
+        draw.text((rp_l + 8, fps_y), "FPS", fill=lbl_white, font=self._f_fps_label)
+        draw.text((rp_l + 8, fps_y + 14), f"{fps_val}", fill=accent, font=self._f_fps)
+
+        # ════════════════════════════════════════════════════════════
+        # SPECTRUM AREA (x=106..418, y=44..232)
+        # ════════════════════════════════════════════════════════════
+        draw.rectangle((spec_l, spec_t, spec_r, spec_b), fill=(3, 3, 3))
+        
+        spec_draw_top = spec_t + 18
+        spec_draw_bottom = spec_b - 4
+        spec_draw_h = spec_draw_bottom - spec_draw_top
+        spec_w = spec_r - spec_l
+
+        # Horizontal grid lines
+        db_labels = [-40, -50, -60, -70, -80, -90]
+        for db_val in db_labels:
+            norm = (db_val + 90) / 50.0
+            y = spec_draw_top + int((1.0 - norm) * spec_draw_h)
+            draw.line((spec_l, y, spec_r, y), fill=grid, width=1)
+
+        # Vertical grid lines
         for i in range(1, 7):
-            x = spec_left + int(gw * i / 7)
-            draw.line((x, spec_top, x, spec_bottom), fill=grid, width=1)
+            x = spec_l + int(spec_w * i / 7)
+            draw.line((x, spec_draw_top, x, spec_draw_bottom), fill=grid, width=1)
 
-        # Center freq marker
-        cx = (spec_left + spec_right) // 2
-        draw.line((cx, spec_top, cx, spec_bottom),
-                  fill=self._dim(accent, 0.15), width=1)
+        # Center frequency marker dashed vertical line
+        cx = (spec_l + spec_r) // 2
+        for y in range(spec_draw_top, spec_draw_bottom, 4):
+            draw.line((cx, y, cx, y + 2), fill=self._dim(accent, 0.30), width=1)
 
-        # Noise floor line
-        nf_y = spec_bottom - 14
-        draw.line((spec_left, nf_y, spec_right, nf_y),
-                  fill=self._dim(accent, 0.20), width=1)
-        draw.text((spec_left + 4, nf_y - 12), "NF",
-                  fill=lbl, font=self._f_label)
+        # Noise floor reference dashed horizontal line
+        nf_norm = (nf + 90) / 50.0
+        nf_y = spec_draw_top + int((1.0 - nf_norm) * spec_draw_h)
+        nf_y = max(spec_draw_top, min(spec_draw_bottom, nf_y))
+        for x in range(spec_l, spec_r, 4):
+            draw.line((x, nf_y, x + 2, nf_y), fill=self._dim(accent, 0.35), width=1)
+        draw.text((spec_l + 4, nf_y - 10), "NF", fill=lbl_white, font=self._f_label)
 
-        # ── draw spectrum curve ─────────────────────────────────────
-        pts = scale_points(power, nf, gw, spec_top + 14, spec_bottom - 4)
-        pts_off = [(x + spec_left, y) for x, y in pts]
+        # Draw spectrum curve
+        pts = scale_points(power, nf, spec_w, spec_draw_top, spec_draw_bottom)
+        pts_off = [(x + spec_l, y) for x, y in pts]
 
         if len(pts_off) > 2:
-            sm = self._smooth(pts_off, gw)
-
-            # Temporal smoothing
-            if (self._prev_smooth_y is not None
-                    and len(self._prev_smooth_y) == len(sm)):
+            sm = self._smooth(pts_off, spec_w)
+            if (self._prev_smooth_y is not None and len(self._prev_smooth_y) == len(sm)):
                 a = 0.35
-                sm = [(x, int(y * (1 - a) + py * a))
-                      for (x, y), (_, py) in zip(sm, self._prev_smooth_y)]
+                sm = [(x, int(y * (1 - a) + py * a)) for (x, y), (_, py) in zip(sm, self._prev_smooth_y)]
             self._prev_smooth_y = sm
 
-            # Fill under curve
-            if len(sm) >= 2:
-                poly = list(sm) + [(sm[-1][0], spec_bottom),
-                                   (sm[0][0], spec_bottom)]
-                draw.polygon(poly, fill=fill_c)
+            # Gradient fill (solid color fill_c for PIL)
+            poly = list(sm) + [(sm[-1][0], spec_draw_bottom), (sm[0][0], spec_draw_bottom)]
+            draw.polygon(poly, fill=fill_c)
 
-            # Curve line
+            # Spectrum curve line width=2
             draw.line(sm, fill=accent, width=2)
-            # Highlight
-            draw.line(sm, fill=self._lerp(accent, (255, 255, 255), 0.2),
-                      width=1)
+            draw.line(sm, fill=self._lerp(accent, white_high, 0.15), width=1)
         elif len(pts_off) > 1:
             draw.line(pts_off, fill=accent, width=2)
 
-        # Spectrum border
-        draw.rectangle((spec_left, spec_top, spec_right, spec_bottom),
-                       outline=line_col)
+        # Peak hold dashed line
+        if peak > nf:
+            peak_norm = (peak + 90) / 50.0
+            peak_y = spec_draw_top + int((1.0 - peak_norm) * spec_draw_h)
+            peak_y = max(spec_draw_top, min(spec_draw_bottom, peak_y))
+            for x in range(spec_l, spec_r, 4):
+                draw.line((x, peak_y, x + 2, peak_y), fill=self._dim(accent, 0.40), width=1)
+
+        # Spectrum title
+        spec_title = f"SPECTRUM  1575.42MHz  +-{bw:.3f}MHz"
+        draw.text((spec_l + 6, spec_t + 3), spec_title, fill=lbl_white, font=self._f_label)
+
+        # Y-axis dB labels on left: WHITE color always (drawn last so they are visible over the curve)
+        for db_val in db_labels:
+            norm = (db_val + 90) / 50.0
+            y_pos = spec_draw_top + int((1.0 - norm) * spec_draw_h)
+            db_text = f"{db_val}"
+            _, th = self._get_text_size(db_text, self._f_dblabel)
+            draw.text((spec_l + 4, y_pos - th // 2), db_text, fill=white_high, font=self._f_dblabel)
+
+        draw.rectangle((spec_l, spec_t, spec_r, spec_b), outline=accent, width=1)
 
         # ════════════════════════════════════════════════════════════
-        # RIGHT PANEL (SCORE + VERTICAL BAR + FPS)
+        # METRICS ROW (y=232..284)
         # ════════════════════════════════════════════════════════════
-        draw.rectangle((right_left, content_top, right_right, content_bottom),
-                       fill=(6, 6, 6))
-        # Left separator
-        draw.line((right_left, content_top, right_left, content_bottom),
-                  fill=line_col, width=1)
+        draw.rectangle((spec_l, met_t, spec_r, met_b), fill=(6, 6, 6))
+        draw.line((spec_l, met_t, spec_r, met_t), fill=accent, width=1)
 
-        # SCORE label
-        draw.text((right_left + 6, content_top + 4), "SCORE",
-                  fill=lbl, font=self._f_label)
-
-        # Large score number
-        score_str = f"{score:02d}"
-        ssw, _ = self._get_text_size(score_str, self._f_score_big)
-        draw.text((right_left + (RIGHT_W - ssw) // 2, content_top + 16),
-                  score_str, fill=accent, font=self._f_score_big)
-        draw.text((right_left + (RIGHT_W) // 2 + 2, content_top + 52),
-                  "/99", fill=dim_txt, font=self._f_score_sub)
-
-        # Vertical score bar
-        bar_x = right_left + 14
-        bar_w = RIGHT_W - 28
-        bar_top_y = content_top + 72
-        bar_bot_y = content_bottom - 44
-        bar_h = bar_bot_y - bar_top_y
-
-        # Bar background
-        draw.rectangle((bar_x, bar_top_y, bar_x + bar_w, bar_bot_y),
-                       fill=(18, 18, 18))
-        draw.rectangle((bar_x, bar_top_y, bar_x + bar_w, bar_bot_y),
-                       outline=self._dim(line_col, 0.6))
-
-        # Bar fill (from bottom up)
-        fill_h = int(bar_h * score / 99)
-        if fill_h > 0:
-            draw.rectangle(
-                (bar_x + 1, bar_bot_y - fill_h, bar_x + bar_w - 1, bar_bot_y),
-                fill=accent
-            )
-
-        # FPS
-        fps_y = content_bottom - 38
-        draw.text((right_left + 6, fps_y), "FPS",
-                  fill=lbl, font=self._f_fps_label)
-        draw.text((right_left + 6, fps_y + 12), f"{fps_val}",
-                  fill=accent, font=self._f_fps)
-
-        # ════════════════════════════════════════════════════════════
-        # METRICS ROW (3 columns: NOISE FLOOR | PEAK | FLOOR RISE)
-        # ════════════════════════════════════════════════════════════
-        draw.rectangle((spec_left, metric_top, spec_right, metric_bottom),
-                       fill=(6, 6, 6))
-        # Top separator
-        draw.line((spec_left, metric_top, spec_right, metric_top),
-                  fill=line_col, width=1)
-
-        met_w = spec_right - spec_left
-        col_w = met_w // 3
+        col_w = (spec_r - spec_l) // 4
         metrics_data = [
-            ("NOISE FLOOR", f"{nf:.1f}",        "dBFS"),
-            ("PEAK",        f"{peak:.1f}",       "dBFS"),
-            ("FLOOR RISE",  f"{rise:+.1f}",      "dB"),
+            ("NOISE FLOOR", f"{nf:.1f}", "dBFS"),
+            ("PEAK", f"{peak:.1f}", "dBFS"),
+            ("FLOOR RISE", f"{rise:+.1f}", "dB"),
+            ("SCORE", f"{score}/99", ""),
         ]
 
         for i, (label, val, unit) in enumerate(metrics_data):
-            mx = spec_left + i * col_w + 8
-            # Vertical separator between columns
+            mx = spec_l + i * col_w + 10
             if i > 0:
-                sx = spec_left + i * col_w
-                draw.line((sx, metric_top + 2, sx, metric_bottom - 2),
-                          fill=line_col, width=1)
-            draw.text((mx, metric_top + 4), label,
-                      fill=lbl, font=self._f_label)
-            draw.text((mx, metric_top + 17), val,
-                      fill=accent, font=self._f_value)
-            draw.text((mx, metric_top + 42), unit,
-                      fill=dim_txt, font=self._f_unit)
+                sx = spec_l + i * col_w
+                draw.line((sx, met_t + 2, sx, met_b - 2), fill=self._dim(accent, 0.50), width=1)
 
-        # Metrics border
-        draw.rectangle((spec_left, metric_top, spec_right, metric_bottom),
-                       outline=line_col)
+            draw.text((mx, met_t + 6), label, fill=lbl_white, font=self._f_label)
+            draw.text((mx, met_t + 20), val, fill=accent, font=self._f_value)
+            if unit:
+                draw.text((mx, met_t + 42), unit, fill=white_high, font=self._f_unit)
+
+        draw.rectangle((spec_l, met_t, spec_r, met_b), outline=accent, width=1)
 
         # ════════════════════════════════════════════════════════════
-        # BOTTOM BAR
+        # BOTTOM BAR (y=284..320)
         # ════════════════════════════════════════════════════════════
-        draw.rectangle((BD, footer_top, W - BD, footer_bottom), fill=(6, 6, 6))
-        draw.line((BD, footer_top, W - BD, footer_top),
-                  fill=line_col, width=1)
-
-        # SIG bar (signal strength based on score)
-        sig_x = BD + 8
-        sig_y = footer_top + 4
-        draw.text((sig_x, sig_y), "SIG", fill=lbl, font=self._f_small)
-        bar_sx = sig_x + 26
-        bar_sw = 120
-        bar_sh = 8
-        draw.rectangle((bar_sx, sig_y + 2, bar_sx + bar_sw, sig_y + bar_sh + 2),
-                       fill=(18, 18, 18))
-        sig_fill = int(bar_sw * score / 99)
-        if sig_fill > 0:
-            draw.rectangle(
-                (bar_sx, sig_y + 2, bar_sx + sig_fill, sig_y + bar_sh + 2),
-                fill=accent
-            )
+        draw.rectangle((0, foot_t, W, foot_b), fill=(6, 6, 6))
+        draw.line((0, foot_t, W, foot_t), fill=accent, width=1)
 
         # Margin text (right side)
         margin_val = peak - (nf + self.app.warn_peak_threshold_db)
         margin_txt = f"MARGIN:{margin_val:+.1f}dB"
-        mw, _ = self._get_text_size(margin_txt, self._f_small)
-        draw.text((W - BD - mw - 10, sig_y), margin_txt,
-                  fill=dim_txt, font=self._f_small)
+        max_mw, _ = self._get_text_size("MARGIN:+99.9dB", self._f_small)
+        fixed_margin_x = W - max_mw - 10
 
-        # Footer text
-        footer_txt = "KMITL SPACE ENGINEERING  |  GNSS JAMMING DETECTOR v1.0"
+        # Percentage text
+        pct_txt = f"{int(score * 100 / 99)}%"
+        max_pw, _ = self._get_text_size("100%", self._f_small)
+        fixed_pct_x = fixed_margin_x - 20 - max_pw
+        pw, _ = self._get_text_size(pct_txt, self._f_small)
+
+        # SIG STR bar
+        sig_x = 8
+        sig_y = foot_t + 6
+        draw.text((sig_x, sig_y), "SIG STR", fill=lbl_white, font=self._f_small)
+
+        bar_sx = sig_x + 52
+        bar_sw = max(10, (fixed_pct_x - 6) - bar_sx)
+        bar_sh = 8
+
+        draw.rectangle((bar_sx, sig_y + 2, bar_sx + bar_sw, sig_y + bar_sh + 2), fill=(18, 18, 18))
+        sig_fill = int(bar_sw * score / 99)
+        if sig_fill > 0:
+            draw.rectangle((bar_sx, sig_y + 2, bar_sx + sig_fill, sig_y + bar_sh + 2), fill=accent)
+
+        pct_draw_x = fixed_pct_x + max_pw - pw
+        draw.text((pct_draw_x, sig_y), pct_txt, fill=white_high, font=self._f_small)
+        draw.text((fixed_margin_x, sig_y), margin_txt, fill=accent, font=self._f_small)
+
+        footer_txt = "KMITL SPACE ENGINEERING  |  GNSS JAMMER DETECTOR v1.0"
         fw, _ = self._get_text_size(footer_txt, self._f_footer)
-        fx = (W - fw) // 2
-        draw.text((fx, footer_top + 16), footer_txt,
-                  fill=self._dim(accent, 0.30), font=self._f_footer)
+        draw.text(((W - fw) // 2, foot_t + 18), footer_txt, fill=white_low, font=self._f_footer)
+
+        # Outer border with state-based color theme (drawn last)
+        draw.rectangle((0, 0, W - 1, H - 1), outline=border_c, width=2)
 
         # ── output ──────────────────────────────────────────────────
         if self.preview:
@@ -464,28 +440,31 @@ class DisplayUI:
         return max(self._bearing_log, key=lambda x: x[1])[0]
 
     # ── polar compass ───────────────────────────────────────────────
-    def _draw_polar(self, draw, accent, lbl, cx, cy, r):
+    def _draw_polar(self, draw, accent, cx, cy, r):
+        dim_accent = self._dim(accent, 0.15)
+
         # Concentric rings
         for radius in [r // 3, r * 2 // 3, r]:
             draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius),
-                         outline=self._dim(accent, 0.15))
+                         outline=dim_accent, width=1)
 
-        # Cross-hair lines
+        # Cross-hair lines (45° increments)
+        dim_lines = self._dim(accent, 0.12)
         for angle in range(0, 360, 45):
             rad = np.radians(angle - 90)
             ex = int(cx + np.cos(rad) * r)
             ey = int(cy + np.sin(rad) * r)
-            draw.line((cx, cy, ex, ey), fill=self._dim(accent, 0.12), width=1)
+            draw.line((cx, cy, ex, ey), fill=dim_lines, width=1)
 
-        # Cardinal labels
-        dim_lbl = self._dim(accent, 0.30)
+        # Cardinal labels (N, S, E, W)
+        card_color = (255, 255, 255)
         f = self._f_compass
-        draw.text((cx - 3, cy - r - 12), "N", fill=dim_lbl, font=f)
-        draw.text((cx - 3, cy + r + 3),  "S", fill=dim_lbl, font=f)
-        draw.text((cx - r - 10, cy - 5), "W", fill=dim_lbl, font=f)
-        draw.text((cx + r + 4, cy - 5),  "E", fill=dim_lbl, font=f)
+        draw.text((cx - 3, cy - r - 12), "N", fill=card_color, font=f)
+        draw.text((cx - 3, cy + r + 3),  "S", fill=card_color, font=f)
+        draw.text((cx - r - 10, cy - 5), "W", fill=card_color, font=f)
+        draw.text((cx + r + 4, cy - 5),  "E", fill=card_color, font=f)
 
-        # Bearing vectors
+        # Bearing vectors (accent color)
         for angle_deg, norm in self._bearing_log:
             rad = np.radians(angle_deg - 90)
             px = int(cx + np.cos(rad) * r * norm)
