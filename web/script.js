@@ -1,4 +1,4 @@
-const POLL_INTERVAL_MS = 100; // 10 FPS
+const POLL_INTERVAL_MS = 300; // ~3 FPS (Optimized for Pi Zero 2W)
 let canvas = document.getElementById('spectrumCanvas');
 let ctx = canvas.getContext('2d');
 
@@ -185,9 +185,9 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 fetchStatus();
 
-// Fetch history every 1 second
+// Fetch history every 5 seconds (Optimized for Pi Zero 2W)
 fetchHistory();
-setInterval(fetchHistory, 1000);
+setInterval(fetchHistory, 5000);
 
 // Export CSV handler
 document.getElementById('export-btn').addEventListener('click', () => {
