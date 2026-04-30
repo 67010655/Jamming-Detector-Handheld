@@ -59,11 +59,11 @@ graph LR
         USB[USB OTG]
     end
     
-    USB --- SDR[RTL-SDR V3/V4]
+    USB --- SDR[RTL-SDR V3]
     SPI --- LCD[ILI9488 3.5 LCD]
     GPIO --- LED[LEDs Status]
     GPIO --- BUZ[Buzzer]
-    SDR --- ANT[Active GPS Antenna]
+    SDR --- ANT[Directional Antenna]
 ```
 
 ---
