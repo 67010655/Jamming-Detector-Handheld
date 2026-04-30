@@ -104,17 +104,17 @@ async function fetchStatus() {
             const shortMap = { "SCANNING": "SCAN", "WATCH": "WTCH", "JAMMING": "JAM!" };
             document.getElementById('state-text').innerText = shortMap[m.state] || m.state;
 
-            document.getElementById('nf-val').innerText = m.noise_floor !== undefined ? m.noise_floor.toFixed(1) : "-90.0"; 
+            document.getElementById('nf-val').innerText = m.noise_floor !== undefined ? m.noise_floor.toFixed(1) : "-90.0";
             document.getElementById('peak-val').innerText = m.peak_p !== undefined ? m.peak_p.toFixed(1) : "0.0";
             document.getElementById('base-val').innerText = m.baseline_p !== undefined ? m.baseline_p.toFixed(1) : "0.0";
             document.getElementById('rise-val').innerText = m.floor_rise !== undefined ? `+${m.floor_rise.toFixed(1)}` : "+0.0";
-            
+
             document.getElementById('score-text').innerText = m.score !== undefined ? m.score.toString().padStart(2, '0') : "00";
-            
+
             // Score bar height
             let pct = Math.min(100, Math.max(0, (m.score / 99) * 100));
             document.getElementById('score-bar').style.height = `${pct}%`;
-            
+
             // Exact Margin from Python logic
             if (m.margin !== undefined) {
                 let marginStr = m.margin > 0 ? `+${m.margin.toFixed(1)}` : m.margin.toFixed(1);
@@ -140,6 +140,38 @@ async function fetchStatus() {
     setTimeout(fetchStatus, POLL_INTERVAL_MS);
 }
 
+async function fetchHistory() {
+    try {
+        const response = await fetch('/api/history');
+        const data = await response.json();
+
+        const tbody = document.getElementById('history-body');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-muted);">No events recorded yet.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        data.forEach(row => {
+            // Clean up timestamp (remove date if it's today, or just show time)
+            const timeStr = row.timestamp.split(' ')[1]; // Get HH:MM:SS
+
+            html += `
+                <tr>
+                    <td>${timeStr}</td>
+                    <td><span class="state-cell" data-val="${row.state}">${row.state}</span></td>
+                    <td style="color: var(--theme-color); font-weight: bold;">${row.score}</td>
+                    <td>${row.peak_p.toFixed(1)}</td>
+                    <td>+${row.floor_rise.toFixed(1)}</td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    } catch (error) {
+        console.error("Error fetching history:", error);
+    }
+}
+
 // Ensure canvas matches container size
 function resizeCanvas() {
     const container = canvas.parentElement;
@@ -152,3 +184,30 @@ window.addEventListener('resize', resizeCanvas);
 // Start
 resizeCanvas();
 fetchStatus();
+
+// Fetch history every 1 second
+fetchHistory();
+setInterval(fetchHistory, 1000);
+
+// Export CSV handler
+document.getElementById('export-btn').addEventListener('click', () => {
+    window.location.href = '/api/export';
+});
+
+// Clear History handler
+document.getElementById('clear-btn').addEventListener('click', async () => {
+    if (confirm('Are you sure you want to clear all history? This cannot be undone.')) {
+        try {
+            const response = await fetch('/api/clear', { method: 'POST' });
+            const result = await response.json();
+            if (result.success) {
+                // Clear the table immediately in the UI
+                document.querySelector('#history-table tbody').innerHTML = '';
+                alert('History cleared successfully.');
+            }
+        } catch (error) {
+            console.error('Error clearing history:', error);
+            alert('Failed to clear history.');
+        }
+    }
+});

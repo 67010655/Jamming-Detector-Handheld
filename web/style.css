@@ -39,8 +39,8 @@ body {
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    align-items: center;
-    overflow: hidden;
+    align-items: flex-start;
+    overflow-y: auto;
     /* Subtle background glow based on state */
     background: radial-gradient(circle at 50% 50%, var(--theme-glow) 0%, var(--bg-dark) 60%);
     transition: background 0.5s ease;
@@ -48,9 +48,9 @@ body {
 
 .dashboard-container {
     width: 100%;
-    max-width: 1200px;
-    height: 90vh;
-    max-height: 800px;
+    max-width: 1400px;
+    margin: 0 auto;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -121,10 +121,9 @@ body {
 /* Main Grid */
 .main-grid {
     display: grid;
-    grid-template-columns: 200px 1fr 160px;
+    grid-template-columns: 240px 1fr 200px;
     gap: 16px;
     flex: 1;
-    min-height: 0;
 }
 
 .left-panel,
@@ -268,84 +267,228 @@ canvas {
 /* Responsive Design (Tablet & Mobile)       */
 /* ========================================= */
 
-/* iPad / Tablet */
-@media (max-width: 1024px) {
-    body {
-        align-items: flex-start;
-        overflow-y: auto;
-    }
-
-    .dashboard-container {
-        height: auto;
-        max-height: none;
-    }
-
+/* Desktop Large */
+@media (min-width: 1400px) {
     .main-grid {
-        grid-template-columns: 1fr;
-        gap: 20px;
+        grid-template-columns: 280px 1fr 240px;
+    }
+}
+
+/* iPad / Tablet / Small Desktop */
+@media (max-width: 1100px) {
+    .main-grid {
+        grid-template-columns: 1fr 1fr;
+        /* Two columns for top part */
     }
 
     .spectrum-panel {
+        grid-column: span 2;
+        /* Spectrum takes full width */
         order: -1;
-        /* Spectrum on top */
-        min-height: 450px;
+        min-height: 400px;
     }
 
     .left-panel,
     .right-panel {
         flex-direction: row;
         justify-content: space-around;
-        align-items: center;
-        padding: 16px;
-    }
-
-    .mt-auto {
-        margin-top: 0;
+        padding: 15px;
     }
 
     .bar-container {
         display: none;
-        /* Hide vertical bar on smaller screens */
     }
 }
 
 /* Mobile Phones */
 @media (max-width: 768px) {
-    .dashboard-container {
+    body {
         padding: 10px;
+        overflow-y: auto;
+        align-items: flex-start;
+    }
+
+    .dashboard-container {
+        padding: 5px;
+        gap: 12px;
+    }
+
+    .main-grid {
+        grid-template-columns: 1fr;
+        /* Stack everything */
+        display: flex;
+        flex-direction: column;
     }
 
     .header {
         flex-direction: column;
-        gap: 16px;
         text-align: center;
+        padding: 15px;
+    }
+
+    .header-titles h1 {
+        font-size: 1rem;
     }
 
     .spectrum-panel {
-        min-height: 400px;
-    }
-
-    .left-panel,
-    .right-panel {
-        flex-direction: column;
-        gap: 20px;
+        min-height: 350px;
     }
 
     .metrics-row {
         grid-template-columns: 1fr 1fr;
-        /* 2x2 grid for metrics */
-        gap: 12px;
-    }
-
-    .score-value {
-        font-size: 3rem;
+        padding-top: 15px;
     }
 
     .value {
         font-size: 1.5rem;
     }
 
-    .state-value {
-        font-size: 1.5rem;
+    .score-value {
+        font-size: 2.8rem;
     }
+
+    .history-panel {
+        max-height: 400px;
+    }
+
+    table {
+        font-size: 0.75rem;
+    }
+
+    th,
+    td {
+        padding: 8px 6px;
+    }
+}
+
+/* History Table Styles */
+.history-panel {
+    margin-top: 0;
+    flex: none;
+    height: auto;
+    max-height: 300px;
+    display: flex;
+    flex-direction: column;
+}
+
+.history-table-container {
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+th {
+    position: sticky;
+    top: 0;
+    background: #15151f;
+    color: var(--text-muted);
+    text-align: left;
+    padding: 12px;
+    font-weight: 600;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--panel-border);
+}
+
+td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.state-cell {
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.state-cell[data-val="JAMMING"] {
+    color: #ff3333;
+    background: rgba(255, 51, 51, 0.1);
+}
+
+.state-cell[data-val="WATCH"] {
+    color: #ffcc00;
+    background: rgba(255, 204, 0, 0.1);
+}
+
+.state-cell[data-val="TEST"] {
+    color: #888899;
+}
+
+/* Export Button */
+.export-button {
+    background: transparent;
+    border: 1px solid var(--theme-color);
+    color: var(--theme-color);
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.export-button:hover {
+    background: var(--theme-color);
+    color: #000;
+    box-shadow: 0 0 15px var(--theme-glow);
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.clear-button {
+    background: transparent;
+    border: 1px solid #ff4444;
+    color: #ff4444;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.clear-button:hover {
+    background: #ff4444;
+    color: #000;
+    box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+}
+
+/* Custom Scrollbar for the table */
+.history-table-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.history-table-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.history-table-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.history-table-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
 }

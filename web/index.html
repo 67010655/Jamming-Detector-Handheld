@@ -96,6 +96,38 @@
             </aside>
 
         </main>
+
+        <!-- History Section -->
+        <section class="history-panel panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="label">DETECTION HISTORY (LAST 50 EVENTS)</span>
+                <div class="header-actions">
+                    <button id="export-btn" class="export-button">EXPORT CSV</button>
+                    <button id="clear-btn" class="clear-button">CLEAR HISTORY</button>
+                </div>
+            </div>
+            <div class="history-table-container">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>TIME</th>
+                            <th>STATE</th>
+                            <th>SCORE</th>
+                            <th>PEAK (dB)</th>
+                            <th>RISE (dB)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body">
+                        <!-- History rows will be inserted here -->
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                                Waiting for data...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 
     <script src="script.js"></script>

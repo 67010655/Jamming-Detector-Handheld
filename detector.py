@@ -7,6 +7,7 @@ from display_ui import DisplayUI
 from led_control import LEDController
 from buzzer import BuzzerController
 import web_server
+import database_manager
 
 class GPSJammerHandheld:
     def __init__(self, preview=False):
@@ -61,6 +62,11 @@ class GPSJammerHandheld:
         self.ui = DisplayUI(self, preview=self.preview)
         
         # Start background web dashboard
+        # Initialize database
+        database_manager.init_db()
+        self.last_log_time = 0
+        self.log_interval = 1.0 # Seconds between logs for the same persistent event
+        
         web_server.start_server(port=8080)
         
         self.buzzer.play_startup()
@@ -102,6 +108,9 @@ class GPSJammerHandheld:
         if (nf_max - nf_min) > 5.0:
             print("[WARN]  Wide NF range detected - possible jammer during calibration")
             print("[WARN]  Recommend restarting without jammer nearby")
+        
+        # Log startup baseline to database
+        database_manager.log_event("STARTUP", 0, self.noise_floor, 0.0, self.noise_floor, 0)
 
     def _detect_jamming(self, power):
         avg_p = float(np.mean(power))
@@ -206,6 +215,19 @@ class GPSJammerHandheld:
                 # Update web server state
                 uptime = int(time.time() - self.start_time)
                 web_server.update_state(metrics, power, uptime)
+
+                # Log to database every second for a live web feed
+                current_time = time.time()
+                if current_time - self.last_log_time > 1.0:
+                    database_manager.log_event(
+                        metrics["state"],
+                        metrics["score"],
+                        metrics["peak_p"],
+                        metrics["floor_rise"],
+                        metrics["noise_floor"],
+                        uptime
+                    )
+                    self.last_log_time = current_time
 
                 elapsed = time.time() - frame_start
                 if elapsed < frame_period:

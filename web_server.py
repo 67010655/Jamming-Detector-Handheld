@@ -2,7 +2,10 @@ import os
 import threading
 import logging
 import numpy as np
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, Response
+import database_manager
+import io
+import csv
 
 # Disable Flask default logging to avoid cluttering the terminal
 log = logging.getLogger('werkzeug')
@@ -36,6 +39,46 @@ def status():
         "spectrum": state.power_spectrum,
         "uptime": state.uptime
     })
+
+@app.route('/api/history')
+def history():
+    limit = 50
+    data = database_manager.get_history(limit)
+    return jsonify(data)
+
+@app.route('/api/export')
+def export_csv():
+    data = database_manager.get_history(limit=5000) # Include all heartbeat records
+    
+    def format_uptime(seconds):
+        h = seconds // 3600
+        m = (seconds % 3600) // 60
+        s = seconds % 60
+        return f"{h:02d}:{m:02d}:{s:02d}"
+
+    def generate():
+        if not data:
+            yield "No data available"
+            return
+            
+        # Write CSV header
+        yield "ID,Date,Time,Uptime,State,Score,Peak_Power,Floor_Rise,Noise_Floor\n"
+        
+        for row in data:
+            # Split timestamp into Date and Time for Excel friendliness
+            parts = row['timestamp'].split(' ')
+            date_str = parts[0]
+            time_str = parts[1]
+            uptime_str = format_uptime(row['uptime_sec'])
+            
+            yield f"{row['id']},{date_str},{time_str},{uptime_str},{row['state']},{row['score']},{row['peak_p']:.2f},{row['floor_rise']:.2f},{row['noise_floor']:.2f}\n"
+
+    return Response(generate(), mimetype='text/csv', headers={"Content-disposition": "attachment; filename=jamming_history.csv"})
+
+@app.route('/api/clear', methods=['POST'])
+def clear_history():
+    success = database_manager.clear_db()
+    return jsonify({"success": success})
 
 def start_server(port=8080):
     os.makedirs(web_dir, exist_ok=True)
