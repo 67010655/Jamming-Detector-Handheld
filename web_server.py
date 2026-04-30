@@ -48,7 +48,7 @@ def history():
 
 @app.route('/api/export')
 def export_csv():
-    data = database_manager.get_history(limit=5000) # Include all heartbeat records
+    data = database_manager.get_filtered_history(limit=5000) # Apply 1s/15s Heartbeat filter
     
     def format_uptime(seconds):
         h = seconds // 3600

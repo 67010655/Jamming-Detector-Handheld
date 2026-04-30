@@ -91,10 +91,10 @@ def get_filtered_history(limit=5000):
             if state in ['STARTUP', 'WATCH', 'JAMMING', 'TEST']:
                 filtered.append(dict(row))
             elif state == 'SCANNING':
-                # Only keep SCANNING every 15 seconds
+                # Only keep SCANNING every 30 seconds
                 try:
                     curr_ts = time.mktime(time.strptime(row['timestamp'], '%d/%m/%Y %H:%M:%S'))
-                    if curr_ts - last_scanning_time >= 15:
+                    if curr_ts - last_scanning_time >= 30:
                         filtered.append(dict(row))
                         last_scanning_time = curr_ts
                 except:
