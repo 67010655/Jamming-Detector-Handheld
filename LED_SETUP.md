@@ -4,9 +4,9 @@ This guide explains how to connect and configure the 3 status LEDs to indicate j
 
 ## LED States
 
-- **RED LED** (GPIO 17): Lights up when **JAMMING** is detected
-- **YELLOW LED** (GPIO 27): Lights up during **WATCH** state (warning)
-- **GREEN LED** (GPIO 22): Lights up during **SCANNING** state (normal operation)
+- **RED LED** (GPIO 17 / Pin 11): Lights up when **JAMMING** is detected
+- **YELLOW LED** (GPIO 27 / Pin 13): Lights up during **WATCH** state (warning)
+- **GREEN LED** (GPIO 26 / Pin 37): Lights up during **SCANNING** state (normal operation)
 
 ## Hardware Requirements
 
@@ -35,6 +35,13 @@ This guide explains how to connect and configure the 3 status LEDs to indicate j
  21 GPIO9 [XX] 22 GPIO25
  23 GPIO11[XX] 24 GPIO8
  25 GND  [XX] 26 GPIO7
+ 27 ID_SD [XX] 28 ID_SC
+ 29 GPIO5 [XX] 30 GND
+ 31 GPIO6 [XX] 32 GPIO12
+ 33 GPIO13[XX] 34 GND
+ 35 GPIO19[XX] 36 GPIO16
+ 37 GPIO26[XX] 38 GPIO20
+ 39 GND   [XX] 40 GPIO21
         [Pi Logo]
 ```
 
@@ -49,7 +56,7 @@ This guide explains how to connect and configure the 3 status LEDs to indicate j
 - Yellow LED Cathode → GND
 
 **Green LED (SCANNING)**
-- GPIO 22 (Pin 15) → 330Ω Resistor → Green LED Anode
+- GPIO 26 (Pin 37) → 330Ω Resistor → Green LED Anode
 - Green LED Cathode → GND
 
 ## Configuration
@@ -57,10 +64,10 @@ This guide explains how to connect and configure the 3 status LEDs to indicate j
 Edit `config.py` to adjust GPIO pins if needed:
 
 ```python
-# LED GPIO Configuration
-LED_RED_PIN = 17        # GPIO17 for RED LED (JAMMING state)
-LED_YELLOW_PIN = 27     # GPIO27 for YELLOW LED (WATCH state)
-LED_GREEN_PIN = 22      # GPIO22 for GREEN LED (SCANNING state)
+# LED GPIO Configuration (from config.py)
+LED_RED_PIN = 17        # GPIO17 (Pin 11) for RED LED (JAMMING state)
+LED_YELLOW_PIN = 27     # GPIO27 (Pin 13) for YELLOW LED (WATCH state)
+LED_GREEN_PIN = 26      # GPIO26 (Pin 37) for GREEN LED (SCANNING state)
 ```
 ## Testing
 

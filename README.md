@@ -69,7 +69,8 @@ graph LR
 ---
 
 ## 🌟 Key Technical Highlights / ความโดดเด่นทางเทคนิค
-- **Multi-Frequency DSP:** ประมวลผลสัญญาณดิจิทัลเพื่อแยกแยะระหว่างสัญญาณปกติและสัญญาณรบกวนได้อย่างแม่นยำ
+- **Adaptive Signal Analysis:** คำนวณ Noise Floor และ Peak Power แบบเรียลไทม์ พร้อมระบบ Threshold อัจฉริยะ (Adaptive Thresholding)
+- **Peak Direction Finding:** ระบบเข็มทิศ (Polar Compass) ช่วยระบุทิศทางของแหล่งกำเนิดสัญญาณรบกวนตามระดับความเข้มของสัญญาณ (Signal Strength)
 - **Adaptive Heartbeat Logging:** ระบบบันทึกข้อมูลอัจฉริยะที่ปรับความถี่ตามสถานการณ์ (1s สำหรับเหตุการณ์สำคัญ / 30s สำหรับสถานะปกติ) เพื่อถนอมอายุการใช้งานของ SD Card
 - **Seamless Local Hotspot:** เข้าถึงข้อมูลได้ทุกที่ผ่าน WiFi ส่วนตัวของเครื่อง แม้อยู่ในพื้นที่อับสัญญาณอินเทอร์เน็ต
 - **Glassmorphism UI:** หน้าจอ Dashboard ดีไซน์ทันสมัย เน้น UX/UI ที่อ่านง่าย สวยงาม และ Responsive
