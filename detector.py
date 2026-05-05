@@ -27,11 +27,11 @@ class GPSJammerHandheld:
         self.alpha_idle = 0.97
         self.alpha_alert = 0.998
 
-        self.floor_rise_threshold_db = 3.2
-        self.peak_threshold_db = 24.0
+        self.floor_rise_threshold_db = config.FLOOR_RISE_THRESHOLD
+        self.peak_threshold_db = config.PEAK_THRESHOLD
 
-        self.warn_floor_rise_threshold_db = 2.0
-        self.warn_peak_threshold_db = 18.0
+        self.warn_floor_rise_threshold_db = config.WARN_FLOOR
+        self.warn_peak_threshold_db = config.WARN_PEAK
 
         self.hit_frames_required = 3
         self.clear_frames_required = 6
