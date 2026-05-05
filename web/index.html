@@ -31,8 +31,11 @@
             <!-- Left Side: State & Time -->
             <aside class="left-panel panel">
                 <div class="metric-block center-text">
-                    <span class="label">SYSTEM STATE</span>
-                    <span class="value state-value" id="state-text">SCANNING</span>
+                    <span class="label">DIRECTIONAL MAPPING</span>
+                    <div class="polar-container">
+                        <canvas id="polarCanvas" width="200" height="200"></canvas>
+                        <div id="bearing-display">---°</div>
+                    </div>
                 </div>
 
                 <div class="metric-block center-text mt-auto">
@@ -113,6 +116,7 @@
                             <th>TIME</th>
                             <th>STATE</th>
                             <th>SCORE</th>
+                            <th>BEARING</th>
                             <th>PEAK (dB)</th>
                             <th>RISE (dB)</th>
                         </tr>

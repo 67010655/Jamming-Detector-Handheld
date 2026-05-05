@@ -18,14 +18,15 @@ def init_db():
             score INTEGER,
             peak_p REAL,
             floor_rise REAL,
-            noise_floor REAL
+            noise_floor REAL,
+            bearing_deg INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
     conn.close()
     print(f"[DATABASE] Initialized: {DB_NAME}")
 
-def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec):
+def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing_deg=0):
     """Records a detection event into the database and prunes old records."""
     try:
         conn = sqlite3.connect(DB_NAME)
@@ -33,9 +34,9 @@ def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec):
         # Use local time with d/m/Y format
         local_time = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
         cursor.execute('''
-            INSERT INTO events (timestamp, uptime_sec, state, score, peak_p, floor_rise, noise_floor)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (local_time, uptime_sec, state, score, peak_p, floor_rise, noise_floor))
+            INSERT INTO events (timestamp, uptime_sec, state, score, peak_p, floor_rise, noise_floor, bearing_deg)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (local_time, uptime_sec, state, score, peak_p, floor_rise, noise_floor, bearing_deg))
         
         # Prune database: Keep only the latest 1000 non-startup records
         # Startup records are kept permanently to preserve session baselines

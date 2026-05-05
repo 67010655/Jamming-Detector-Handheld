@@ -37,7 +37,8 @@ def status():
     return jsonify({
         "metrics": state.metrics,
         "spectrum": state.power_spectrum,
-        "uptime": state.uptime
+        "uptime": state.uptime,
+        "bearing": getattr(state, 'bearing', 0)
     })
 
 @app.route('/api/history')
@@ -62,7 +63,7 @@ def export_csv():
             return
             
         # Write CSV header
-        yield "ID,Date,Time,Uptime,State,Score,Peak_Power,Floor_Rise,Noise_Floor\n"
+        yield "ID,Date,Time,Uptime,State,Score,Peak_Power,Floor_Rise,Noise_Floor,Bearing\n"
         
         for row in data:
             # Split timestamp into Date and Time for Excel friendliness
@@ -71,7 +72,7 @@ def export_csv():
             time_str = parts[1]
             uptime_str = format_uptime(row['uptime_sec'])
             
-            yield f"{row['id']},{date_str},{time_str},{uptime_str},{row['state']},{row['score']},{row['peak_p']:.2f},{row['floor_rise']:.2f},{row['noise_floor']:.2f}\n"
+            yield f"{row['id']},{date_str},{time_str},{uptime_str},{row['state']},{row['score']},{row['peak_p']:.2f},{row['floor_rise']:.2f},{row['noise_floor']:.2f},{row.get('bearing_deg', 0)}\n"
 
     return Response(generate(), mimetype='text/csv', headers={"Content-disposition": "attachment; filename=jamming_history.csv"})
 
@@ -86,9 +87,10 @@ def start_server(port=8080):
     thread.start()
     print(f"[WEB] Dashboard Server running at http://0.0.0.0:{port}")
 
-def update_state(metrics, power, uptime):
+def update_state(metrics, power, uptime, bearing=0):
     state.metrics = metrics
     state.uptime = uptime
+    state.bearing = bearing
     
     # Downsample the spectrum slightly to ensure the JSON payload remains small and fast.
     # 240 points is plenty for a smooth, responsive web graph.

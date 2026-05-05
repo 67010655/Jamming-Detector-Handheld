@@ -1,6 +1,9 @@
 const POLL_INTERVAL_MS = 300; // ~3 FPS (Optimized for Pi Zero 2W)
 let canvas = document.getElementById('spectrumCanvas');
 let ctx = canvas.getContext('2d');
+let polarCanvas = document.getElementById('polarCanvas');
+let polarCtx = polarCanvas.getContext('2d');
+let bearingLog = []; // Local cache for polar dots
 
 // Format seconds into HH:MM:SS
 function formatUptime(seconds) {
@@ -89,6 +92,78 @@ function drawSpectrum(data) {
     ctx.stroke();
 }
 
+// Draw the polar compass graph
+function drawPolar(bearing, state) {
+    const w = polarCanvas.width;
+    const h = polarCanvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = (w / 2) - 15;
+
+    polarCtx.clearRect(0, 0, w, h);
+
+    // Theme color
+    let color = '#00ffaa';
+    if (state === 'WATCH') color = '#ffcc00';
+    if (state === 'JAMMING') color = '#ff3333';
+
+    // Draw rings
+    polarCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    polarCtx.beginPath();
+    polarCtx.arc(cx, cy, r, 0, Math.PI * 2);
+    polarCtx.arc(cx, cy, r * 0.6, 0, Math.PI * 2);
+    polarCtx.stroke();
+
+    // Draw cardinal lines
+    polarCtx.beginPath();
+    polarCtx.moveTo(cx, cy - r); polarCtx.lineTo(cx, cy + r);
+    polarCtx.moveTo(cx - r, cy); polarCtx.lineTo(cx + r, cy);
+    polarCtx.stroke();
+
+    // Labels
+    polarCtx.fillStyle = '#888899';
+    polarCtx.font = '10px Inter';
+    polarCtx.textAlign = 'center';
+    polarCtx.fillText('N', cx, cy - r - 4);
+    polarCtx.fillText('S', cx, cy + r + 10);
+    polarCtx.fillText('W', cx - r - 8, cy + 4);
+    polarCtx.fillText('E', cx + r + 8, cy + 4);
+
+    // Update bearing log if new bearing provided
+    if (bearing !== undefined && bearing !== null) {
+        document.getElementById('bearing-display').innerText = `${bearing}°`;
+        // Only log if it's a significant signal or just keep recent
+        bearingLog.push(bearing);
+        if (bearingLog.length > 20) bearingLog.shift();
+    }
+
+    // Draw bearing dots
+    bearingLog.forEach((brg, i) => {
+        const rad = (brg - 90) * Math.PI / 180;
+        const px = cx + Math.cos(rad) * r;
+        const py = cy + Math.sin(rad) * r;
+        
+        const alpha = (i + 1) / bearingLog.length;
+        polarCtx.fillStyle = color;
+        polarCtx.globalAlpha = alpha;
+        polarCtx.beginPath();
+        polarCtx.arc(px, py, 4, 0, Math.PI * 2);
+        polarCtx.fill();
+    });
+    polarCtx.globalAlpha = 1.0;
+
+    // Draw current bearing line
+    if (bearing !== undefined) {
+        const rad = (bearing - 90) * Math.PI / 180;
+        polarCtx.strokeStyle = color;
+        polarCtx.lineWidth = 2;
+        polarCtx.beginPath();
+        polarCtx.moveTo(cx, cy);
+        polarCtx.lineTo(cx + Math.cos(rad) * r, cy + Math.sin(rad) * r);
+        polarCtx.stroke();
+    }
+}
+
 async function fetchStatus() {
     try {
         const response = await fetch('/api/status');
@@ -132,6 +207,9 @@ async function fetchStatus() {
             drawSpectrum(data.spectrum);
         }
 
+        // Update Polar
+        drawPolar(data.bearing, m ? m.state : 'SCANNING');
+
     } catch (error) {
         console.error("Error fetching dashboard data:", error);
     }
@@ -161,6 +239,7 @@ async function fetchHistory() {
                     <td>${timeStr}</td>
                     <td><span class="state-cell" data-val="${row.state}">${row.state}</span></td>
                     <td style="color: var(--theme-color); font-weight: bold;">${row.score}</td>
+                    <td style="font-family: monospace;">${row.bearing_deg || 0}°</td>
                     <td>${row.peak_p.toFixed(1)}</td>
                     <td>+${row.floor_rise.toFixed(1)}</td>
                 </tr>
