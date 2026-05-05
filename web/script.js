@@ -172,43 +172,61 @@ async function fetchStatus() {
         // Update Text Metrics
         const m = data.metrics;
         if (m && m.state) {
-            document.body.setAttribute('data-state', m.state);
-            document.getElementById('state-badge').innerText = m.state;
+            const badge = document.getElementById('state-badge');
+            if (badge) {
+                document.body.setAttribute('data-state', m.state);
+                badge.innerText = m.state;
+            }
 
-            // Short text mapping
-            const shortMap = { "SCANNING": "SCAN", "WATCH": "WTCH", "JAMMING": "JAM!" };
-            document.getElementById('state-text').innerText = shortMap[m.state] || m.state;
+            const stateText = document.getElementById('state-text');
+            if (stateText) {
+                const shortMap = { "SCANNING": "SCAN", "WATCH": "WTCH", "JAMMING": "JAM!" };
+                stateText.innerText = shortMap[m.state] || m.state;
+            }
 
-            document.getElementById('nf-val').innerText = m.noise_floor !== undefined ? m.noise_floor.toFixed(1) : "-90.0";
-            document.getElementById('peak-val').innerText = m.peak_p !== undefined ? m.peak_p.toFixed(1) : "0.0";
-            document.getElementById('base-val').innerText = m.baseline_p !== undefined ? m.baseline_p.toFixed(1) : "0.0";
-            document.getElementById('rise-val').innerText = m.floor_rise !== undefined ? `+${m.floor_rise.toFixed(1)}` : "+0.0";
+            const nfVal = document.getElementById('nf-val');
+            if (nfVal) nfVal.innerText = m.noise_floor !== undefined ? m.noise_floor.toFixed(1) : "-90.0";
+            
+            const peakVal = document.getElementById('peak-val');
+            if (peakVal) peakVal.innerText = m.peak_p !== undefined ? m.peak_p.toFixed(1) : "0.0";
+            
+            const baseVal = document.getElementById('base-val');
+            if (baseVal) baseVal.innerText = m.baseline_p !== undefined ? m.baseline_p.toFixed(1) : "0.0";
+            
+            const riseVal = document.getElementById('rise-val');
+            if (riseVal) riseVal.innerText = m.floor_rise !== undefined ? `+${m.floor_rise.toFixed(1)}` : "+0.0";
 
-            document.getElementById('score-text').innerText = m.score !== undefined ? m.score.toString().padStart(2, '0') : "00";
+            const scoreText = document.getElementById('score-text');
+            if (scoreText) scoreText.innerText = m.score !== undefined ? m.score.toString().padStart(2, '0') : "00";
 
-            // Score bar height
-            let pct = Math.min(100, Math.max(0, (m.score / 99) * 100));
-            document.getElementById('score-bar').style.height = `${pct}%`;
+            const scoreBar = document.getElementById('score-bar');
+            if (scoreBar) {
+                let pct = Math.min(100, Math.max(0, (m.score / 99) * 100));
+                scoreBar.style.height = `${pct}%`;
+            }
 
-            // Exact Margin from Python logic
-            if (m.margin !== undefined) {
+            const marginText = document.getElementById('margin-text');
+            if (marginText && m.margin !== undefined) {
                 let marginStr = m.margin > 0 ? `+${m.margin.toFixed(1)}` : m.margin.toFixed(1);
-                document.getElementById('margin-text').innerText = `${marginStr} dB`;
+                marginText.innerText = `${marginStr} dB`;
             }
         }
 
         // Update Uptime
-        if (data.uptime !== undefined) {
-            document.getElementById('uptime-text').innerText = formatUptime(data.uptime);
+        const uptimeText = document.getElementById('uptime-text');
+        if (uptimeText && data.uptime !== undefined) {
+            uptimeText.innerText = formatUptime(data.uptime);
         }
 
         // Update Graph
-        if (data.spectrum) {
+        if (data.spectrum && canvas) {
             drawSpectrum(data.spectrum);
         }
 
         // Update Polar
-        drawPolar(data.bearing, m ? m.state : 'SCANNING');
+        if (polarCanvas && data.bearing !== undefined) {
+            drawPolar(data.bearing, m ? m.state : 'SCANNING');
+        }
 
     } catch (error) {
         console.error("Error fetching dashboard data:", error);
