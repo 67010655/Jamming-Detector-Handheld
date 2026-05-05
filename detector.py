@@ -142,8 +142,10 @@ class GPSJammerHandheld:
         else:
             state = "SCANNING"
 
-        alpha = self.alpha_alert if self.jammer_active else self.alpha_idle
-        self.noise_floor = smooth_noise(self.noise_floor, current_floor, alpha)
+        # Update noise floor only when NOT jammed to prevent normalizing the jammer
+        if not self.jammer_active:
+            self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_idle)
+        
         self.current_state = state
         self.led.set_state(state)
         self.buzzer.set_state(state)
