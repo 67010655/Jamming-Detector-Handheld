@@ -49,6 +49,9 @@ class GPSJammerHandheld:
         self.sdr = None
 
         if not self.preview:
+            # Initialize database first so calibration can log baseline
+            database_manager.init_db()
+            
             self._init_sdr()
             self._calibrate()
             self.led = LEDController(enabled=True)
@@ -62,8 +65,6 @@ class GPSJammerHandheld:
         self.ui = DisplayUI(self, preview=self.preview)
         
         # Start background web dashboard
-        # Initialize database
-        database_manager.init_db()
         self.last_log_time = 0
         self.log_interval = 1.0 # Seconds between logs for the same persistent event
         
