@@ -19,8 +19,8 @@ class GPSJammerHandheld:
         self.sample_count = 8192
         self._window = np.hanning(self.sample_count).astype(np.float32)
         self.center_freq_hz = 1575.42e6
-        self.sample_rate_hz = 1.024e6
-        self.gain_db = 0.0
+        self.sample_rate_hz = config.SAMPLE_RATE
+        self.gain_db = config.GAIN
 
         self.target_fps = 10
 
