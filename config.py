@@ -14,14 +14,14 @@ STATIC_MODE = True  # Set to True for Chamber/Lab experiments (Fixed Baseline)
                     # Set to False for Field use (Adaptive Baseline)
 
 FLOOR_RISE_THRESHOLD = 3.2
-PEAK_THRESHOLD = 35.0
+PEAK_THRESHOLD = 40.0
 
 WARN_FLOOR = 2.0
-WARN_PEAK = 28.0
+WARN_PEAK = 32.0
 
 DC_BINS = 10
-HIT_FRAMES = 3
-CLEAR_FRAMES = 6
+HIT_FRAMES = 2
+CLEAR_FRAMES = 2
 
 LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
 LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)
