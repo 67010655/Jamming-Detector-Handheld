@@ -13,11 +13,11 @@ ALPHA_ALERT = 0.998
 STATIC_MODE = True  # Set to True for Chamber/Lab experiments (Fixed Baseline)
                     # Set to False for Field use (Adaptive Baseline)
 
-FLOOR_RISE_THRESHOLD = 20.0
-PEAK_THRESHOLD = 30.0
+FLOOR_RISE_THRESHOLD = 15.0
+PEAK_THRESHOLD = 28.0
 
-WARN_FLOOR = 5.0
-WARN_PEAK = 25.0
+WARN_FLOOR = 8.0
+WARN_PEAK = 24.0
 
 DC_BINS = 10
 HIT_FRAMES = 3
