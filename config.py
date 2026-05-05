@@ -16,8 +16,8 @@ STATIC_MODE = True  # Set to True for Chamber/Lab experiments (Fixed Baseline)
 FLOOR_RISE_THRESHOLD = 20.0
 PEAK_THRESHOLD = 40.0
 
-WARN_FLOOR = 2.0
-WARN_PEAK = 32.0
+WARN_FLOOR = 15.0
+WARN_PEAK = 36.0
 
 DC_BINS = 10
 HIT_FRAMES = 2
