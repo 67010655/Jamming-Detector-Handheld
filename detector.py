@@ -284,31 +284,6 @@ class GPSJammerHandheld:
             except Exception:
                 pass
 
-    def _update_noise_floor(self, current_power):
-        current_floor = float(np.percentile(current_power, 20))
-        if self.jammer_active:
-            alpha = self.alpha_alert 
-        else:
-            alpha = self.alpha_idle
-        self.noise_floor = alpha * self.noise_floor + (1 - alpha) * current_floor
-
-    def _get_threshold(self):
-        if self.jammer_active:
-            return self.noise_floor + self.peak_threshold_db
-        else:
-            return self.noise_floor + self.warn_peak_threshold_db
-        
-    def _debug_print(self, current_power):    
-        peak = float(np.max(current_power))
-        threshold = self._get_threshold()
-        margin = peak - threshold  
-        print(
-            f"NF: {self.noise_floor:6.2f} | "
-            f"Peak: {peak:6.2f} | "
-            f"Threshold: {threshold:6.2f} | "
-            f"Margin: {margin:+5.2f} | "
-            f"State: {self.current_state}"
-        )
 
 
 # อันนี้เพิ่มมาไว้ทดสอบโหมดพรีวิวโดยไม่ต้องใช้ฮาร์ดแวร์จริง
