@@ -4,7 +4,7 @@ HEIGHT = 320
 SAMPLE_COUNT = 8192
 CENTER_FREQ = 1575.42e6
 SAMPLE_RATE = 1.024e6
-GAIN = 20.0
+GAIN = 7.7
 
 FPS = 10
 
@@ -13,11 +13,11 @@ ALPHA_ALERT = 0.998
 STATIC_MODE = True  # Set to True for Chamber/Lab experiments (Fixed Baseline)
                     # Set to False for Field use (Adaptive Baseline)
 
-FLOOR_RISE_THRESHOLD = 3.2
-PEAK_THRESHOLD = 16.0
+FLOOR_RISE_THRESHOLD = 20.0
+PEAK_THRESHOLD = 30.0
 
-WARN_FLOOR = 2.0
-WARN_PEAK = 12.0
+WARN_FLOOR = 5.0
+WARN_PEAK = 25.0
 
 DC_BINS = 10
 HIT_FRAMES = 3
