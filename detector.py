@@ -143,9 +143,13 @@ class GPSJammerHandheld:
         else:
             state = "SCANNING"
 
-        # Update noise floor only when NOT jammed and NOT in STATIC_MODE
-        if not getattr(config, 'STATIC_MODE', False) and not self.jammer_active:
-            self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_idle)
+        # Update noise floor carefully based on state to prevent jammer from dragging the baseline
+        if not getattr(config, 'STATIC_MODE', False):
+            if state == "SCANNING":
+                self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_idle)
+            elif state == "WATCH":
+                self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_alert)
+            # In JAMMING state, we do not update noise_floor at all to preserve the baseline
         
         self.current_state = state
         self.led.set_state(state)

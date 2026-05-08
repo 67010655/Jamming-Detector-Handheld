@@ -10,7 +10,7 @@ FPS = 10
 
 ALPHA_IDLE = 0.97
 ALPHA_ALERT = 0.998 
-STATIC_MODE = True  # Set to True for Chamber/Lab experiments (Fixed Baseline)
+STATIC_MODE = False  # Set to True for Chamber/Lab experiments (Fixed Baseline)
                     # Set to False for Field use (Adaptive Baseline)
 
 FLOOR_RISE_THRESHOLD = 15.0
