@@ -33,8 +33,8 @@ class GPSJammerHandheld:
         self.warn_floor_rise_threshold_db = config.WARN_FLOOR
         self.warn_peak_threshold_db = config.WARN_PEAK
 
-        self.hit_frames_required = 3
-        self.clear_frames_required = 6
+        self.hit_frames_required = getattr(config, 'HIT_FRAMES', 3)
+        self.clear_frames_required = getattr(config, 'CLEAR_FRAMES', 6)
 
         self.frame_count = 0
         self.start_time = time.time()

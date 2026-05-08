@@ -21,7 +21,7 @@ WARN_PEAK = 24.0
 
 DC_BINS = 10
 HIT_FRAMES = 3
-CLEAR_FRAMES = 3
+CLEAR_FRAMES = 20
 
 LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
 LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)
