@@ -22,6 +22,17 @@ def init_db():
             bearing_deg INTEGER DEFAULT 0
         )
     ''')
+    
+    # Migration: Check if bearing_deg column exists (for older database files)
+    cursor.execute("PRAGMA table_info(events)")
+    columns = [info[1] for info in cursor.fetchall()]
+    if 'bearing_deg' not in columns:
+        print("[DATABASE] Migrating schema: Adding missing 'bearing_deg' column")
+        try:
+            cursor.execute("ALTER TABLE events ADD COLUMN bearing_deg INTEGER DEFAULT 0")
+        except Exception as e:
+            print(f"[DATABASE] Migration failed: {e}")
+            
     conn.commit()
     conn.close()
     print(f"[DATABASE] Initialized: {DB_NAME}")
