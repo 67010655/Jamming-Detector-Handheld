@@ -154,7 +154,11 @@ class GPSJammerHandheld:
         self.current_state = state
         self.led.set_state(state)
         self.buzzer.set_state(state)
-        score = int(np.clip(max(floor_rise * 12.0, peak_diff * 6.0), 0, 99))
+        # Calculate score based on normalized distance from thresholds
+        # A score of 50 roughly indicates reaching the jamming threshold
+        score_f = (floor_rise / self.floor_rise_threshold_db) * 50.0
+        score_p = (peak_diff / self.peak_threshold_db) * 50.0
+        score = int(np.clip(max(score_f, score_p), 0, 99))
 
         if self.jammer_active:
             threshold = self.noise_floor + self.peak_threshold_db
