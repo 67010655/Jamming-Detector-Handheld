@@ -36,7 +36,7 @@ class DisplayUI:
             device=0,
             gpio_DC=24,
             gpio_RST=25,
-            bus_speed_hz=64000000,
+            bus_speed_hz=32000000,
         )
 
         self.app.device = ili9488(
