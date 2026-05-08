@@ -36,7 +36,7 @@ class DisplayUI:
             device=0,
             gpio_DC=24,
             gpio_RST=25,
-            bus_speed_hz=32000000,
+            bus_speed_hz=64000000,
         )
 
         self.app.device = ili9488(
@@ -357,7 +357,7 @@ class DisplayUI:
             ("NOISE FLOOR", f"{nf:.1f}", "dBFS"),
             ("PEAK", f"{peak:.1f}", "dBFS"),
             ("FLOOR RISE", f"{rise:+.1f}", "dB"),
-            ("SCORE", f"{score}/99", ""),
+            ("MARGIN", f"{margin_val:+.1f}", "dB"),
         ]
 
         for i, (label, val, unit) in enumerate(metrics_data):
