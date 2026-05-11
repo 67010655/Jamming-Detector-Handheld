@@ -424,7 +424,7 @@ class DisplayUI:
     def _init_touch(self):
         """Initialise XPT2046 via SPI bus 0, device 1 (CS1 = GPIO 7)."""
         if spidev is None:
-            print("[TOUCH] spidev not installed — touch disabled")
+            print("[TOUCH] spidev not installed -- touch disabled")
             return
         print("[TOUCH] Initializing XPT2046 on SPI0.1 ...")
         try:
@@ -433,7 +433,7 @@ class DisplayUI:
             self._touch_spi.max_speed_hz = 500000   # slower = more reliable
             self._touch_spi.mode = 0
             self._touch_ok = True
-            print("[TOUCH] SPI opened OK — starting listener thread")
+            print("[TOUCH] SPI opened OK -- starting listener thread")
             t = threading.Thread(target=self._touch_worker, daemon=True)
             t.start()
         except FileNotFoundError:
@@ -450,7 +450,7 @@ class DisplayUI:
         """Poll XPT2046 for touch events.  Prints debug info."""
         X_MIN, X_MAX = 200, 3800
         Y_MIN, Y_MAX = 300, 3900
-        print("[TOUCH] Worker thread started — touch the screen to test")
+        print("[TOUCH] Worker thread started -- touch the screen to test")
         err_count = 0
         while True:
             try:
@@ -460,7 +460,7 @@ class DisplayUI:
                 y_raw = ((resp_y[1] << 8) | resp_y[2]) >> 3
 
                 if x_raw > 100 and y_raw > 100:
-                    # Map raw → screen
+                    # Map raw -> screen
                     sx = int(np.clip((x_raw - X_MIN) * 480 / (X_MAX - X_MIN), 0, 479))
                     sy = int(np.clip((y_raw - Y_MIN) * 320 / (Y_MAX - Y_MIN), 0, 319))
                     print(f"[TOUCH] raw=({x_raw},{y_raw})  screen=({sx},{sy})")
@@ -484,7 +484,7 @@ class DisplayUI:
                 print(f"[TOUCH] >>> Button '{label}' pressed!")
                 if label == "VIEW":
                     self.view_mode = (self.view_mode + 1) % 3
-                    print(f"[TOUCH]     View mode → {self.view_mode}")
+                    print(f"[TOUCH]     View mode -> {self.view_mode}")
                 elif label == "MUTE":
                     self.app.toggle_mute()
                 elif label == "CALIB":
@@ -497,4 +497,4 @@ class DisplayUI:
                     self.app.running = False
                 return
         # If we get here no button matched
-        print(f"[TOUCH] tap at ({x},{y}) — no button hit")
+        print(f"[TOUCH] tap at ({x},{y}) -- no button hit")
