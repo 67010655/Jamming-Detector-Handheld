@@ -2,8 +2,10 @@ import time
 import threading
 import numpy as np
 try:
+    import spidev
     import RPi.GPIO as GPIO
 except ImportError:
+    spidev = None
     GPIO = None
 from PIL import Image, ImageDraw, ImageFont
 from dsp import scale_points
@@ -423,24 +425,27 @@ class DisplayUI:
     #                     TOUCH  CONTROLLER
     # ════════════════════════════════════════════════════════════════
     def _init_touch(self):
-        """Initialise XPT2046 via Bit-Banging GPIO (using existing SPI pins)."""
-        if GPIO is None:
-            print("[TOUCH] RPi.GPIO not installed -- touch disabled")
+        """Initialise XPT2046 using Hardware SPI but Manual CS on GPIO 22."""
+        if spidev is None or GPIO is None:
+            print("[TOUCH] spidev or RPi.GPIO not installed -- touch disabled")
             return
 
-        # GPIO Pins (Physical Pins 23, 26, 19, 21)
-        self._T_CLK = 11  # GPIO 11 (Pin 23)
-        self._T_CS  = 7   # GPIO 7  (Pin 26)
-        self._T_DIN = 10  # GPIO 10 (Pin 19)
-        self._T_OUT = 9   # GPIO 9  (Pin 21)
+        self._T_CS_MANUAL = 22  # GPIO 22 (Pin 15)
 
-        print(f"[TOUCH] Initializing Bit-Banging on GPIO {self._T_CS},{self._T_CLK}...")
+        print(f"[TOUCH] Initializing SPI0.1 with Manual CS on GPIO {self._T_CS_MANUAL}...")
         try:
+            # 1. Setup SPI for data (CLK, DIN, OUT)
+            self._touch_spi = spidev.SpiDev()
+            self._touch_spi.open(0, 1) # Still open 0.1, but we will toggle CS manually
+            self._touch_spi.max_speed_hz = 100000
+            self._touch_spi.mode = 0
+            # Disable hardware CS toggling if possible (or just ignore it)
+            self._touch_spi.no_cs = True 
+
+            # 2. Setup Manual CS Pin
             GPIO.setmode(GPIO.BCM)
-            GPIO.setup(self._T_CS,  GPIO.OUT, initial=GPIO.HIGH)
-            GPIO.setup(self._T_CLK, GPIO.OUT, initial=GPIO.LOW)
-            GPIO.setup(self._T_DIN, GPIO.OUT)
-            GPIO.setup(self._T_OUT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            GPIO.setwarnings(False)
+            GPIO.setup(self._T_CS_MANUAL, GPIO.OUT, initial=GPIO.HIGH)
             
             self._touch_ok = True
             t = threading.Thread(target=self._touch_worker, daemon=True)
