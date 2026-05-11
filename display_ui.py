@@ -430,7 +430,7 @@ class DisplayUI:
         try:
             self._touch_spi = spidev.SpiDev()
             self._touch_spi.open(0, 1)
-            self._touch_spi.max_speed_hz = 500000   # slower = more reliable
+            self._touch_spi.max_speed_hz = 100000   # Optimized speed
             self._touch_spi.mode = 0
             self._touch_ok = True
             print("[TOUCH] SPI opened OK -- starting listener thread")
@@ -448,21 +448,22 @@ class DisplayUI:
 
     def _touch_worker(self):
         """Poll XPT2046 for touch events.  Prints debug info."""
-        X_MIN, X_MAX = 200, 3800
-        Y_MIN, Y_MAX = 300, 3900
+        X_MIN, X_MAX = 300, 3850
+        Y_MIN, Y_MAX = 130, 3840
         print("[TOUCH] Worker thread started -- touch the screen to test")
         err_count = 0
         while True:
             try:
-                resp_x = self._touch_spi.xfer2([0x90, 0x00, 0x00])
-                resp_y = self._touch_spi.xfer2([0xD0, 0x00, 0x00])
+                # Commands based on touch_final_test.py (Single-ended)
+                resp_x = self._touch_spi.xfer2([0x94, 0x00, 0x00])
+                resp_y = self._touch_spi.xfer2([0xD4, 0x00, 0x00])
                 x_raw = ((resp_x[1] << 8) | resp_x[2]) >> 3
                 y_raw = ((resp_y[1] << 8) | resp_y[2]) >> 3
 
-                if x_raw > 100 and y_raw > 100:
-                    # Map raw -> screen
-                    sx = int(np.clip((x_raw - X_MIN) * 480 / (X_MAX - X_MIN), 0, 479))
-                    sy = int(np.clip((y_raw - Y_MIN) * 320 / (Y_MAX - Y_MIN), 0, 319))
+                if 50 < x_raw < 4050 and 50 < y_raw < 4050:
+                    # Map raw -> screen (Applying inversion based on calib data)
+                    sx = int(np.clip(479 - ((x_raw - X_MIN) * 480 / (X_MAX - X_MIN)), 0, 479))
+                    sy = int(np.clip(319 - ((y_raw - Y_MIN) * 320 / (Y_MAX - Y_MIN)), 0, 319))
                     print(f"[TOUCH] raw=({x_raw},{y_raw})  screen=({sx},{sy})")
                     self._handle_click(sx, sy)
                     time.sleep(0.4)   # debounce
