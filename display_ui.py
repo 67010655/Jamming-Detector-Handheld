@@ -426,16 +426,17 @@ class DisplayUI:
         if spidev is None:
             print("[TOUCH] spidev not installed -- touch disabled")
             return
-        print("[TOUCH] Initializing XPT2046 on SPI0.1 ...")
-        try:
-            self._touch_spi = spidev.SpiDev()
-            self._touch_spi.open(0, 1)
-            self._touch_spi.max_speed_hz = 100000   # Optimized speed
-            self._touch_spi.mode = 0
-            self._touch_ok = True
-            print("[TOUCH] SPI opened OK -- starting listener thread")
-            t = threading.Thread(target=self._touch_worker, daemon=True)
-            t.start()
+        # print("[TOUCH] Initializing XPT2046 on SPI0.1 ...")
+        # try:
+        #     self._touch_spi = spidev.SpiDev()
+        #     self._touch_spi.open(0, 1)
+        #     self._touch_spi.max_speed_hz = 100000   # Optimized speed
+        #     self._touch_spi.mode = 0
+        #     self._touch_ok = True
+        #     print("[TOUCH] SPI opened OK -- starting listener thread")
+        #     t = threading.Thread(target=self._touch_worker, daemon=True)
+        #     t.start()
+
         except FileNotFoundError:
             print("[TOUCH ERROR] /dev/spidev0.1 not found!")
             print("[TOUCH ERROR] Make sure SPI is enabled: sudo raspi-config -> Interface -> SPI")
