@@ -228,13 +228,32 @@ class DisplayUI:
                 draw.text((btn_x + (btn_w - tw)//2, by + (btn_h - th)//2), label, fill=tx_c, font=self._f_btn)
             self._touch_zones[label] = (btn_x, by, btn_x + btn_w, by + btn_h)
 
-        # RIGHT PANEL
+        # UPTIME (BACK!)
+        uptime = int(time.time() - self.app.start_time)
+        hrs, mins, secs = uptime // 3600, (uptime % 3600) // 60, uptime % 60
+        up_str = f"UP {hrs:02d}:{mins:02d}:{secs:02d}"
+        draw.text((10, foot_t - 15), up_str, fill=white, font=self._f_small)
+
+        # RIGHT PANEL (BACK!)
         draw.rectangle((rp_l, hdr_b, W, foot_t), fill=(6, 6, 6))
         draw.line((rp_l, hdr_b, rp_l, foot_t), fill=accent, width=1)
         draw.text((rp_l + 8, hdr_b + 8), "SCORE", fill=lbl, font=self._f_label)
         sc_str = f"{score:02d}"
         draw.text((rp_l + 12, hdr_b + 22), sc_str, fill=accent, font=self._f_score_big)
         draw.text((rp_l + 25, hdr_b + 58), "/99", fill=white, font=self._f_score_sub)
+        
+        # Vertical bar (BACK!)
+        bar_x, bar_w = rp_l + 10, (W - rp_l) - 20
+        bar_top, bar_bot = hdr_b + 80, foot_t - 42
+        bar_h = bar_bot - bar_top
+        draw.rectangle((bar_x, bar_top, bar_x + bar_w, bar_bot), fill=(18,18,18), outline=self._dim(accent,0.4))
+        fill_h = int(bar_h * score / 99)
+        if fill_h > 0:
+            draw.rectangle((bar_x+1, bar_bot-fill_h, bar_x+bar_w-1, bar_bot), fill=accent)
+
+        # FPS (BACK in right panel footer)
+        draw.text((rp_l + 8, foot_t - 36), "FPS", fill=lbl, font=self._f_label)
+        draw.text((rp_l + 8, foot_t - 22), f"{fps_val}", fill=accent, font=self._f_fps)
 
         # ── MAIN CONTENT AREA ───────────────────────────────────────
         content_w = rp_l - lp_r
@@ -259,8 +278,7 @@ class DisplayUI:
         # FOOTER
         draw.rectangle((0, foot_t, W, H), fill=(6, 6, 6))
         draw.line((0, foot_t, W, foot_t), fill=accent, width=1)
-        draw.text((10, foot_t + 15), "KMITL SPACE ENG | GNSS HANDHELD", fill=white, font=self._f_footer)
-        draw.text((W - 60, foot_t + 5), f"FPS: {fps_val}", fill=accent, font=self._f_label)
+        draw.text((W//2 - 100, foot_t + 15), "KMITL SPACE ENG | GNSS HANDHELD v1.0", fill=white, font=self._f_footer)
 
         # Output
         if self.preview: self.app._img.save("preview.png")
