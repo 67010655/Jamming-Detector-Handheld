@@ -142,7 +142,7 @@ function drawPolar(bearing, state) {
         const rad = (brg - 90) * Math.PI / 180;
         const px = cx + Math.cos(rad) * r;
         const py = cy + Math.sin(rad) * r;
-        
+
         const alpha = (i + 1) / bearingLog.length;
         polarCtx.fillStyle = color;
         polarCtx.globalAlpha = alpha;
@@ -186,13 +186,13 @@ async function fetchStatus() {
 
             const nfVal = document.getElementById('nf-val');
             if (nfVal) nfVal.innerText = m.noise_floor !== undefined ? m.noise_floor.toFixed(1) : "-90.0";
-            
+
             const peakVal = document.getElementById('peak-val');
             if (peakVal) peakVal.innerText = m.peak_p !== undefined ? m.peak_p.toFixed(1) : "0.0";
-            
+
             const baseVal = document.getElementById('base-val');
             if (baseVal) baseVal.innerText = m.baseline_p !== undefined ? m.baseline_p.toFixed(1) : "0.0";
-            
+
             const riseVal = document.getElementById('rise-val');
             if (riseVal) riseVal.innerText = m.floor_rise !== undefined ? `+${m.floor_rise.toFixed(1)}` : "+0.0";
 
