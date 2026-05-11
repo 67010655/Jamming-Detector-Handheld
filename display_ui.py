@@ -453,6 +453,7 @@ class DisplayUI:
         Y_MIN, Y_MAX = 130, 3840
         print("[TOUCH] Worker thread started -- touch the screen to test")
         err_count = 0
+        last_idle_time = time.time()
         while True:
             try:
                 # Commands based on touch_final_test.py (Single-ended)
@@ -465,9 +466,14 @@ class DisplayUI:
                     # Map raw -> screen (Applying inversion based on calib data)
                     sx = int(np.clip(479 - ((x_raw - X_MIN) * 480 / (X_MAX - X_MIN)), 0, 479))
                     sy = int(np.clip(319 - ((y_raw - Y_MIN) * 320 / (Y_MAX - Y_MIN)), 0, 319))
-                    print(f"[TOUCH] raw=({x_raw},{y_raw})  screen=({sx},{sy})")
+                    print(f"[TOUCH] DETECTED! raw=({x_raw},{y_raw}) -> screen=({sx},{sy})")
                     self._handle_click(sx, sy)
                     time.sleep(0.4)   # debounce
+                else:
+                    # Idle log every 2 seconds to confirm worker is alive
+                    if time.time() - last_idle_time > 2.0:
+                        print(f"[TOUCH DEBUG] Worker alive. Raw: X={x_raw}, Y={y_raw}")
+                        last_idle_time = time.time()
 
                 err_count = 0
                 time.sleep(0.05)
