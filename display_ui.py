@@ -2,10 +2,9 @@ import time
 import threading
 import numpy as np
 try:
-    import spidev
+    import RPi.GPIO as GPIO
 except ImportError:
-    spidev = None
-    print("[WARN] spidev not available - touch disabled")
+    GPIO = None
 from PIL import Image, ImageDraw, ImageFont
 from dsp import scale_points
 
@@ -424,18 +423,26 @@ class DisplayUI:
     #                     TOUCH  CONTROLLER
     # ════════════════════════════════════════════════════════════════
     def _init_touch(self):
-        """Initialise XPT2046 via SPI bus 0, device 1 (CS1 = GPIO 7)."""
-        if spidev is None:
-            print("[TOUCH] spidev not installed -- touch disabled")
+        """Initialise XPT2046 via Bit-Banging GPIO (using existing SPI pins)."""
+        if GPIO is None:
+            print("[TOUCH] RPi.GPIO not installed -- touch disabled")
             return
-        print("[TOUCH] Initializing XPT2046 on SPI0.1 ...")
+
+        # GPIO Pins (Physical Pins 23, 26, 19, 21)
+        self._T_CLK = 11  # GPIO 11 (Pin 23)
+        self._T_CS  = 7   # GPIO 7  (Pin 26)
+        self._T_DIN = 10  # GPIO 10 (Pin 19)
+        self._T_OUT = 9   # GPIO 9  (Pin 21)
+
+        print(f"[TOUCH] Initializing Bit-Banging on GPIO {self._T_CS},{self._T_CLK}...")
         try:
-            self._touch_spi = spidev.SpiDev()
-            self._touch_spi.open(0, 1)
-            self._touch_spi.max_speed_hz = 100000   # Optimized speed
-            self._touch_spi.mode = 0
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(self._T_CS,  GPIO.OUT, initial=GPIO.HIGH)
+            GPIO.setup(self._T_CLK, GPIO.OUT, initial=GPIO.LOW)
+            GPIO.setup(self._T_DIN, GPIO.OUT)
+            GPIO.setup(self._T_OUT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            
             self._touch_ok = True
-            print("[TOUCH] SPI opened OK -- starting listener thread")
             t = threading.Thread(target=self._touch_worker, daemon=True)
             t.start()
 
