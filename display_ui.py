@@ -1,5 +1,7 @@
 import time
+import threading
 import numpy as np
+import spidev
 from PIL import Image, ImageDraw, ImageFont
 from dsp import scale_points
 
@@ -16,6 +18,12 @@ class DisplayUI:
         self._fps_time = time.time()
         self._fps_count = 0
         self._fps_display = 0
+        self.view_mode = 0  # 0: Normal, 1: Search, 2: Analytics
+        self.show_menu = False
+        self._touch_zones = {} 
+        
+        if not self.preview:
+            self._init_touch()
 
     def _get_text_size(self, text, font):
         draw = self.app._draw
@@ -47,57 +55,38 @@ class DisplayUI:
         )
 
     def _init_drawing(self):
-        self.app._img = Image.new(
-            "RGB",
-            (self.app.w, self.app.h),
-            "black"
-        )
+        self.app._img = Image.new("RGB", (self.app.w, self.app.h), "black")
         self.app._draw = ImageDraw.Draw(self.app._img)
         self._load_fonts()
 
     def _load_fonts(self):
-        bold = [
-            "DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "C:/Windows/Fonts/arialbd.ttf",
-        ]
-        regular = [
-            "DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "C:/Windows/Fonts/arial.ttf",
-        ]
-        mono = [
-            "DejaVuSansMono-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-            "C:/Windows/Fonts/consola.ttf",
-        ]
+        bold = ["DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "C:/Windows/Fonts/arialbd.ttf"]
+        regular = ["DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "C:/Windows/Fonts/arial.ttf"]
+        mono = ["DejaVuSansMono-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", "C:/Windows/Fonts/consola.ttf"]
 
         def _try(paths, size):
             for p in paths:
-                try:
-                    return ImageFont.truetype(p, size)
-                except Exception:
-                    continue
+                try: return ImageFont.truetype(p, size)
+                except: continue
             return ImageFont.load_default()
 
-        self._f_title     = _try(bold, 12)      # Title font
-        self._f_subtitle  = _try(regular, 10)   # Subtitle
-        self._f_status    = _try(bold, 20)      # Status badge
-        self._f_state_big = _try(bold, 26)      # STATE value (SCAN/WTCH/JAM!)
-        self._f_score_big = _try(mono, 36)      # Score number (02/28/82)
-        self._f_score_sub = _try(regular, 12)   # /99
-        self._f_label     = _try(regular, 9)    # Small labels
-        self._f_value     = _try(bold, 22)      # Metric values
-        self._f_unit      = _try(regular, 9)    # Units (dBFS, dB)
-        self._f_brg       = _try(bold, 16)      # Bearing value
-        self._f_compass   = _try(regular, 9)    # Compass N/S/E/W
-        self._f_small     = _try(bold, 9)      # Small text
-        self._f_footer    = _try(bold, 8)       # Footer
-        self._f_fps       = _try(bold, 16)      # FPS number
-        self._f_fps_label = _try(regular, 9)    # FPS label
-        self._f_dblabel   = _try(regular, 8)    # dB axis labels
+        self._f_title     = _try(bold, 12)
+        self._f_subtitle  = _try(regular, 10)
+        self._f_status    = _try(bold, 20)
+        self._f_state_big = _try(bold, 26)
+        self._f_score_big = _try(mono, 36)
+        self._f_score_sub = _try(regular, 12)
+        self._f_label     = _try(regular, 9)
+        self._f_value     = _try(bold, 22)
+        self._f_unit      = _try(regular, 9)
+        self._f_brg       = _try(bold, 16)
+        self._f_compass   = _try(regular, 9)
+        self._f_small     = _try(bold, 9)
+        self._f_footer    = _try(bold, 8)
+        self._f_fps       = _try(bold, 16)
+        self._f_fps_label = _try(regular, 9)
+        self._f_dblabel   = _try(regular, 8)
 
-    # ── helpers ─────────────────────────────────────────────────────
     @staticmethod
     def _dim(c, f):
         return tuple(max(0, min(255, int(v * f))) for v in c)
@@ -109,15 +98,13 @@ class DisplayUI:
 
     @staticmethod
     def _smooth(pts, n):
-        if len(pts) < 3:
-            return pts
+        if len(pts) < 3: return pts
         xs = np.array([p[0] for p in pts], dtype=np.float64)
         ys = np.array([p[1] for p in pts], dtype=np.float64)
         x_new = np.linspace(xs[0], xs[-1], n)
         y_new = np.interp(x_new, xs, ys)
         k = max(7, min(11, n // 30))
-        if k % 2 == 0:
-            k += 1
+        if k % 2 == 0: k += 1
         pad_w = k // 2
         y_padded = np.pad(y_new, pad_width=pad_w, mode='edge')
         y_s = np.convolve(y_padded, np.ones(k) / k, mode='valid')
@@ -126,9 +113,8 @@ class DisplayUI:
     # ── main draw ───────────────────────────────────────────────────
     def draw_ui(self, metrics, power):
         draw = self.app._draw
-        W, H = self.app.w, self.app.h  # 480, 320
-
-        # FPS tracking
+        W, H = self.app.w, self.app.h
+        
         self._fps_count += 1
         now = time.time()
         if now - self._fps_time >= 1.0:
@@ -138,339 +124,178 @@ class DisplayUI:
         fps_val = self._fps_display if self._fps_display > 0 else self.app.target_fps
 
         state = metrics["state"]
-        nf    = metrics.get("noise_floor", self.app.noise_floor)
-        peak  = metrics["peak_p"]
-        rise  = metrics["floor_rise"]
-        score = metrics.get("score", 0)
-        margin_val = metrics.get("margin", 0.0)
-        
-        # ── theme (state-based color) ───────────────────────────────
-        if state == "JAMMING":
-            accent  = (255, 80, 90)     # Red
-            border_c = (255, 80, 90)
-            hdr_bg  = (40, 8, 10)
-            grid    = (60, 20, 25)
-            fill_c  = (80, 15, 20)
-        elif state == "WATCH":
-            accent  = (255, 220, 50)    # Yellow
-            border_c = (255, 220, 50)
-            hdr_bg  = (50, 44, 10)
-            grid    = (80, 70, 15)
-            fill_c  = (100, 80, 10)
-        else:  # SCANNING
-            accent  = (0, 255, 136)     # Green
-            border_c = (0, 255, 136)
-            hdr_bg  = (8, 40, 20)
-            grid    = (0, 80, 50)
-            fill_c  = (0, 100, 60)
-
+        accent = (255, 80, 90) if state=="JAMMING" else ((255, 220, 50) if state=="WATCH" else (0, 255, 136))
         white_high = (255, 255, 255)
-        white_low  = (255, 255, 255)      # 100% white
-        lbl_white  = (255, 255, 255)      # 100% white
+        lbl_white = (255, 255, 255)
+        grid = self._dim(accent, 0.2)
+        fill_c = self._dim(accent, 0.15)
 
-        # ── layout constants (EXACT to prompt) ──────────────────────
-        hdr_t, hdr_b = 0, 44
-        lp_l, lp_r = 0, 106
-        rp_l, rp_r = 418, 480
-        spec_l, spec_r = 106, 418
-        spec_t, spec_b = 44, 232
-        met_t, met_b = 232, 284
-        foot_t, foot_b = 284, 320
-
-        # ════════════════════════════════════════════════════════════
-        # BACKGROUND
-        # ════════════════════════════════════════════════════════════
+        # Clear background
         draw.rectangle((0, 0, W - 1, H - 1), fill=(3, 3, 3))
 
-        # ════════════════════════════════════════════════════════════
-        # HEADER (y=0..44)
-        # ════════════════════════════════════════════════════════════
-        draw.rectangle((0, hdr_t, W, hdr_b), fill=hdr_bg)
-        draw.line((0, hdr_b, W, hdr_b), fill=accent, width=1)
+        # Render current mode
+        if self.view_mode == 1:
+            self._render_search_mode(draw, metrics, accent, white_high, lbl_white)
+        elif self.view_mode == 2:
+            self._render_analytics_mode(draw, metrics, power, accent, white_high, lbl_white, grid, fill_c)
+        else:
+            self._render_normal_mode(draw, metrics, power, accent, white_high, lbl_white, grid, fill_c, fps_val)
 
-        # Title left
-        draw.text((8, 5), "GNSS L1 JAMMING DETECTOR HANDHELD", fill=white_high, font=self._f_title)
+        # Overlay menu
+        self._draw_overlay_menu(draw, accent, white_high)
 
-        # Subtitle: frequency | band | gain
-        bw = self.app.sample_rate_hz / 2e6
-        sub_text = f"1575.42 MHz  |  GPS L1  |  G:{self.app.gain_db}dB"
-        draw.text((8, 23), sub_text, fill=accent, font=self._f_subtitle)
-
-        # State text top-right (no border, full text)
-        sw, sh = self._get_text_size(state, self._f_status)
-        badge_x = W - sw - 14
-        badge_y = 10
-        draw.text((badge_x, badge_y), state, fill=accent, font=self._f_status)
-
-        # Short state text for the left panel
-        short_state = {"SCANNING": "SCAN", "WATCH": "WTCH", "JAMMING": "JAM!"}
-        st_txt = short_state.get(state, state)
-
-        # ════════════════════════════════════════════════════════════
-        # LEFT PANEL (x=0..106)
-        # ════════════════════════════════════════════════════════════
-        draw.rectangle((lp_l, hdr_b, lp_r, foot_t), fill=(6, 6, 6))
-        draw.line((lp_r, hdr_b, lp_r, foot_t), fill=accent, width=1)
-
-        # STATE text large
-        draw.text((lp_l + 8, hdr_b + 8), "STATE", fill=lbl_white, font=self._f_label)
-        draw.text((lp_l + 8, hdr_b + 20), st_txt, fill=accent, font=self._f_state_big)
-
-        # Polar compass chart center
-        compass_cx = lp_l + (lp_r - lp_l) // 2
-        compass_cy = hdr_b + 105
-        self._draw_polar(draw, accent, compass_cx, compass_cy, 36)
-
-        # BEARING + uptime bottom
-        best = self.get_best_bearing()
-        bear_str = f"{best} DEG" if best is not None else "---"
-        brg_y = compass_cy + 54
-        draw.text((lp_l + 8, brg_y), "BEARING", fill=lbl_white, font=self._f_label)
-        draw.text((lp_l + 8, brg_y + 14), bear_str, fill=accent, font=self._f_brg)
-
-        uptime = int(time.time() - self.app.start_time)
-        hrs = uptime // 3600
-        mins = (uptime % 3600) // 60
-        secs = uptime % 60
-        up_str = f"UPTIME: {hrs:02d}:{mins:02d}:{secs:02d}"
-        draw.text((lp_l + 8, foot_t - 16), up_str, fill=white_high, font=self._f_small)
-
-        # ════════════════════════════════════════════════════════════
-        # RIGHT PANEL (x=418..480)
-        # ════════════════════════════════════════════════════════════
-        draw.rectangle((rp_l, hdr_b, rp_r, foot_t), fill=(6, 6, 6))
-        draw.line((rp_l, hdr_b, rp_l, foot_t), fill=accent, width=1)
-
-        draw.text((rp_l + 8, hdr_b + 8), "SCORE", fill=lbl_white, font=self._f_label)
-        score_str = f"{score:02d}"
-        ssw, ssh = self._get_text_size(score_str, self._f_score_big)
-        score_x = rp_l + ((rp_r - rp_l) - ssw) // 2
-        draw.text((score_x, hdr_b + 22), score_str, fill=accent, font=self._f_score_big)
-
-        sw99, _ = self._get_text_size("/99", self._f_score_sub)
-        sub_x = rp_l + ((rp_r - rp_l) - sw99) // 2
-        draw.text((sub_x, hdr_b + 58), "/99", fill=white_high, font=self._f_score_sub)
-
-        # Vertical bar fill bottom-up
-        bar_x = rp_l + 10
-        bar_w = (rp_r - rp_l) - 20
-        bar_top_y = hdr_b + 80
-        bar_bot_y = foot_t - 42
-        bar_h = bar_bot_y - bar_top_y
-
-        draw.rectangle((bar_x, bar_top_y, bar_x + bar_w, bar_bot_y), fill=(18, 18, 18), outline=self._dim(accent, 0.40), width=1)
-        fill_h = int(bar_h * score / 99)
-        if fill_h > 0:
-            draw.rectangle((bar_x + 1, bar_bot_y - fill_h, bar_x + bar_w - 1, bar_bot_y), fill=accent)
-
-        # FPS bottom
-        fps_y = foot_t - 36
-        draw.text((rp_l + 8, fps_y), "FPS", fill=lbl_white, font=self._f_fps_label)
-        draw.text((rp_l + 8, fps_y + 14), f"{fps_val}", fill=accent, font=self._f_fps)
-
-        # ════════════════════════════════════════════════════════════
-        # SPECTRUM AREA (x=106..418, y=44..232)
-        # ════════════════════════════════════════════════════════════
-        draw.rectangle((spec_l, spec_t, spec_r, spec_b), fill=(3, 3, 3))
-        
-        spec_draw_top = spec_t + 18
-        spec_draw_bottom = spec_b - 4
-        spec_draw_h = spec_draw_bottom - spec_draw_top
-        spec_w = spec_r - spec_l
-
-        # Horizontal grid lines
-        db_labels = [-40, -50, -60, -70, -80, -90]
-        for db_val in db_labels:
-            norm = (db_val + 90) / 50.0
-            y = spec_draw_top + int((1.0 - norm) * spec_draw_h)
-            draw.line((spec_l, y, spec_r, y), fill=grid, width=1)
-
-        # Vertical grid lines
-        for i in range(1, 7):
-            x = spec_l + int(spec_w * i / 7)
-            draw.line((x, spec_draw_top, x, spec_draw_bottom), fill=grid, width=1)
-
-        # Center frequency marker dashed vertical line
-        cx = (spec_l + spec_r) // 2
-        for y in range(spec_draw_top, spec_draw_bottom, 4):
-            draw.line((cx, y, cx, y + 2), fill=self._dim(accent, 0.30), width=1)
-
-        # Noise floor reference dashed horizontal line
-        nf_norm = (nf + 90) / 50.0
-        nf_y = spec_draw_top + int((1.0 - nf_norm) * spec_draw_h)
-        nf_y = max(spec_draw_top, min(spec_draw_bottom, nf_y))
-        for x in range(spec_l, spec_r, 4):
-            draw.line((x, nf_y, x + 2, nf_y), fill=self._dim(accent, 0.35), width=1)
-        draw.text((spec_l + 4, nf_y - 10), "NF", fill=lbl_white, font=self._f_label)
-
-        # Draw spectrum curve
-        pts = scale_points(power, nf, spec_w, spec_draw_top, spec_draw_bottom)
-        pts_off = [(x + spec_l, y) for x, y in pts]
-
-        if len(pts_off) > 2:
-            sm = self._smooth(pts_off, spec_w)
-            if (self._prev_smooth_y is not None and len(self._prev_smooth_y) == len(sm)):
-                a = 0.35
-                sm = [(x, int(y * (1 - a) + py * a)) for (x, y), (_, py) in zip(sm, self._prev_smooth_y)]
-            self._prev_smooth_y = sm
-
-            # Gradient fill (solid color fill_c for PIL)
-            poly = list(sm) + [(sm[-1][0], spec_draw_bottom), (sm[0][0], spec_draw_bottom)]
-            draw.polygon(poly, fill=fill_c)
-
-            # Spectrum curve line width=2
-            draw.line(sm, fill=accent, width=2)
-            draw.line(sm, fill=self._lerp(accent, white_high, 0.15), width=1)
-        elif len(pts_off) > 1:
-            draw.line(pts_off, fill=accent, width=2)
-
-        # Peak hold dashed line
-        if peak > nf:
-            peak_norm = (peak + 90) / 50.0
-            peak_y = spec_draw_top + int((1.0 - peak_norm) * spec_draw_h)
-            peak_y = max(spec_draw_top, min(spec_draw_bottom, peak_y))
-            for x in range(spec_l, spec_r, 4):
-                draw.line((x, peak_y, x + 2, peak_y), fill=self._dim(accent, 0.40), width=1)
-
-        # Spectrum title
-        spec_title = f"SPECTRUM  1575.42MHz  +-{bw:.3f}MHz"
-        draw.text((spec_l + 6, spec_t + 3), spec_title, fill=lbl_white, font=self._f_label)
-
-        # Y-axis dB labels on left: WHITE color always (drawn last so they are visible over the curve)
-        for db_val in db_labels:
-            norm = (db_val + 90) / 50.0
-            y_pos = spec_draw_top + int((1.0 - norm) * spec_draw_h)
-            db_text = f"{db_val}"
-            _, th = self._get_text_size(db_text, self._f_dblabel)
-            draw.text((spec_l + 4, y_pos - th // 2), db_text, fill=white_high, font=self._f_dblabel)
-
-        draw.rectangle((spec_l, spec_t, spec_r, spec_b), outline=accent, width=1)
-
-        # ════════════════════════════════════════════════════════════
-        # METRICS ROW (y=232..284)
-        # ════════════════════════════════════════════════════════════
-        draw.rectangle((spec_l, met_t, spec_r, met_b), fill=(6, 6, 6))
-        draw.line((spec_l, met_t, spec_r, met_t), fill=accent, width=1)
-
-        col_w = (spec_r - spec_l) // 4
-        metrics_data = [
-            ("NOISE FLOOR", f"{nf:.1f}", "dBFS"),
-            ("PEAK", f"{peak:.1f}", "dBFS"),
-            ("FLOOR RISE", f"{rise:+.1f}", "dB"),
-            ("MARGIN", f"{margin_val:+.1f}", "dB"),
-        ]
-
-        for i, (label, val, unit) in enumerate(metrics_data):
-            mx = spec_l + i * col_w + 10
-            if i > 0:
-                sx = spec_l + i * col_w
-                draw.line((sx, met_t + 2, sx, met_b - 2), fill=self._dim(accent, 0.50), width=1)
-
-            draw.text((mx, met_t + 6), label, fill=lbl_white, font=self._f_label)
-            draw.text((mx, met_t + 20), val, fill=accent, font=self._f_value)
-            if unit:
-                draw.text((mx, met_t + 42), unit, fill=white_high, font=self._f_unit)
-
-        draw.rectangle((spec_l, met_t, spec_r, met_b), outline=accent, width=1)
-
-        # ════════════════════════════════════════════════════════════
-        # BOTTOM BAR (y=284..320)
-        # ════════════════════════════════════════════════════════════
-        draw.rectangle((0, foot_t, W, foot_b), fill=(6, 6, 6))
-        draw.line((0, foot_t, W, foot_t), fill=accent, width=1)
-
-        # Percentage text (Right side)
-        pct_txt = f"{int(score * 100 / 99)}%"
-        pw, _ = self._get_text_size(pct_txt, self._f_small)
-        pct_x = W - pw - 10
-        sig_y = foot_t + 6
-
-        # SIG STR Label
-        draw.text((8, sig_y), "SIG STR", fill=lbl_white, font=self._f_small)
-
-        # SIG STR bar (Expanded to fill space)
-        bar_sx = 62  # Start after "SIG STR" label
-        bar_ex = pct_x - 12 # End before percentage text
-        bar_sw = bar_ex - bar_sx
-        bar_sh = 8
-
-        # Draw bar background
-        draw.rectangle((bar_sx, sig_y + 2, bar_sx + bar_sw, sig_y + bar_sh + 2), fill=(18, 18, 18), outline=self._dim(accent, 0.3), width=1)
-        
-        # Draw bar fill
-        sig_fill = int(bar_sw * score / 99)
-        if sig_fill > 0:
-            # Add a slight gradient-like effect or highlight
-            draw.rectangle((bar_sx + 1, sig_y + 3, bar_sx + sig_fill, sig_y + bar_sh + 1), fill=accent)
-            if sig_fill > 2: # Glow highlight
-                draw.line((bar_sx + 1, sig_y + 3, bar_sx + sig_fill, sig_y + 3), fill=white_high, width=1)
-
-        # Draw percentage and footer
-        draw.text((pct_x, sig_y), pct_txt, fill=white_high, font=self._f_small)
-
-        footer_txt = "KMITL SPACE ENGINEERING  |  GNSS JAMMER DETECTOR v1.0"
-        fw, _ = self._get_text_size(footer_txt, self._f_footer)
-        draw.text(((W - fw) // 2, foot_t + 18), footer_txt, fill=white_low, font=self._f_footer)
-
-        # Outer border with state-based color theme (drawn last)
-        draw.rectangle((0, 0, W - 1, H - 1), outline=border_c, width=2)
-
-        # ── output ──────────────────────────────────────────────────
+        # Output
         if self.preview:
             self.app._img.save("preview.png")
             if not self._preview_shown:
-                try:
-                    self.app._img.show()
-                except Exception:
-                    pass
+                try: self.app._img.show()
+                except: pass
                 self._preview_shown = True
         else:
             self.app.device.display(self.app._img)
 
-    # ── bearing ─────────────────────────────────────────────────────
+    def _render_normal_mode(self, draw, metrics, power, accent, white_high, lbl_white, grid, fill_c, fps_val):
+        W, H = self.app.w, self.app.h
+        hdr_b, lp_r, rp_l, spec_b, met_b = 44, 106, 418, 232, 284
+        state, nf, score = metrics["state"], metrics.get("noise_floor", -90), metrics.get("score", 0)
+        
+        # Header
+        hdr_bg = (40, 8, 10) if state=="JAMMING" else ((50, 44, 10) if state=="WATCH" else (8, 40, 20))
+        draw.rectangle((0, 0, W, hdr_b), fill=hdr_bg)
+        draw.line((0, hdr_b, W, hdr_b), fill=accent, width=1)
+        draw.text((8, 5), "GNSS L1 JAMMING DETECTOR", fill=white_high, font=self._f_title)
+        draw.text((W - 100, 10), state, fill=accent, font=self._f_status)
+        bw = self.app.sample_rate_hz / 2e6
+        draw.text((8, 23), f"1575.42 MHz | G:{self.app.gain_db}dB", fill=accent, font=self._f_subtitle)
+
+        # Left Panel
+        draw.rectangle((0, hdr_b, lp_r, 284), fill=(6, 6, 6))
+        draw.line((lp_r, hdr_b, lp_r, 284), fill=accent, width=1)
+        draw.text((8, hdr_b + 5), "STATE", fill=lbl_white, font=self._f_label)
+        draw.text((8, hdr_b + 15), state[:4], fill=accent, font=self._f_state_big)
+        self._draw_polar(draw, accent, 53, hdr_b + 100, 38)
+
+        # Right Panel
+        draw.rectangle((rp_l, hdr_b, W, 284), fill=(6, 6, 6))
+        draw.line((rp_l, hdr_b, rp_l, 284), fill=accent, width=1)
+        draw.text((rp_l + 8, hdr_b + 5), "SCORE", fill=lbl_white, font=self._f_label)
+        draw.text((rp_l + 10, hdr_b + 18), f"{score:02d}", fill=accent, font=self._f_score_big)
+        draw.text((rp_l + 8, 250), f"FPS: {fps_val}", fill=white_high, font=self._f_small)
+
+        # Spectrum Area
+        spec_l, spec_r, spec_t = lp_r, rp_l, hdr_b
+        draw.rectangle((spec_l, spec_t, spec_r, spec_b), outline=accent, width=1)
+        pts = scale_points(power, nf, spec_r-spec_l, spec_t+15, spec_b-5)
+        pts_off = [(x + spec_l, y) for x, y in pts]
+        if len(pts_off) > 1: draw.line(pts_off, fill=accent, width=2)
+
+        # Metrics Row
+        draw.rectangle((spec_l, spec_b, spec_r, met_b), fill=(10, 10, 15), outline=accent, width=1)
+        draw.text((spec_l + 10, spec_b + 10), f"NF: {nf:.1f} dBFS   PEAK: {metrics['peak_p']:.1f} dBFS", fill=white_high, font=self._f_value)
+
+        # Bottom Bar
+        bar_y = 284
+        draw.rectangle((0, bar_y, W, 320), fill=(5, 5, 5))
+        draw.line((0, bar_y, W, bar_y), fill=accent, width=1)
+        draw.text((8, bar_y + 5), "SIG STR", fill=lbl_white, font=self._f_small)
+        bar_w = int((W - 120) * score / 99)
+        draw.rectangle((70, bar_y + 8, 70 + bar_w, bar_y + 16), fill=accent)
+        draw.text((W - 40, bar_y + 5), f"{int(score*100/99)}%", fill=white_high, font=self._f_small)
+
+    def _render_search_mode(self, draw, metrics, accent, white_high, lbl_white):
+        W, H = self.app.w, self.app.h
+        cx, cy = W // 2, H // 2 - 20
+        self._draw_polar(draw, accent, cx, cy, 110)
+        draw.text((W//2 - 60, 15), "SEARCH MODE (COMPASS)", fill=white_high, font=self._f_title)
+        draw.text((20, 50), "SCORE", fill=lbl_white, font=self._f_status)
+        draw.text((20, 80), f"{metrics['score']:02d}", fill=accent, font=self._f_score_big)
+        draw.text((W - 120, 50), "STATE", fill=lbl_white, font=self._f_status)
+        draw.text((W - 120, 80), metrics["state"][:4], fill=accent, font=self._f_state_big)
+
+    def _render_analytics_mode(self, draw, metrics, power, accent, white_high, lbl_white, grid, fill_c):
+        W, H = self.app.w, self.app.h
+        spec_l, spec_r, spec_t, spec_b = 10, W - 10, 50, H - 60
+        draw.rectangle((spec_l, spec_t, spec_r, spec_b), fill=(5, 5, 10), outline=accent, width=1)
+        nf = metrics.get("noise_floor", -90)
+        pts = scale_points(power, nf, spec_r-spec_l, spec_t+10, spec_b-10)
+        pts_off = [(x + spec_l, y) for x, y in pts]
+        if len(pts_off) > 1:
+            draw.polygon(pts_off + [(pts_off[-1][0], spec_b), (pts_off[0][0], spec_b)], fill=fill_c)
+            draw.line(pts_off, fill=accent, width=2)
+        draw.text((W//2 - 80, 15), "DETAILED SPECTRUM ANALYTICS", fill=white_high, font=self._f_title)
+
     def record_bearing(self, angle_deg, peak_dbfs):
         norm = float(np.clip((peak_dbfs + 90) / 30.0, 0.0, 1.0))
         self._bearing_log.append((int(angle_deg) % 360, norm))
-        if len(self._bearing_log) > 8:
-            self._bearing_log.pop(0)
+        if len(self._bearing_log) > 12: self._bearing_log.pop(0)
 
     def get_best_bearing(self):
-        if not self._bearing_log:
-            return None
+        if not self._bearing_log: return None
         return max(self._bearing_log, key=lambda x: x[1])[0]
 
-    # ── polar compass ───────────────────────────────────────────────
     def _draw_polar(self, draw, accent, cx, cy, r):
-        dim_accent = self._dim(accent, 0.15)
-
-        # Concentric rings
+        dim_accent = self._dim(accent, 0.2)
         for radius in [r // 3, r * 2 // 3, r]:
-            draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius),
-                         outline=dim_accent, width=1)
-
-        # Cross-hair lines (45° increments)
-        dim_lines = self._dim(accent, 0.12)
+            draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), outline=dim_accent, width=1)
         for angle in range(0, 360, 45):
             rad = np.radians(angle - 90)
-            ex = int(cx + np.cos(rad) * r)
-            ey = int(cy + np.sin(rad) * r)
-            draw.line((cx, cy, ex, ey), fill=dim_lines, width=1)
-
-        # Cardinal labels (N, S, E, W)
-        card_color = (255, 255, 255)
-        f = self._f_compass
-        draw.text((cx - 3, cy - r - 12), "N", fill=card_color, font=f)
-        draw.text((cx - 3, cy + r + 3),  "S", fill=card_color, font=f)
-        draw.text((cx - r - 10, cy - 5), "W", fill=card_color, font=f)
-        draw.text((cx + r + 4, cy - 5),  "E", fill=card_color, font=f)
-
-        # Bearing vectors (accent color)
+            draw.line((cx, cy, int(cx + np.cos(rad) * r), int(cy + np.sin(rad) * r)), fill=dim_accent, width=1)
         for angle_deg, norm in self._bearing_log:
             rad = np.radians(angle_deg - 90)
-            px = int(cx + np.cos(rad) * r * norm)
-            py = int(cy + np.sin(rad) * r * norm)
+            px, py = int(cx + np.cos(rad) * r * norm), int(cy + np.sin(rad) * r * norm)
             draw.line((cx, cy, px, py), fill=accent, width=1)
             draw.ellipse((px - 3, py - 3, px + 3, py + 3), fill=accent)
+        draw.ellipse((cx - 2, cy - 2, cx + 2, cy + 2), fill=(255, 255, 255))
 
-        # Center dot
-        draw.ellipse((cx - 3, cy - 3, cx + 3, cy + 3), fill=accent)
+    def toggle_view_mode(self):
+        self.view_mode = (self.view_mode + 1) % 3
+        print(f"[UI] View Mode changed to: {self.view_mode}")
+
+    def _draw_overlay_menu(self, draw, accent, white):
+        W, H = self.app.w, self.app.h
+        btn_w, btn_h, gap = 64, 28, 6
+        buttons = ["VIEW", "SNAP", "CALIB", "MUTE", "GAIN+", "EXIT"]
+        start_x = (W - (len(buttons) * (btn_w + gap))) // 2
+        y = H - btn_h - 4
+        for i, label in enumerate(buttons):
+            bx = start_x + i * (btn_w + gap)
+            draw.rectangle((bx, y, bx + btn_w, y + btn_h), fill=(25, 25, 35), outline=accent, width=1)
+            lw, lh = self._get_text_size(label, self._f_footer)
+            draw.text((bx + (btn_w - lw)//2, y + (btn_h - lh)//2), label, fill=white, font=self._f_footer)
+            self._touch_zones[label] = (bx, y, bx + btn_w, y + btn_h)
+
+    def _init_touch(self):
+        print("[SYSTEM] Initializing Touch Controller (XPT2046)...")
+        try:
+            self._touch_spi = spidev.SpiDev()
+            self._touch_spi.open(0, 1) # SPI Bus 0, Device 1 (GPIO 7 / CS1)
+            self._touch_spi.max_speed_hz = 1000000
+            threading.Thread(target=self._touch_worker, daemon=True).start()
+        except Exception as e: print(f"[ERROR] Touch init: {e}")
+
+    def _touch_worker(self):
+        X_MIN, X_MAX, Y_MIN, Y_MAX = 200, 3800, 300, 3900
+        while True:
+            try:
+                rx = self._touch_spi.xfer2([0x90, 0, 0])
+                ry = self._touch_spi.xfer2([0xD0, 0, 0])
+                x_raw, y_raw = ((rx[1]<<8)|rx[2])>>3, ((ry[1]<<8)|ry[2])>>3
+                if x_raw > 150 and y_raw > 150:
+                    sx = int(np.clip((x_raw - X_MIN) * self.app.w / (X_MAX - X_MIN), 0, self.app.w-1))
+                    sy = int(np.clip((y_raw - Y_MIN) * self.app.h / (Y_MAX - Y_MIN), 0, self.app.h-1))
+                    self._handle_click(sx, sy)
+                    time.sleep(0.4)
+                time.sleep(0.05)
+            except: time.sleep(1)
+
+    def _handle_click(self, x, y):
+        for label, (x1, y1, x2, y2) in self._touch_zones.items():
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                print(f"[TOUCH] {label}")
+                if label == "VIEW": self.toggle_view_mode()
+                elif label == "MUTE": self.app.toggle_mute()
+                elif label == "CALIB": self.app.recalibrate()
+                elif label == "SNAP": self.app.manual_capture()
+                elif label == "GAIN+": self.app.adjust_gain(2.0)
+                elif label == "EXIT": self.app.running = False
+                return

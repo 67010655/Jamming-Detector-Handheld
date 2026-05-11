@@ -8,6 +8,7 @@ class BuzzerController:
     def __init__(self, buzzer_pin=None, enabled=True):
         self.buzzer_pin = buzzer_pin or config.BUZZER_PIN
         self.enabled = enabled
+        self.muted = False  # Added for UI control
         self.gpio = None
         self.pwm = None
         self.current_state = None
@@ -50,7 +51,7 @@ class BuzzerController:
             self._queue.task_done()
 
     def _buzz(self, duration_s, frequency_hz=1200, duty_cycle=50):
-        if not self.enabled or self.gpio is None:
+        if not self.enabled or self.gpio is None or self.muted:
             time.sleep(duration_s)
             return
 
@@ -118,3 +119,9 @@ class BuzzerController:
         """Play a test sound sequence for debugging."""
         print("[BUZZER] Running test sequence")
         self._tone(pulses=3, pulse_duration=0.06, gap_duration=0.06, frequency_hz=1200)
+
+    def toggle_mute(self):
+        """Toggle the mute state of the buzzer."""
+        self.muted = not self.muted
+        print(f"[BUZZER] {'MUTED' if self.muted else 'UNMUTED'}")
+        return self.muted

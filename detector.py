@@ -204,16 +204,44 @@ class GPSJammerHandheld:
                             import msvcrt
                             if msvcrt.kbhit():
                                 try:
-                                    angle = int(sys.stdin.readline().strip())
-                                    self.ui.record_bearing(angle, metrics["peak_p"])
+                                    line = sys.stdin.readline().strip().lower()
+                                    if line == 'v':
+                                        self.ui.toggle_view_mode()
+                                    elif line == 'm':
+                                        self.toggle_mute()
+                                    elif line == 'c':
+                                        self.recalibrate()
+                                    elif line == 's':
+                                        self.manual_capture()
+                                    elif line == 'g':
+                                        self.adjust_gain(2.0)
+                                    elif line == 'h':
+                                        self.adjust_gain(-2.0)
+                                    else:
+                                        angle = int(line)
+                                        self.ui.record_bearing(angle, metrics["peak_p"])
                                 except Exception:
                                     pass
                         else:
                             import select
                             if select.select([sys.stdin], [], [], 0)[0]:
                                 try:
-                                    angle = int(input())
-                                    self.ui.record_bearing(angle, metrics["peak_p"])
+                                    line = input().strip().lower()
+                                    if line == 'v':
+                                        self.ui.toggle_view_mode()
+                                    elif line == 'm':
+                                        self.toggle_mute()
+                                    elif line == 'c':
+                                        self.recalibrate()
+                                    elif line == 's':
+                                        self.manual_capture()
+                                    elif line == 'g':
+                                        self.adjust_gain(2.0)
+                                    elif line == 'h':
+                                        self.adjust_gain(-2.0)
+                                    else:
+                                        angle = int(line)
+                                        self.ui.record_bearing(angle, metrics["peak_p"])
                                 except Exception:
                                     pass
                     except Exception:
@@ -268,6 +296,39 @@ class GPSJammerHandheld:
             return self.noise_floor + self.peak_threshold_db
         else:
             return self.noise_floor + self.warn_peak_threshold_db
+    
+    def toggle_mute(self):
+        """Toggle buzzer mute state."""
+        return self.buzzer.toggle_mute()
+
+    def recalibrate(self):
+        """Manually trigger noise floor recalibration."""
+        print("[UI] Recalibrating Noise Floor...")
+        self._calibrate()
+
+    def adjust_gain(self, delta):
+        """Adjust SDR gain by delta dB."""
+        self.gain_db = float(np.clip(self.gain_db + delta, 0, 50))
+        if self.sdr:
+            try:
+                self.sdr.gain = self.gain_db
+                print(f"[UI] Gain adjusted to: {self.sdr.gain:.1f} dB")
+            except Exception as e:
+                print(f"[ERROR] Failed to set gain: {e}")
+
+    def manual_capture(self):
+        """Log a manual snapshot event to database."""
+        print("[UI] Manual Snapshot Captured!")
+        uptime = int(time.time() - self.start_time)
+        database_manager.log_event(
+            "MANUAL_SNAP",
+            99, # High priority indicator
+            -50.0, # Dummy peak or use real metrics
+            0.0,
+            self.noise_floor,
+            uptime
+        )
+        # We could also trigger a screen save here if implemented
     
     def shutdown(self):
         print("\n[SYSTEM] Stopping...")
