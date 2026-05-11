@@ -26,6 +26,7 @@ class DisplayUI:
         self.view_mode = 0   # 0: Normal, 1: Search, 2: Analytics
         self._touch_zones = {}
         self._touch_ok = False
+        self._spi_lock = threading.Lock()
 
         if not self.preview:
             self._init_touch()
@@ -46,7 +47,7 @@ class DisplayUI:
         from luma.core.interface.serial import spi
         from luma.lcd.device import ili9488
         serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25,
-                     bus_speed_hz=32000000)
+                     bus_speed_hz=24000000) # Slightly slower for stability
         self.app.device = ili9488(serial, width=self.app.w,
                                   height=self.app.h, rotate=0)
 
@@ -416,7 +417,8 @@ class DisplayUI:
                     pass
                 self._preview_shown = True
         else:
-            self.app.device.display(self.app._img)
+            with self._spi_lock:
+                self.app.device.display(self.app._img)
 
     # ════════════════════════════════════════════════════════════════
     #                     TOUCH  CONTROLLER
@@ -456,9 +458,12 @@ class DisplayUI:
         last_idle_time = time.time()
         while True:
             try:
-                # Commands based on touch_final_test.py (Single-ended)
-                resp_x = self._touch_spi.xfer2([0x94, 0x00, 0x00])
-                resp_y = self._touch_spi.xfer2([0xD4, 0x00, 0x00])
+                # Use lock to prevent collision with display update
+                with self._spi_lock:
+                    # Commands based on touch_final_test.py (Single-ended)
+                    resp_x = self._touch_spi.xfer2([0x94, 0x00, 0x00])
+                    resp_y = self._touch_spi.xfer2([0xD4, 0x00, 0x00])
+                
                 x_raw = ((resp_x[1] << 8) | resp_x[2]) >> 3
                 y_raw = ((resp_y[1] << 8) | resp_y[2]) >> 3
 
