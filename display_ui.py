@@ -379,34 +379,34 @@ class DisplayUI:
         draw.rectangle((0, foot_t, W, foot_b), fill=(6, 6, 6))
         draw.line((0, foot_t, W, foot_t), fill=accent, width=1)
 
-        # Margin text (right side)
-        margin_txt = f"MARGIN:{margin_val:+.1f}dB"
-        max_mw, _ = self._get_text_size("MARGIN:+99.9dB", self._f_small)
-        fixed_margin_x = W - max_mw - 10
-
-        # Percentage text
+        # Percentage text (Right side)
         pct_txt = f"{int(score * 100 / 99)}%"
-        max_pw, _ = self._get_text_size("100%", self._f_small)
-        fixed_pct_x = fixed_margin_x - 20 - max_pw
         pw, _ = self._get_text_size(pct_txt, self._f_small)
-
-        # SIG STR bar
-        sig_x = 8
+        pct_x = W - pw - 10
         sig_y = foot_t + 6
-        draw.text((sig_x, sig_y), "SIG STR", fill=lbl_white, font=self._f_small)
 
-        bar_sx = sig_x + 52
-        bar_sw = max(10, (fixed_pct_x - 6) - bar_sx)
+        # SIG STR Label
+        draw.text((8, sig_y), "SIG STR", fill=lbl_white, font=self._f_small)
+
+        # SIG STR bar (Expanded to fill space)
+        bar_sx = 62  # Start after "SIG STR" label
+        bar_ex = pct_x - 12 # End before percentage text
+        bar_sw = bar_ex - bar_sx
         bar_sh = 8
 
-        draw.rectangle((bar_sx, sig_y + 2, bar_sx + bar_sw, sig_y + bar_sh + 2), fill=(18, 18, 18))
+        # Draw bar background
+        draw.rectangle((bar_sx, sig_y + 2, bar_sx + bar_sw, sig_y + bar_sh + 2), fill=(18, 18, 18), outline=self._dim(accent, 0.3), width=1)
+        
+        # Draw bar fill
         sig_fill = int(bar_sw * score / 99)
         if sig_fill > 0:
-            draw.rectangle((bar_sx, sig_y + 2, bar_sx + sig_fill, sig_y + bar_sh + 2), fill=accent)
+            # Add a slight gradient-like effect or highlight
+            draw.rectangle((bar_sx + 1, sig_y + 3, bar_sx + sig_fill, sig_y + bar_sh + 1), fill=accent)
+            if sig_fill > 2: # Glow highlight
+                draw.line((bar_sx + 1, sig_y + 3, bar_sx + sig_fill, sig_y + 3), fill=white_high, width=1)
 
-        pct_draw_x = fixed_pct_x + max_pw - pw
-        draw.text((pct_draw_x, sig_y), pct_txt, fill=white_high, font=self._f_small)
-        draw.text((fixed_margin_x, sig_y), margin_txt, fill=accent, font=self._f_small)
+        # Draw percentage and footer
+        draw.text((pct_x, sig_y), pct_txt, fill=white_high, font=self._f_small)
 
         footer_txt = "KMITL SPACE ENGINEERING  |  GNSS JAMMER DETECTOR v1.0"
         fw, _ = self._get_text_size(footer_txt, self._f_footer)
