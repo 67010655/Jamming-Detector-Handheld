@@ -461,23 +461,26 @@ class DisplayUI:
         except Exception as e:
             print(f"[TOUCH ERROR] Unexpected init failure: {type(e).__name__}: {e}")
 
+    def _read_xpt2046(self, command):
+        """Read 12-bit value using Manual CS toggling (GPIO 22)."""
+        with self._spi_lock:
+            # Select chip
+            GPIO.output(self._T_CS_MANUAL, GPIO.LOW)
+            resp = self._touch_spi.xfer2([command, 0x00, 0x00])
+            # Deselect chip
+            GPIO.output(self._T_CS_MANUAL, GPIO.HIGH)
+            return ((resp[1] << 8) | resp[2]) >> 3
+
     def _touch_worker(self):
-        """Poll XPT2046 for touch events.  Prints debug info."""
+        """Poll XPT2046 with manual CS logic."""
         X_MIN, X_MAX = 300, 3850
         Y_MIN, Y_MAX = 130, 3840
-        print("[TOUCH] Worker thread started -- touch the screen to test")
-        err_count = 0
+        print("[TOUCH] Manual CS worker started -- using GPIO 22")
         last_idle_time = time.time()
         while True:
             try:
-                # Use lock to prevent collision with display update
-                with self._spi_lock:
-                    # Commands based on touch_final_test.py (Single-ended)
-                    resp_x = self._touch_spi.xfer2([0x94, 0x00, 0x00])
-                    resp_y = self._touch_spi.xfer2([0xD4, 0x00, 0x00])
-                
-                x_raw = ((resp_x[1] << 8) | resp_x[2]) >> 3
-                y_raw = ((resp_y[1] << 8) | resp_y[2]) >> 3
+                x_raw = self._read_xpt2046(0x94) # X
+                y_raw = self._read_xpt2046(0xD4) # Y
 
                 if 50 < x_raw < 4050 and 50 < y_raw < 4050:
                     # Map raw -> screen (Applying inversion based on calib data)
@@ -485,23 +488,17 @@ class DisplayUI:
                     sy = int(np.clip(319 - ((y_raw - Y_MIN) * 320 / (Y_MAX - Y_MIN)), 0, 319))
                     print(f"[TOUCH] DETECTED! raw=({x_raw},{y_raw}) -> screen=({sx},{sy})")
                     self._handle_click(sx, sy)
-                    time.sleep(0.4)   # debounce
+                    time.sleep(0.4)
                 else:
-                    # Idle log every 2 seconds to confirm worker is alive
                     if time.time() - last_idle_time > 2.0:
                         print(f"[TOUCH DEBUG] Worker alive. Raw: X={x_raw}, Y={y_raw}")
                         last_idle_time = time.time()
-
-                err_count = 0
+                
                 time.sleep(0.05)
-
             except Exception as e:
-                err_count += 1
-                if err_count <= 5:
-                    print(f"[TOUCH ERROR] Worker exception #{err_count}: {type(e).__name__}: {e}")
-                elif err_count == 6:
-                    print("[TOUCH ERROR] Suppressing further errors ...")
+                # Suppress flood, show errors occasionally
                 time.sleep(1)
+
 
     def _handle_click(self, x, y):
         for label, (x1, y1, x2, y2) in self._touch_zones.items():
