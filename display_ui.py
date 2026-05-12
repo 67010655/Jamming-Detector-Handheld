@@ -33,6 +33,8 @@ class DisplayUI:
         self._pressed_until = 0
         self._toast_msg = None
         self._toast_until = 0
+        self._pwr_confirm = False
+        self._pwr_confirm_until = 0
 
         if not self.preview:
             self._init_touch()
@@ -82,23 +84,25 @@ class DisplayUI:
                     continue
             return ImageFont.load_default()
 
-        self._f_title     = _try(bold, 12)
-        self._f_subtitle  = _try(regular, 10)
-        self._f_status    = _try(bold, 20)
+        self._f_title     = _try(bold, 14)
+        self._f_subtitle  = _try(bold, 11)
+        self._f_status    = _try(bold, 22)
         self._f_state_big = _try(bold, 26)
-        self._f_score_big = _try(mono, 36)
-        self._f_score_sub = _try(regular, 12)
-        self._f_label     = _try(regular, 9)
+        self._f_score_big = _try(mono, 32)
+        self._f_score_sub = _try(regular, 11)
+        self._f_label     = _try(bold, 11)
         self._f_value     = _try(bold, 22)
-        self._f_unit      = _try(regular, 9)
-        self._f_brg       = _try(bold, 16)
-        self._f_compass   = _try(regular, 9)
-        self._f_small     = _try(bold, 9)
-        self._f_footer    = _try(bold, 8)
-        self._f_fps       = _try(bold, 16)
-        self._f_fps_label = _try(regular, 9)
-        self._f_dblabel   = _try(regular, 8)
-        self._f_btn       = _try(bold, 10)
+        self._f_unit      = _try(regular, 10)
+        self._f_brg       = _try(bold, 18)
+        self._f_compass   = _try(regular, 10)
+        self._f_small     = _try(bold, 10)
+        self._f_footer    = _try(bold, 9)
+        self._f_fps       = _try(bold, 14)
+        self._f_fps_label = _try(regular, 10)
+        self._f_dblabel   = _try(regular, 9)
+        self._f_btn       = _try(bold, 13)
+        self._f_met_val   = _try(mono, 14)
+        self._f_toast     = _try(bold, 18)
 
     # ── colour helpers ──────────────────────────────────────────────
     @staticmethod
@@ -159,8 +163,8 @@ class DisplayUI:
         draw.text(((W - tw) // 2, H // 2 - 40), "GNSS JAMMING DETECTOR", fill=(0, 255, 136), font=self._f_state_big)
         
         # Subtitle
-        sw, sh = self._get_text_size("KMITL SPACE ENG", self._f_status)
-        draw.text(((W - sw) // 2, H // 2), "KMITL SPACE ENG", fill=(255, 255, 255), font=self._f_status)
+        sw, sh = self._get_text_size("KMITL SPACE & GEO ENGINEERING", self._f_status)
+        draw.text(((W - sw) // 2, H // 2), "KMITL SPACE & GEO ENGINEERING", fill=(255, 255, 255), font=self._f_status)
         
         # Message
         mw, mh = self._get_text_size(message, self._f_value)
@@ -199,94 +203,127 @@ class DisplayUI:
         self._history_log.append(margin_val)
         if len(self._history_log) > 50: self._history_log.pop(0)
 
-        # ── theme colours ───────────────────────────────────────────
+        # ── theme colours (BRIGHT for outdoor use) ───────────────────
         if state == "JAMMING":
-            accent   = (255, 80, 90)
-            hdr_bg   = (40, 8, 10)
-            grid     = (60, 20, 25)
-            fill_c   = (80, 15, 20)
+            accent    = (255, 60, 70)
+            accent_br = (255, 120, 130)  # Brighter variant for text
+            hdr_bg    = (60, 5, 8)
+            grid      = (80, 25, 30)
         elif state == "WATCH":
-            accent   = (255, 220, 50)
-            hdr_bg   = (50, 44, 10)
-            grid     = (80, 70, 15)
-            fill_c   = (100, 80, 10)
+            accent    = (255, 230, 50)
+            accent_br = (255, 245, 140)
+            hdr_bg    = (60, 50, 5)
+            grid      = (100, 85, 15)
         else:
-            accent   = (0, 255, 136)
-            hdr_bg   = (8, 40, 20)
-            grid     = (0, 80, 50)
-            fill_c   = (0, 100, 60)
+            accent    = (0, 255, 140)
+            accent_br = (120, 255, 200)
+            hdr_bg    = (5, 45, 25)
+            grid      = (0, 100, 60)
 
         white  = (255, 255, 255)
-        lbl    = (255, 255, 255)
+        bright = (240, 240, 255)  # Slightly cool white for labels
+        dim    = (160, 160, 180)  # Muted for secondary info
 
         # ── layout ──────────────────────────────────────────────────
-        hdr_b   = 44
-        lp_r    = 0     # Removed left panel!
-        rp_l    = 418
-        foot_t  = 260   # Bigger bottom bar for buttons
+        hdr_b   = 40
+        rp_l    = 416
+        foot_t  = 264   # Bottom bar for buttons
 
         # Background
-        draw.rectangle((0, 0, W - 1, H - 1), fill=(3, 3, 3))
+        draw.rectangle((0, 0, W - 1, H - 1), fill=(5, 5, 8))
 
-        # HEADER
+        # ═══ HEADER ═══
         uptime = int(time.time() - self.app.start_time)
         hrs, mins, secs = uptime // 3600, (uptime % 3600) // 60, uptime % 60
         up_str = f"{hrs:02d}:{mins:02d}:{secs:02d}"
 
         draw.rectangle((0, 0, W, hdr_b), fill=hdr_bg)
-        draw.line((0, hdr_b, W, hdr_b), fill=accent, width=1)
-        draw.text((8, 5), "GNSS L1 JAMMING DETECTOR HANDHELD", fill=white, font=self._f_title)
-        sub = f"GPS L1 | UP: {up_str} | G:{self.app.gain_db}dB | MODE:{self.view_mode}"
-        draw.text((8, 23), sub, fill=accent, font=self._f_subtitle)
-        sw, _ = self._get_text_size(state, self._f_status)
-        draw.text((W - sw - 14, 10), state, fill=accent, font=self._f_status)
+        draw.line((0, hdr_b, W, hdr_b), fill=accent, width=2)
 
-        # RIGHT PANEL
-        draw.rectangle((rp_l, hdr_b, W, foot_t), fill=(6, 6, 6))
-        draw.line((rp_l, hdr_b, rp_l, foot_t), fill=accent, width=1)
-        draw.text((rp_l + 8, hdr_b + 8), "SCORE", fill=lbl, font=self._f_label)
+        # Title row
+        draw.text((10, 4), "GNSS JAMMING DETECTOR", fill=white, font=self._f_title)
+        # Subtitle row
+        modes_name = ["NORMAL", "SEARCH", "ANALYTICS"]
+        sub = f"L1 1575.42MHz  |  {up_str}  |  G:{self.app.gain_db:.0f}dB  |  {modes_name[self.view_mode]}"
+        draw.text((10, 22), sub, fill=accent_br, font=self._f_subtitle)
+
+        # State badge (right side of header)
+        sw, sh = self._get_text_size(state, self._f_status)
+        badge_x = W - sw - 16
+        badge_y = (hdr_b - sh) // 2
+        # Badge background
+        draw.rectangle((badge_x - 8, badge_y - 2, W - 4, badge_y + sh + 2), fill=accent, outline=accent)
+        draw.text((badge_x, badge_y), state, fill=(0, 0, 0), font=self._f_status)
+
+        # ═══ RIGHT PANEL ═══
+        rp_w = W - rp_l
+        draw.rectangle((rp_l, hdr_b, W, foot_t), fill=(10, 10, 15))
+        draw.line((rp_l, hdr_b, rp_l, foot_t), fill=accent, width=2)
+
+        # SIG STR label
+        draw.text((rp_l + 8, hdr_b + 6), "SIG", fill=bright, font=self._f_label)
+        draw.text((rp_l + 8, hdr_b + 20), "STR", fill=bright, font=self._f_label)
+
+        # Score value
         sc_str = f"{score:02d}"
-        draw.text((rp_l + 12, hdr_b + 22), sc_str, fill=accent, font=self._f_score_big)
-        draw.text((rp_l + 25, hdr_b + 58), "/99", fill=white, font=self._f_score_sub)
-        
+        draw.text((rp_l + 8, hdr_b + 38), sc_str, fill=accent, font=self._f_score_big)
+        draw.text((rp_l + 8, hdr_b + 72), "/99", fill=dim, font=self._f_score_sub)
+
         # Vertical bar
-        bar_x, bar_w = rp_l + 10, (W - rp_l) - 20
-        bar_top, bar_bot = hdr_b + 80, foot_t - 42
+        bar_x, bar_w = rp_l + 8, rp_w - 16
+        bar_top, bar_bot = hdr_b + 90, foot_t - 36
         bar_h = bar_bot - bar_top
-        draw.rectangle((bar_x, bar_top, bar_x + bar_w, bar_bot), fill=(18,18,18), outline=self._dim(accent,0.4))
+        # Bar background with rounded-look border
+        draw.rectangle((bar_x, bar_top, bar_x + bar_w, bar_bot), fill=(20, 20, 25), outline=self._dim(accent, 0.5))
         fill_h = int(bar_h * score / 99)
         if fill_h > 0:
-            draw.rectangle((bar_x+1, bar_bot-fill_h, bar_x+bar_w-1, bar_bot), fill=accent)
+            # Gradient-like fill: brighter at top
+            draw.rectangle((bar_x + 1, bar_bot - fill_h, bar_x + bar_w - 1, bar_bot), fill=accent)
+            if fill_h > 3:
+                draw.rectangle((bar_x + 2, bar_bot - fill_h, bar_x + bar_w - 2, bar_bot - fill_h + 3), fill=accent_br)
 
-        # FPS (in right panel footer)
-        draw.text((rp_l + 8, foot_t - 36), "FPS", fill=lbl, font=self._f_label)
-        draw.text((rp_l + 8, foot_t - 22), f"{fps_val}", fill=accent, font=self._f_fps)
+        # FPS in right panel footer
+        draw.text((rp_l + 8, foot_t - 30), f"FPS {fps_val}", fill=dim, font=self._f_small)
 
-        # ── MAIN CONTENT AREA ───────────────────────────────────────
-        content_w = rp_l - lp_r
-        if self.view_mode == 1: # SEARCH MODE (Radar Focus)
-            self._draw_radar(draw, lp_r + content_w//2, (hdr_b + foot_t)//2, 95, accent, grid, white)
-            
-        elif self.view_mode == 2: # ANALYTICS MODE (History Focus)
-            self._draw_history(draw, lp_r + 15, hdr_b + 20, rp_l - 15, foot_t - 80, accent, grid, white)
-            self._draw_spectrum(draw, lp_r + 10, foot_t - 70, rp_l - 10, foot_t - 5, metrics, power, accent, grid, nf, peak, small=True)
-            
-        else: # NORMAL MODE
-            self._draw_spectrum(draw, lp_r + 2, hdr_b + 2, rp_l - 2, hdr_b + 150, metrics, power, accent, grid, nf, peak)
-            # Metrics below spectrum
-            met_t, met_b = hdr_b + 160, foot_t
+        # ═══ MAIN CONTENT AREA ═══
+        content_l = 0
+        content_w = rp_l
+
+        if self.view_mode == 1:  # SEARCH MODE (Radar)
+            self._draw_radar(draw, content_l + content_w // 2, (hdr_b + foot_t) // 2, 100, accent, grid, white)
+
+        elif self.view_mode == 2:  # ANALYTICS MODE (History)
+            self._draw_history(draw, content_l + 12, hdr_b + 18, rp_l - 12, foot_t - 75, accent, grid, white)
+            self._draw_spectrum(draw, content_l + 8, foot_t - 68, rp_l - 8, foot_t - 4, metrics, power, accent, grid, nf, peak, small=True)
+
+        else:  # NORMAL MODE
+            # Spectrum fills most of the area
+            spec_bot = hdr_b + 155
+            self._draw_spectrum(draw, content_l + 4, hdr_b + 4, rp_l - 4, spec_bot, metrics, power, accent, grid, nf, peak)
+
+            # Metrics grid below spectrum (2x2 layout with clear spacing)
+            met_y = spec_bot + 8
             col_w = content_w // 2
-            for i, (ml, mv, mu) in enumerate([("NOISE",f"{nf:.1f}","dB"), ("PEAK",f"{peak:.1f}","dB"), ("RISE",f"{rise:+.1f}","dB"), ("MARGIN",f"{margin_val:+.1f}","dB")]):
-                mx = lp_r + (i%2)*col_w + 30
-                my = met_t + (i//2)*25
-                draw.text((mx, my), ml, fill=lbl, font=self._f_label)
-                draw.text((mx, my+12), f"{mv} {mu}", fill=accent, font=self._f_brg)
+            met_data = [
+                ("NOISE", f"{nf:.1f}", "dB"),
+                ("PEAK",  f"{peak:.1f}", "dB"),
+                ("RISE",  f"{rise:+.1f}", "dB"),
+                ("MARGIN",f"{margin_val:+.1f}", "dB"),
+            ]
+            for i, (ml, mv, mu) in enumerate(met_data):
+                mx = content_l + (i % 2) * col_w + 20
+                my = met_y + (i // 2) * 40
+                # Label
+                draw.text((mx, my), ml, fill=dim, font=self._f_label)
+                # Value + unit (bright and large)
+                val_str = f"{mv} {mu}"
+                draw.text((mx, my + 16), val_str, fill=accent_br, font=self._f_met_val)
 
-        # BOTTOM BUTTON BAR
-        draw.rectangle((0, foot_t, W, H), fill=(10, 10, 10))
+        # ═══ BOTTOM BUTTON BAR ═══
+        draw.rectangle((0, foot_t, W, H), fill=(12, 12, 18))
         draw.line((0, foot_t, W, foot_t), fill=accent, width=2)
-        
-        btns = ["MODE", "CALIB", "GAIN -", "GAIN +", "PWR"]
+
+        btns = ["MODE", "CALIB", "GAIN-", "GAIN+", "PWR"]
         btn_count = len(btns)
         btn_w = W // btn_count
         self._touch_zones = {}
@@ -294,40 +331,89 @@ class DisplayUI:
         for i, label in enumerate(btns):
             bx = i * btn_w
             is_pressed = (label == self._last_pressed and now < self._pressed_until)
-            
-            # Use red color for PWR button
+
             if label == "PWR":
-                bg_c = (200, 50, 50) if is_pressed else (60, 10, 10)
-                outline_c = (255, 100, 100)
+                if self._pwr_confirm and now < self._pwr_confirm_until:
+                    bg_c = (220, 30, 30)
+                    outline_c = (255, 100, 100)
+                    disp_label = "CONFIRM?"
+                else:
+                    bg_c = (180, 40, 40) if is_pressed else (50, 8, 8)
+                    outline_c = (200, 60, 60)
+                    disp_label = label
                 tx_c = white
             else:
-                bg_c = white if is_pressed else (20, 20, 30)
-                outline_c = accent
+                bg_c = accent if is_pressed else (22, 22, 35)
+                outline_c = self._dim(accent, 0.7)
                 tx_c = (0, 0, 0) if is_pressed else white
-            
-            # Button outline
+                disp_label = label
+
             draw.rectangle((bx + 2, foot_t + 4, bx + btn_w - 2, H - 4), fill=bg_c, outline=outline_c)
-            tw, th = self._get_text_size(label, self._f_btn)
-            draw.text((bx + (btn_w - tw)//2, foot_t + 20), label, fill=tx_c, font=self._f_btn)
-            
+            tw, th = self._get_text_size(disp_label, self._f_btn)
+            ty = foot_t + (H - foot_t - th) // 2
+            draw.text((bx + (btn_w - tw) // 2, ty), disp_label, fill=tx_c, font=self._f_btn)
+
+            # Map touch zone with the original label (not display label)
             self._touch_zones[label] = (bx, foot_t, bx + btn_w, H)
 
-        # TOAST OVERLAY
-        if now < self._toast_until and self._toast_msg:
+        # ═══ TOAST OVERLAY ═══
+        if now < self._toast_until and self._toast_msg and not self._pwr_confirm:
             msg = self._toast_msg
-            tw, th = self._get_text_size(msg, self._f_value)
-            pad_x, pad_y = 30, 20
+            tw, th = self._get_text_size(msg, self._f_toast)
+            pad_x, pad_y = 28, 16
             box_w, box_h = tw + pad_x * 2, th + pad_y * 2
             cx, cy = W // 2, (hdr_b + foot_t) // 2
-            
-            # Draw semi-transparent looking box (dark background, bright outline)
-            draw.rectangle((cx - box_w//2, cy - box_h//2, cx + box_w//2, cy + box_h//2), fill=(15, 15, 25), outline=accent, width=2)
-            draw.text((cx - tw//2, cy - th//2), msg, fill=white, font=self._f_value)
+
+            # Dark box with accent glow border
+            draw.rectangle((cx - box_w//2 - 2, cy - box_h//2 - 2, cx + box_w//2 + 2, cy + box_h//2 + 2), fill=self._dim(accent, 0.15))
+            draw.rectangle((cx - box_w//2, cy - box_h//2, cx + box_w//2, cy + box_h//2), fill=(10, 10, 18), outline=accent, width=2)
+            draw.text((cx - tw//2, cy - th//2), msg, fill=white, font=self._f_toast)
+
+        # ═══ PWR CONFIRM DIALOG ═══
+        if self._pwr_confirm and now < self._pwr_confirm_until:
+            cx, cy = W // 2, (hdr_b + foot_t) // 2
+            dlg_w, dlg_h = 280, 120
+
+            # Dialog background
+            draw.rectangle((cx - dlg_w//2 - 3, cy - dlg_h//2 - 3, cx + dlg_w//2 + 3, cy + dlg_h//2 + 3), fill=(80, 10, 10))
+            draw.rectangle((cx - dlg_w//2, cy - dlg_h//2, cx + dlg_w//2, cy + dlg_h//2), fill=(15, 8, 12), outline=(255, 80, 80), width=2)
+
+            # Title text
+            q_text = "POWER OFF?"
+            qw, qh = self._get_text_size(q_text, self._f_value)
+            draw.text((cx - qw//2, cy - dlg_h//2 + 14), q_text, fill=(255, 100, 100), font=self._f_value)
+
+            # YES / NO buttons
+            btn_y_top = cy + 8
+            btn_y_bot = cy + dlg_h//2 - 10
+            btn_gap = 20
+
+            # YES button (left)
+            yes_x1 = cx - dlg_w//2 + 20
+            yes_x2 = cx - btn_gap//2
+            draw.rectangle((yes_x1, btn_y_top, yes_x2, btn_y_bot), fill=(200, 40, 40), outline=(255, 120, 120))
+            yw, yh = self._get_text_size("YES", self._f_btn)
+            draw.text(((yes_x1 + yes_x2 - yw)//2, (btn_y_top + btn_y_bot - yh)//2), "YES", fill=white, font=self._f_btn)
+            self._touch_zones["PWR_YES"] = (yes_x1, btn_y_top, yes_x2, btn_y_bot)
+
+            # NO button (right)
+            no_x1 = cx + btn_gap//2
+            no_x2 = cx + dlg_w//2 - 20
+            draw.rectangle((no_x1, btn_y_top, no_x2, btn_y_bot), fill=(30, 80, 50), outline=(80, 200, 120))
+            nw, nh = self._get_text_size("NO", self._f_btn)
+            draw.text(((no_x1 + no_x2 - nw)//2, (btn_y_top + btn_y_bot - nh)//2), "NO", fill=white, font=self._f_btn)
+            self._touch_zones["PWR_NO"] = (no_x1, btn_y_top, no_x2, btn_y_bot)
+        else:
+            # Clean up dialog touch zones when not showing
+            self._touch_zones.pop("PWR_YES", None)
+            self._touch_zones.pop("PWR_NO", None)
 
         # Output
-        if self.preview: self.app._img.save("preview.png")
+        if self.preview:
+            self.app._img.save("preview.png")
         else:
-            with self._spi_lock: self.app.device.display(self.app._img)
+            with self._spi_lock:
+                self.app.device.display(self.app._img)
 
     def _draw_spectrum(self, draw, l, t, r, b, metrics, power, accent, grid, nf, peak, small=False):
         draw.rectangle((l, t, r, b), outline=accent)
@@ -396,22 +482,43 @@ class DisplayUI:
             except: time.sleep(1)
 
     def _handle_click(self, x, y):
+        now = time.time()
+
+        # If PWR dialog is showing, only respond to YES/NO
+        if self._pwr_confirm and now < self._pwr_confirm_until:
+            for label in ["PWR_YES", "PWR_NO"]:
+                zone = self._touch_zones.get(label)
+                if zone:
+                    x1, y1, x2, y2 = zone
+                    if x1 <= x <= x2 and y1 <= y <= y2:
+                        if label == "PWR_YES":
+                            self._pwr_confirm = False
+                            self.app.safe_power_off()
+                        else:
+                            self._pwr_confirm = False
+                            self.show_toast("CANCELLED", 1.0)
+                        return
+            # Tapped outside dialog = cancel
+            self._pwr_confirm = False
+            return
+
         for label, (x1, y1, x2, y2) in self._touch_zones.items():
             if x1 <= x <= x2 and y1 <= y <= y2:
-                self._last_pressed, self._pressed_until = label, time.time() + 0.15
-                if label == "MODE": 
+                self._last_pressed, self._pressed_until = label, now + 0.2
+                if label == "MODE":
                     self.view_mode = (self.view_mode + 1) % 3
                     modes = ["NORMAL", "SEARCH", "ANALYTICS"]
                     self.show_toast(f"MODE: {modes[self.view_mode]}")
-                elif label == "GAIN -": 
+                elif label == "GAIN-":
                     self.app.adjust_gain(-2.0)
                     self.show_toast(f"GAIN: {self.app.gain_db:.1f} dB")
-                elif label == "GAIN +": 
+                elif label == "GAIN+":
                     self.app.adjust_gain(2.0)
                     self.show_toast(f"GAIN: {self.app.gain_db:.1f} dB")
-                elif label == "CALIB": 
+                elif label == "CALIB":
                     self.app.request_calibration = True
                     self.show_toast("CALIBRATING...", 3.0)
                 elif label == "PWR":
-                    self.app.safe_power_off()
+                    self._pwr_confirm = True
+                    self._pwr_confirm_until = now + 5.0  # 5 seconds to decide
                 return
