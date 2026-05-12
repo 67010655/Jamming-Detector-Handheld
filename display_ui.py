@@ -298,23 +298,32 @@ class DisplayUI:
         else:  # NORMAL MODE
             # Spectrum: large — this is the main display
             spec_bot = foot_t - 72
-            self._draw_spectrum(draw, content_l + 4, hdr_b + 4, rp_l - 4, spec_bot, metrics, power, accent, grid, nf, peak)
+            self._draw_spectrum(draw, content_l + 8, hdr_b + 4, rp_l - 4, spec_bot, metrics, power, accent, grid, nf, peak)
 
-            # Metrics grid below spectrum (2x2 with full labels)
+            # Metrics grid below spectrum (4 columns as requested)
             met_y = spec_bot + 6
-            col_w = content_w // 2
-            row_h = 32  # Height per row — ensures no overlap with foot_t
+            col_w = content_w // 4
             met_data = [
-                ("NOISE FLOOR",  f"{nf:.1f} dB"),
-                ("PEAK POWER",   f"{peak:.1f} dB"),
-                ("FLOOR RISE",   f"{rise:+.1f} dB"),
-                ("MARGIN",       f"{margin_val:+.1f} dB"),
+                ("NOISE FLOOR", f"{nf:.1f}", white),
+                ("PEAK POWER",  f"{peak:.1f}", accent_br),
+                ("FLOOR RISE",  f"{rise:+.1f}", accent_br),
+                ("MARGIN",      f"{margin_val:+.1f}", accent_br),
             ]
-            for i, (ml, mv) in enumerate(met_data):
-                mx = content_l + (i % 2) * col_w + 16
-                my = met_y + (i // 2) * row_h
-                draw.text((mx, my), ml, fill=dim, font=self._f_small)
-                draw.text((mx, my + 13), mv, fill=accent_br, font=self._f_met_val)
+            for i, (ml, mv, mcolor) in enumerate(met_data):
+                mx = content_l + i * col_w
+                # Vertical divider
+                if i > 0:
+                    draw.line((mx, met_y + 4, mx, foot_t - 6), fill=(60, 60, 70), width=1)
+                
+                # Center text in column
+                tw, _ = self._get_text_size(ml, self._f_small)
+                draw.text((mx + (col_w - tw)//2, met_y), ml, fill=dim, font=self._f_small)
+                
+                vw, vh = self._get_text_size(mv, self._f_value)
+                draw.text((mx + (col_w - vw)//2, met_y + 16), mv, fill=mcolor, font=self._f_value)
+                
+                uw, _ = self._get_text_size("dB", self._f_small)
+                draw.text((mx + (col_w - uw)//2, met_y + 40), "dB", fill=mcolor, font=self._f_small)
 
         # ═══ BOTTOM BUTTON BAR ═══
         draw.rectangle((0, foot_t, W, H), fill=(12, 12, 18))
@@ -331,11 +340,11 @@ class DisplayUI:
             is_pressed = (label == self._last_pressed and now < self._pressed_until)
 
             if label == "PWR":
-                bg_c = (180, 40, 40) if is_pressed else (50, 8, 8)
+                bg_c = (180, 40, 40) if is_pressed else (60, 10, 10)
                 outline_c = (200, 60, 60)
                 ic = white
             else:
-                bg_c = accent if is_pressed else (22, 22, 35)
+                bg_c = accent if is_pressed else (30, 30, 45)
                 outline_c = self._dim(accent, 0.7)
                 ic = (0, 0, 0) if is_pressed else white
 
@@ -424,14 +433,44 @@ class DisplayUI:
                 self.app.device.display(self.app._img)
 
     def _draw_spectrum(self, draw, l, t, r, b, metrics, power, accent, grid, nf, peak, small=False):
-        draw.rectangle((l, t, r, b), outline=accent)
+        draw.rectangle((l, t, r, b), outline=accent, fill=(10, 10, 12))
         sw, sh = r - l, b - t
-        pts = scale_points(power, nf, sw, t+5, b-5)
+
+        # Dotted Grid
+        grid_c = (50, 50, 60)
+        # Vertical lines (frequency)
+        for i in range(1, 4):
+            gx = l + (sw * i) // 4
+            for gy in range(t, b, 6):
+                draw.line((gx, gy, gx, gy + 2), fill=grid_c)
+        # Horizontal lines (dB)
+        for i in range(1, 4):
+            gy = t + (sh * i) // 4
+            for gx in range(l, r, 6):
+                draw.line((gx, gy, gx + 2, gy), fill=grid_c)
+            # Small dB labels
+            db_val = -20 - i*20
+            draw.text((l + 4, gy - 8), str(db_val), fill=(80, 80, 90), font=self._f_footer)
+
+        # Noise Floor line (dashed)
+        # Map nf (-120 to -40 usually) to y
+        # scale_points maps 0-100% where 0 is nf and 100 is peak? 
+        # Actually scale_points uses a different logic. 
+        # Let's draw a fixed line for NF since it's the baseline in the graph usually.
+        # But wait, the graph points are RELATIVE to NF.
+        # So NF is at the bottom of the graph by definition of scale_points.
+        # Let's draw the "NOISE FLOOR" label at the baseline.
+        nf_y = b - 15
+        draw.text((l + 10, nf_y), "NOISE FLOOR", fill=(100, 100, 110), font=self._f_footer)
+        for gx in range(l, r, 8):
+            draw.line((gx, nf_y + 10, gx + 4, nf_y + 10), fill=(100, 100, 110))
+
+        pts = scale_points(power, nf, sw, t+5, b-15) # Adjusted bot to leave room for NF line
         pts_off = [(px + l, py) for px, py in pts]
         if len(pts_off) > 2:
             sm = self._smooth(pts_off, sw)
             poly = list(sm) + [(sm[-1][0], b-1), (sm[0][0], b-1)]
-            draw.polygon(poly, fill=self._dim(accent, 0.2))
+            draw.polygon(poly, fill=self._dim(accent, 0.15))
             draw.line(sm, fill=accent, width=1 if small else 2)
 
     def _draw_radar(self, draw, cx, cy, radius, accent, grid, white):
