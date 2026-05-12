@@ -357,7 +357,11 @@ class GPSJammerHandheld:
         self.shutdown() # Cleanup hardware
         import os
         if sys.platform != "win32" and not self.preview:
-            os.system("sudo shutdown -h now")
+            os.system("sudo poweroff")
+            # Block forever — prevent process from exiting so systemd
+            # won't restart us. OS shutdown will kill us naturally.
+            while True:
+                time.sleep(1)
         else:
             print("[INFO] Shutdown command skipped in preview/Windows mode.")
             self.running = False

@@ -225,9 +225,9 @@ class DisplayUI:
         dim    = (160, 160, 180)  # Muted for secondary info
 
         # ── layout ──────────────────────────────────────────────────
-        hdr_b   = 40
-        rp_l    = 416
-        foot_t  = 264   # Bottom bar for buttons
+        hdr_b   = 36
+        rp_l    = 420
+        foot_t  = 268   # Bottom bar starts here (H=320, so 52px for buttons)
 
         # Background
         draw.rectangle((0, 0, W - 1, H - 1), fill=(5, 5, 8))
@@ -241,49 +241,46 @@ class DisplayUI:
         draw.line((0, hdr_b, W, hdr_b), fill=accent, width=2)
 
         # Title row
-        draw.text((10, 4), "GNSS JAMMING DETECTOR", fill=white, font=self._f_title)
+        draw.text((8, 3), "GNSS JAMMING DETECTOR", fill=white, font=self._f_title)
         # Subtitle row
         modes_name = ["NORMAL", "SEARCH", "ANALYTICS"]
-        sub = f"L1 1575.42MHz  |  {up_str}  |  G:{self.app.gain_db:.0f}dB  |  {modes_name[self.view_mode]}"
-        draw.text((10, 22), sub, fill=accent_br, font=self._f_subtitle)
+        sub = f"L1 1575.42MHz | {up_str} | G:{self.app.gain_db:.0f}dB | {modes_name[self.view_mode]}"
+        draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle)
 
-        # State badge (right side of header)
-        sw, sh = self._get_text_size(state, self._f_status)
-        badge_x = W - sw - 16
+        # State badge (right side of header — uses smaller font to fit)
+        sw, sh = self._get_text_size(state, self._f_brg)
+        badge_x = W - sw - 12
         badge_y = (hdr_b - sh) // 2
-        # Badge background
-        draw.rectangle((badge_x - 8, badge_y - 2, W - 4, badge_y + sh + 2), fill=accent, outline=accent)
-        draw.text((badge_x, badge_y), state, fill=(0, 0, 0), font=self._f_status)
+        draw.rectangle((badge_x - 6, badge_y - 1, W - 3, badge_y + sh + 1), fill=accent)
+        draw.text((badge_x, badge_y), state, fill=(0, 0, 0), font=self._f_brg)
 
         # ═══ RIGHT PANEL ═══
         rp_w = W - rp_l
         draw.rectangle((rp_l, hdr_b, W, foot_t), fill=(10, 10, 15))
         draw.line((rp_l, hdr_b, rp_l, foot_t), fill=accent, width=2)
 
-        # SIG STR label
-        draw.text((rp_l + 8, hdr_b + 6), "SIG", fill=bright, font=self._f_label)
-        draw.text((rp_l + 8, hdr_b + 20), "STR", fill=bright, font=self._f_label)
+        # SIG STR label (one line, small)
+        draw.text((rp_l + 6, hdr_b + 5), "SIG STR", fill=bright, font=self._f_small)
 
-        # Score value
-        sc_str = f"{score:02d}"
-        draw.text((rp_l + 8, hdr_b + 38), sc_str, fill=accent, font=self._f_score_big)
-        draw.text((rp_l + 8, hdr_b + 72), "/99", fill=dim, font=self._f_score_sub)
+        # Score value as percentage
+        pct = int(np.clip(score * 100 / 99, 0, 100))
+        pct_str = f"{pct}"
+        draw.text((rp_l + 6, hdr_b + 20), pct_str, fill=accent, font=self._f_score_big)
+        draw.text((rp_l + 6, hdr_b + 54), "/100%", fill=dim, font=self._f_score_sub)
 
         # Vertical bar
-        bar_x, bar_w = rp_l + 8, rp_w - 16
-        bar_top, bar_bot = hdr_b + 90, foot_t - 36
+        bar_x, bar_w = rp_l + 6, rp_w - 12
+        bar_top, bar_bot = hdr_b + 72, foot_t - 28
         bar_h = bar_bot - bar_top
-        # Bar background with rounded-look border
         draw.rectangle((bar_x, bar_top, bar_x + bar_w, bar_bot), fill=(20, 20, 25), outline=self._dim(accent, 0.5))
         fill_h = int(bar_h * score / 99)
         if fill_h > 0:
-            # Gradient-like fill: brighter at top
             draw.rectangle((bar_x + 1, bar_bot - fill_h, bar_x + bar_w - 1, bar_bot), fill=accent)
             if fill_h > 3:
                 draw.rectangle((bar_x + 2, bar_bot - fill_h, bar_x + bar_w - 2, bar_bot - fill_h + 3), fill=accent_br)
 
         # FPS in right panel footer
-        draw.text((rp_l + 8, foot_t - 30), f"FPS {fps_val}", fill=dim, font=self._f_small)
+        draw.text((rp_l + 6, foot_t - 22), f"FPS {fps_val}", fill=dim, font=self._f_small)
 
         # ═══ MAIN CONTENT AREA ═══
         content_l = 0
@@ -297,27 +294,25 @@ class DisplayUI:
             self._draw_spectrum(draw, content_l + 8, foot_t - 68, rp_l - 8, foot_t - 4, metrics, power, accent, grid, nf, peak, small=True)
 
         else:  # NORMAL MODE
-            # Spectrum fills most of the area
-            spec_bot = hdr_b + 155
+            # Spectrum: from header to about 60% of content area
+            spec_bot = hdr_b + 130
             self._draw_spectrum(draw, content_l + 4, hdr_b + 4, rp_l - 4, spec_bot, metrics, power, accent, grid, nf, peak)
 
-            # Metrics grid below spectrum (2x2 layout with clear spacing)
-            met_y = spec_bot + 8
+            # Metrics grid below spectrum (2x2 with full labels)
+            met_y = spec_bot + 6
             col_w = content_w // 2
+            row_h = 32  # Height per row — ensures no overlap with foot_t
             met_data = [
-                ("NOISE", f"{nf:.1f}", "dB"),
-                ("PEAK",  f"{peak:.1f}", "dB"),
-                ("RISE",  f"{rise:+.1f}", "dB"),
-                ("MARGIN",f"{margin_val:+.1f}", "dB"),
+                ("NOISE FLOOR",  f"{nf:.1f} dB"),
+                ("PEAK POWER",   f"{peak:.1f} dB"),
+                ("FLOOR RISE",   f"{rise:+.1f} dB"),
+                ("MARGIN",       f"{margin_val:+.1f} dB"),
             ]
-            for i, (ml, mv, mu) in enumerate(met_data):
-                mx = content_l + (i % 2) * col_w + 20
-                my = met_y + (i // 2) * 40
-                # Label
-                draw.text((mx, my), ml, fill=dim, font=self._f_label)
-                # Value + unit (bright and large)
-                val_str = f"{mv} {mu}"
-                draw.text((mx, my + 16), val_str, fill=accent_br, font=self._f_met_val)
+            for i, (ml, mv) in enumerate(met_data):
+                mx = content_l + (i % 2) * col_w + 16
+                my = met_y + (i // 2) * row_h
+                draw.text((mx, my), ml, fill=dim, font=self._f_small)
+                draw.text((mx, my + 13), mv, fill=accent_br, font=self._f_met_val)
 
         # ═══ BOTTOM BUTTON BAR ═══
         draw.rectangle((0, foot_t, W, H), fill=(12, 12, 18))
@@ -326,6 +321,7 @@ class DisplayUI:
         btns = ["MODE", "CALIB", "GAIN-", "GAIN+", "PWR"]
         btn_count = len(btns)
         btn_w = W // btn_count
+        btn_h = H - foot_t
         self._touch_zones = {}
 
         for i, label in enumerate(btns):
@@ -333,28 +329,39 @@ class DisplayUI:
             is_pressed = (label == self._last_pressed and now < self._pressed_until)
 
             if label == "PWR":
-                if self._pwr_confirm and now < self._pwr_confirm_until:
-                    bg_c = (220, 30, 30)
-                    outline_c = (255, 100, 100)
-                    disp_label = "CONFIRM?"
-                else:
-                    bg_c = (180, 40, 40) if is_pressed else (50, 8, 8)
-                    outline_c = (200, 60, 60)
-                    disp_label = label
-                tx_c = white
+                bg_c = (180, 40, 40) if is_pressed else (50, 8, 8)
+                outline_c = (200, 60, 60)
+                ic = white
             else:
                 bg_c = accent if is_pressed else (22, 22, 35)
                 outline_c = self._dim(accent, 0.7)
-                tx_c = (0, 0, 0) if is_pressed else white
-                disp_label = label
+                ic = (0, 0, 0) if is_pressed else white
 
-            draw.rectangle((bx + 2, foot_t + 4, bx + btn_w - 2, H - 4), fill=bg_c, outline=outline_c)
-            tw, th = self._get_text_size(disp_label, self._f_btn)
-            ty = foot_t + (H - foot_t - th) // 2
-            draw.text((bx + (btn_w - tw) // 2, ty), disp_label, fill=tx_c, font=self._f_btn)
-
-            # Map touch zone with the original label (not display label)
+            draw.rectangle((bx + 2, foot_t + 3, bx + btn_w - 2, H - 3), fill=bg_c, outline=outline_c)
             self._touch_zones[label] = (bx, foot_t, bx + btn_w, H)
+
+            # Draw button content (icons for PWR/GAIN, text for others)
+            cx = bx + btn_w // 2
+            cy = foot_t + btn_h // 2
+            r = 12
+
+            if label == "PWR":
+                # Power icon: arc + vertical line
+                draw.arc((cx - r, cy - r + 2, cx + r, cy + r + 2), 220, 320, fill=ic, width=3)
+                draw.line((cx, cy - r - 1, cx, cy + 2), fill=ic, width=3)
+            elif label == "GAIN-":
+                # Down triangle
+                draw.polygon([(cx - 8, cy - 4), (cx + 8, cy - 4), (cx, cy + 8)], fill=ic)
+                draw.line((cx - 10, cy - 10, cx + 10, cy - 10), fill=ic, width=2)
+            elif label == "GAIN+":
+                # Up triangle
+                draw.polygon([(cx - 8, cy + 4), (cx + 8, cy + 4), (cx, cy - 8)], fill=ic)
+                draw.line((cx - 10, cy + 10, cx + 10, cy + 10), fill=ic, width=2)
+            else:
+                # Text label for MODE, CALIB
+                tw, th = self._get_text_size(label, self._f_btn)
+                ty = foot_t + (btn_h - th) // 2
+                draw.text((bx + (btn_w - tw) // 2, ty), label, fill=ic, font=self._f_btn)
 
         # ═══ TOAST OVERLAY ═══
         if now < self._toast_until and self._toast_msg and not self._pwr_confirm:
@@ -364,7 +371,6 @@ class DisplayUI:
             box_w, box_h = tw + pad_x * 2, th + pad_y * 2
             cx, cy = W // 2, (hdr_b + foot_t) // 2
 
-            # Dark box with accent glow border
             draw.rectangle((cx - box_w//2 - 2, cy - box_h//2 - 2, cx + box_w//2 + 2, cy + box_h//2 + 2), fill=self._dim(accent, 0.15))
             draw.rectangle((cx - box_w//2, cy - box_h//2, cx + box_w//2, cy + box_h//2), fill=(10, 10, 18), outline=accent, width=2)
             draw.text((cx - tw//2, cy - th//2), msg, fill=white, font=self._f_toast)
@@ -404,7 +410,6 @@ class DisplayUI:
             draw.text(((no_x1 + no_x2 - nw)//2, (btn_y_top + btn_y_bot - nh)//2), "NO", fill=white, font=self._f_btn)
             self._touch_zones["PWR_NO"] = (no_x1, btn_y_top, no_x2, btn_y_bot)
         else:
-            # Clean up dialog touch zones when not showing
             self._touch_zones.pop("PWR_YES", None)
             self._touch_zones.pop("PWR_NO", None)
 
