@@ -41,6 +41,7 @@ class GPSJammerHandheld:
         self.start_time = time.time()
 
         self.noise_floor = None
+        self.fixed_nf = False  # If True, noise floor doesn't update dynamically
         self.jam_hits = 0
         self.clear_hits = 0
         self.jammer_active = False
@@ -157,12 +158,15 @@ class GPSJammerHandheld:
             state = "SCANNING"
 
         # Update noise floor carefully based on state to prevent jammer from dragging the baseline
-        if not getattr(config, 'STATIC_MODE', False):
+        if not self.fixed_nf:
             if state == "SCANNING":
                 self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_idle)
             elif state == "WATCH":
                 self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_alert)
             # In JAMMING state, we do not update noise_floor at all to preserve the baseline
+        else:
+            # Fixed mode: we only calibrate once and never update during runtime
+            pass
         
         self.current_state = state
         self.led.set_state(state)

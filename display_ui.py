@@ -35,6 +35,8 @@ class DisplayUI:
         self._toast_until = 0
         self._pwr_confirm = False
         self._pwr_confirm_until = 0
+        self._calib_confirm = False
+        self._calib_confirm_until = 0
 
         if not self.preview:
             self._init_touch()
@@ -421,6 +423,38 @@ class DisplayUI:
             nw, nh = self._get_text_size("NO", self._f_btn)
             draw.text(((no_x1 + no_x2 - nw)//2, (btn_y_top + btn_y_bot - nh)//2), "NO", fill=white, font=self._f_btn)
             self._touch_zones["PWR_NO"] = (no_x1, btn_y_top, no_x2, btn_y_bot)
+
+        # ═══ CALIB CHOICE DIALOG ═══
+        if self._calib_confirm and now < self._calib_confirm_until:
+            cx, cy = W // 2, (hdr_b + foot_t) // 2
+            dlg_w, dlg_h = 300, 140
+
+            draw.rectangle((cx - dlg_w//2 - 3, cy - dlg_h//2 - 3, cx + dlg_w//2 + 3, cy + dlg_h//2 + 3), fill=(10, 40, 60))
+            draw.rectangle((cx - dlg_w//2, cy - dlg_h//2, cx + dlg_w//2, cy + dlg_h//2), fill=(5, 10, 15), outline=(100, 200, 255), width=2)
+
+            q_text = "CHOOSE CALIBRATION MODE"
+            qw, qh = self._get_text_size(q_text, self._f_btn)
+            draw.text((cx - qw//2, cy - dlg_h//2 + 12), q_text, fill=white, font=self._f_btn)
+
+            # Buttons
+            btn_h_c = 40
+            # AUTO button
+            ax1, ay1 = cx - dlg_w//2 + 15, cy - 10
+            ax2, ay2 = cx + dlg_w//2 - 15, cy + btn_h_c - 10
+            draw.rectangle((ax1, ay1, ax2, ay2), fill=(20, 60, 100), outline=(80, 150, 255))
+            txt1 = "1. AUTO NF (Dynamic)"
+            tw1, th1 = self._get_text_size(txt1, self._f_btn)
+            draw.text((ax1 + (ax2-ax1-tw1)//2, ay1 + (ay2-ay1-th1)//2), txt1, fill=white, font=self._f_btn)
+            self._touch_zones["CAL_AUTO"] = (ax1, ay1, ax2, ay2)
+
+            # FIXED button
+            fx1, fy1 = cx - dlg_w//2 + 15, cy + btn_h_c
+            fx2, fy2 = cx + dlg_w//2 - 15, cy + btn_h_c * 2
+            draw.rectangle((fx1, fy1, fx2, fy2), fill=(100, 60, 20), outline=(255, 150, 80))
+            txt2 = "2. FIXED NF (Static)"
+            tw2, th2 = self._get_text_size(txt2, self._f_btn)
+            draw.text((fx1 + (fx2-fx1-tw2)//2, fy1 + (fy2-fy1-th2)//2), txt2, fill=white, font=self._f_btn)
+            self._touch_zones["CAL_FIXED"] = (fx1, fy1, fx2, fy2)
         else:
             self._touch_zones.pop("PWR_YES", None)
             self._touch_zones.pop("PWR_NO", None)
@@ -549,6 +583,25 @@ class DisplayUI:
             self._pwr_confirm = False
             return
 
+        # If CALIB dialog is showing
+        if self._calib_confirm and now < self._calib_confirm_until:
+            for label in ["CAL_AUTO", "CAL_FIXED"]:
+                zone = self._touch_zones.get(label)
+                if zone:
+                    x1, y1, x2, y2 = zone
+                    if x1 <= x <= x2 and y1 <= y <= y2:
+                        self._calib_confirm = False
+                        if label == "CAL_AUTO":
+                            self.app.fixed_nf = False
+                            self.show_toast("CALIB: AUTO MODE", 1.5)
+                        else:
+                            self.app.fixed_nf = True
+                            self.show_toast("CALIB: FIXED MODE", 1.5)
+                        self.app.request_calibration = True
+                        return
+            self._calib_confirm = False
+            return
+
         for label, (x1, y1, x2, y2) in self._touch_zones.items():
             if x1 <= x <= x2 and y1 <= y <= y2:
                 self._last_pressed, self._pressed_until = label, now + 0.2
@@ -563,8 +616,8 @@ class DisplayUI:
                     self.app.adjust_gain(2.0)
                     self.show_toast(f"GAIN: {self.app.gain_db:.1f} dB")
                 elif label == "CALIB":
-                    self.app.request_calibration = True
-                    self.show_toast("CALIBRATING...", 3.0)
+                    self._calib_confirm = True
+                    self._calib_confirm_until = now + 10.0 # 10 seconds to decide
                 elif label == "PWR":
                     self._pwr_confirm = True
                     self._pwr_confirm_until = now + 5.0  # 5 seconds to decide
