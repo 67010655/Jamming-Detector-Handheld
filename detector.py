@@ -47,6 +47,7 @@ class GPSJammerHandheld:
         self.jammer_active = False
         self.current_state = "SCANNING"
         self.request_calibration = False
+        self.shutdown_requested = False
 
         self.device = None
         self.sdr = None
@@ -269,6 +270,10 @@ class GPSJammerHandheld:
                     self._calibrate()
                     self.request_calibration = False
                     self.ui.show_toast("CALIBRATION DONE!", 1.5)
+
+                if getattr(self, 'shutdown_requested', False):
+                    self.safe_power_off()
+                    break
 
                 if self.frame_count % 10 == 0:
                     self._debug_print(power)

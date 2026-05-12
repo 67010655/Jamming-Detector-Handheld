@@ -579,7 +579,7 @@ class DisplayUI:
                     if x1 <= x <= x2 and y1 <= y <= y2:
                         if label == "PWR_YES":
                             self._pwr_confirm = False
-                            self.app.safe_power_off()
+                            self.app.shutdown_requested = True
                         else:
                             self._pwr_confirm = False
                             self.show_toast("CANCELLED", 1.0)
