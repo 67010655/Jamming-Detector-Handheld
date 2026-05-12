@@ -70,11 +70,13 @@ graph LR
 ---
 
 ## 🌟 Key Technical Highlights / ความโดดเด่นทางเทคนิค
-- **Adaptive Signal Analysis:** คำนวณ Noise Floor และ Peak Power แบบเรียลไทม์ พร้อมระบบ Threshold อัจฉริยะ (Adaptive Thresholding)
-- **Peak Direction Finding:** ระบบเข็มทิศ (Polar Compass) ช่วยระบุทิศทางของแหล่งกำเนิดสัญญาณรบกวนตามระดับความเข้มของสัญญาณ (Signal Strength)
-- **Adaptive Heartbeat Logging:** ระบบบันทึกข้อมูลอัจฉริยะที่ปรับความถี่ตามสถานการณ์ (1s สำหรับเหตุการณ์สำคัญ / 30s สำหรับสถานะปกติ) เพื่อถนอมอายุการใช้งานของ SD Card
-- **Seamless Local Hotspot:** เข้าถึงข้อมูลได้ทุกที่ผ่าน WiFi ส่วนตัวของเครื่อง แม้อยู่ในพื้นที่อับสัญญาณอินเทอร์เน็ต
-- **Glassmorphism UI:** หน้าจอ Dashboard ดีไซน์ทันสมัย เน้น UX/UI ที่อ่านง่าย สวยงาม และ Responsive
+- **Field-Optimized UI:** หน้าจอความละเอียดสูงที่ออกแบบมาเพื่อสู้แสงแดดในสนาม พร้อมระบบ State Badge ขนาดใหญ่และพารามิเตอร์ 4 คอลัมน์ที่อ่านง่าย
+- **Interactive Calibration:** ระบบเลือกโหมด Calibrate หน้างานได้ทันทีระหว่าง **Auto NF** (ติดตามอัตโนมัติ) หรือ **Fixed NF** (ล็อกค่าคงที่) เพื่อความแม่นยำสูงสุด
+- **Polar Radar (Search Mode):** ระบบเข็มทิศเรดาร์ที่ช่วยระบุทิศทางของแหล่งกำเนิดสัญญาณรบกวนตามระดับความเข้มของสัญญาณ (Signal Strength)
+- **Safe Shutdown Sequence:** ระบบปิดเครื่องที่ปลอดภัยพร้อมหน้าจอ Splash Screen แจ้งเตือน 5 วินาที เพื่อป้องกันการเสียหายของข้อมูล (SD Card Corruption)
+- **Adaptive Signal Analysis:** คำนวณ Noise Floor และ Peak Power แบบเรียลไทม์ พร้อมระบบ Adaptive Thresholding
+- **Glassmorphism Web Dashboard:** เข้าถึงข้อมูลเชิงลึกผ่าน WiFi Hotspot ด้วย Dashboard ดีไซน์ทันสมัยแบบ Glassmorphism UI
+- **Adaptive Heartbeat Logging:** ระบบบันทึกข้อมูลอัจฉริยะที่ปรับความถี่ตามสถานการณ์ (1s/30s) เพื่อประสิทธิภาพสูงสุดในการจัดเก็บข้อมูล
 
 ---
 
@@ -122,15 +124,17 @@ graph LR
 ---
 
 ## 🛣️ Roadmap / แผนพัฒนาในอนาคต
-- [ ] **Compass Integration:** เพิ่มหน้าจอเข็มทิศเพื่อระบุทิศทางของแหล่งกำเนิดสัญญาณรบกวน
-- [ ] **Rotary Encoder:** ปุ่มปรับ Gain และ Sensitivity แบบหมุนที่ตัวเครื่อง
-- [ ] **Map Integration:** แสดงตำแหน่งการตรวจพบลงบนแผนที่เมื่อเชื่อมต่อ GPS Module
+- [x] **Compass Integration:** เพิ่มหน้าจอเข็มทิศเพื่อระบุทิศทางของแหล่งกำเนิดสัญญาณรบกวน (Polar Radar Mode)
+- [x] **Interactive Gain Control:** ระบบปรับ Gain ได้ทันทีผ่านหน้าจอสัมผัส
+- [ ] **GPS Module Integration:** แสดงตำแหน่งการตรวจพบลงบนแผนที่ (Map) แบบเรียลไทม์
+- [ ] **Offline Map Tiles:** ระบบแผนที่ออฟไลน์บน Dashboard สำหรับการใช้งานในป่าหรือพื้นที่ห่างไกล
 
 ---
 
 ## 👨‍💻 Developer
 67010655 Mr.Peerayoot Wattananualsakul **Space and Geospatial Engineering, KMITL**  
 *Building tools for the future of satellite security.*
-
+## 3D Designer
+67010281 Mrs.Nattakan Sanorlam **Space and Geospatial Engineering, KMITL**  
 ---
 © 2026 Jamming Detector Project. Built with ❤️ and Python.
