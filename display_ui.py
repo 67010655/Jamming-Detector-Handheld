@@ -103,6 +103,7 @@ class DisplayUI:
         self._f_btn       = _try(bold, 13)
         self._f_met_val   = _try(mono, 14)
         self._f_toast     = _try(bold, 18)
+        self._f_subtitle_small = _try(bold, 10)
 
     # ── colour helpers ──────────────────────────────────────────────
     @staticmethod
@@ -167,8 +168,9 @@ class DisplayUI:
         draw.text(((W - sw) // 2, H // 2), "KMITL SPACE & GEO ENGINEERING", fill=(255, 255, 255), font=self._f_status)
         
         # Message
-        mw, mh = self._get_text_size(message, self._f_value)
-        draw.text(((W - mw) // 2, H // 2 + 50), message, fill=(255, 220, 50), font=self._f_value)
+        msg_color = (255, 50, 50) if "SHUT" in message.upper() else (255, 220, 50)
+        mw, mh = self._get_text_size(message, self._f_state_big)
+        draw.text(((W - mw) // 2, H // 2 + 50), message, fill=msg_color, font=self._f_state_big)
         
         if self.preview:
             self.app._img.save("preview.png")
@@ -241,17 +243,18 @@ class DisplayUI:
         draw.line((0, hdr_b, W, hdr_b), fill=accent, width=2)
 
         # Title row
-        draw.text((8, 3), "GNSS JAMMING DETECTOR HANDHELD v1.0", fill=white, font=self._f_title)
+        draw.text((8, 3), "GNSS JAMMING DETECTOR HANDHELD", fill=white, font=self._f_title)
         # Subtitle row
         sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | UP Time: {up_str}"
-        draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle)
+        draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle_small)
 
-        # State badge (right side of header)
-        sw, sh = self._get_text_size(state, self._f_small)
-        badge_x = W - sw - 10
-        badge_y = 4
-        draw.rectangle((badge_x - 5, badge_y - 1, W - 2, badge_y + sh + 1), fill=accent)
-        draw.text((badge_x, badge_y), state, fill=(0, 0, 0), font=self._f_small)
+        # State badge (right side of header) - Extra large for field visibility
+        sw, sh = self._get_text_size(state, self._f_state_big)
+        badge_x = W - sw - 12
+        badge_y = (hdr_b - sh) // 2
+        # Draw badge box with a slight rounding look (just a rectangle for now but larger)
+        draw.rectangle((badge_x - 8, 2, W - 2, hdr_b - 2), fill=accent, outline=white, width=1)
+        draw.text((badge_x - 2, badge_y), state, fill=(0, 0, 0), font=self._f_state_big)
 
         # ═══ RIGHT PANEL ═══
         rp_w = W - rp_l
@@ -345,10 +348,10 @@ class DisplayUI:
             r = 12
 
             if label == "PWR":
-                # Power icon: circle open at top + vertical line
-                pr = 10
-                draw.arc((cx - pr, cy - pr + 2, cx + pr, cy + pr + 2), 60, 300, fill=ic, width=2)
-                draw.line((cx, cy - pr, cx, cy + 4), fill=ic, width=2)
+                # Power icon: thicker and bolder
+                pr = 12
+                draw.arc((cx - pr, cy - pr + 1, cx + pr, cy + pr + 1), 60, 300, fill=ic, width=3)
+                draw.line((cx, cy - pr - 2, cx, cy + 4), fill=ic, width=3)
             elif label == "GAIN-":
                 # Down triangle
                 draw.polygon([(cx - 8, cy - 4), (cx + 8, cy - 4), (cx, cy + 8)], fill=ic)

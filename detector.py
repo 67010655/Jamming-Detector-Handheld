@@ -352,10 +352,16 @@ class GPSJammerHandheld:
         
     def safe_power_off(self):
         """Safely shut down the Raspberry Pi."""
+        self.running = False  # STOP the main loop immediately to prevent UI flicker
+        time.sleep(0.1)       # Small gap to let the last frame finish
+        
         print("[SYSTEM] Initiating safe shutdown...")
         self.ui.draw_splash("SHUTTING DOWN...")
-        time.sleep(2)  # Let user see the message
-        self.shutdown() # Cleanup hardware
+        
+        # Keep the splash screen visible for 5 seconds as requested
+        time.sleep(5)
+        
+        self.shutdown() # Cleanup hardware and black screen
         import os
         if sys.platform != "win32" and not self.preview:
             os.system("sudo poweroff")
@@ -365,7 +371,6 @@ class GPSJammerHandheld:
                 time.sleep(1)
         else:
             print("[INFO] Shutdown command skipped in preview/Windows mode.")
-            self.running = False
     
     def shutdown(self):
         print("\n[SYSTEM] Stopping...")
