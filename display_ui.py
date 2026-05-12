@@ -31,6 +31,8 @@ class DisplayUI:
         self._spi_lock = threading.Lock()
         self._last_pressed = None
         self._pressed_until = 0
+        self._toast_msg = None
+        self._toast_until = 0
 
         if not self.preview:
             self._init_touch()
@@ -136,6 +138,11 @@ class DisplayUI:
         if not self._bearing_log:
             return None
         return max(self._bearing_log, key=lambda x: x[1])[0]
+
+    def show_toast(self, message, duration=1.5):
+        """Show a temporary pop-up message on the screen."""
+        self._toast_msg = message
+        self._toast_until = time.time() + duration
 
     # ════════════════════════════════════════════════════════════════
     #                   SPLASH SCREEN
@@ -305,6 +312,18 @@ class DisplayUI:
             
             self._touch_zones[label] = (bx, foot_t, bx + btn_w, H)
 
+        # TOAST OVERLAY
+        if now < self._toast_until and self._toast_msg:
+            msg = self._toast_msg
+            tw, th = self._get_text_size(msg, self._f_value)
+            pad_x, pad_y = 30, 20
+            box_w, box_h = tw + pad_x * 2, th + pad_y * 2
+            cx, cy = W // 2, (hdr_b + foot_t) // 2
+            
+            # Draw semi-transparent looking box (dark background, bright outline)
+            draw.rectangle((cx - box_w//2, cy - box_h//2, cx + box_w//2, cy + box_h//2), fill=(15, 15, 25), outline=accent, width=2)
+            draw.text((cx - tw//2, cy - th//2), msg, fill=white, font=self._f_value)
+
         # Output
         if self.preview: self.app._img.save("preview.png")
         else:
@@ -382,12 +401,17 @@ class DisplayUI:
                 self._last_pressed, self._pressed_until = label, time.time() + 0.15
                 if label == "MODE": 
                     self.view_mode = (self.view_mode + 1) % 3
+                    modes = ["NORMAL", "SEARCH", "ANALYTICS"]
+                    self.show_toast(f"MODE: {modes[self.view_mode]}")
                 elif label == "GAIN -": 
                     self.app.adjust_gain(-2.0)
+                    self.show_toast(f"GAIN: {self.app.gain_db:.1f} dB")
                 elif label == "GAIN +": 
                     self.app.adjust_gain(2.0)
+                    self.show_toast(f"GAIN: {self.app.gain_db:.1f} dB")
                 elif label == "CALIB": 
-                    self.app.recalibrate()
+                    self.app.request_calibration = True
+                    self.show_toast("CALIBRATING...", 3.0)
                 elif label == "PWR":
                     self.app.safe_power_off()
                 return

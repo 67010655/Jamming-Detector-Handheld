@@ -45,6 +45,7 @@ class GPSJammerHandheld:
         self.clear_hits = 0
         self.jammer_active = False
         self.current_state = "SCANNING"
+        self.request_calibration = False
 
         self.device = None
         self.sdr = None
@@ -52,14 +53,16 @@ class GPSJammerHandheld:
         # Initialize UI first to show splash screens
         self.ui = DisplayUI(self, preview=self.preview)
         self.ui.draw_splash("SYSTEM BOOTING...")
+        time.sleep(1.5) # Give user time to read
         
         if not self.preview:
-            # Initialize database first so calibration can log baseline
             self.ui.draw_splash("INITIALIZING DB...")
             database_manager.init_db()
+            time.sleep(0.5)
             
             self.ui.draw_splash("INIT SDR...")
             self._init_sdr()
+            time.sleep(0.5)
             
             self.ui.draw_splash("CALIBRATING...")
             self._calibrate()
@@ -67,6 +70,7 @@ class GPSJammerHandheld:
             self.ui.draw_splash("STARTING MODULES...")
             self.led = LEDController(enabled=True)
             self.buzzer = BuzzerController(enabled=True)
+            time.sleep(1.0)
         else:
             self.noise_floor = -90.0
             self.led = LEDController(enabled=False)
@@ -255,6 +259,13 @@ class GPSJammerHandheld:
                                     pass
                     except Exception:
                         pass
+                if getattr(self, 'request_calibration', False):
+                    # Force a draw first so the "CALIBRATING..." toast is visible
+                    self.ui.draw_ui(metrics, power)
+                    self._calibrate()
+                    self.request_calibration = False
+                    self.ui.show_toast("CALIBRATION DONE!", 1.5)
+
                 if self.frame_count % 10 == 0:
                     self._debug_print(power)
                 self.ui.draw_ui(metrics, power)
