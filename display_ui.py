@@ -455,9 +455,13 @@ class DisplayUI:
             tw2, th2 = self._get_text_size(txt2, self._f_btn)
             draw.text((fx1 + (fx2-fx1-tw2)//2, fy1 + (fy2-fy1-th2)//2), txt2, fill=white, font=self._f_btn)
             self._touch_zones["CAL_FIXED"] = (fx1, fy1, fx2, fy2)
-        else:
+        # ═══ CLEANUP UNUSED ZONES ═══
+        if not self._pwr_confirm or now >= self._pwr_confirm_until:
             self._touch_zones.pop("PWR_YES", None)
             self._touch_zones.pop("PWR_NO", None)
+        if not self._calib_confirm or now >= self._calib_confirm_until:
+            self._touch_zones.pop("CAL_AUTO", None)
+            self._touch_zones.pop("CAL_FIXED", None)
 
         # Output
         if self.preview:
