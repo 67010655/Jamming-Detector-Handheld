@@ -243,18 +243,18 @@ class DisplayUI:
         draw.line((0, hdr_b, W, hdr_b), fill=accent, width=2)
 
         # Title row
-        draw.text((8, 3), "GNSS JAMMING DETECTOR HANDHELD", fill=white, font=self._f_title)
+        draw.text((8, 3), "GNSS JAMMING DETECTOR", fill=white, font=self._f_title)
         # Subtitle row
         sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | UP Time: {up_str}"
         draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle_small)
 
         # State badge (right side of header) - Extra large for field visibility
-        sw, sh = self._get_text_size(state, self._f_state_big)
+        sw, sh = self._get_text_size(state, self._f_status)
         badge_x = W - sw - 12
         badge_y = (hdr_b - sh) // 2
         # Draw badge box with a slight rounding look (just a rectangle for now but larger)
         draw.rectangle((badge_x - 8, 2, W - 2, hdr_b - 2), fill=accent, outline=white, width=1)
-        draw.text((badge_x - 2, badge_y), state, fill=(0, 0, 0), font=self._f_state_big)
+        draw.text((badge_x - 2, badge_y), state, fill=(0, 0, 0), font=self._f_status)
 
         # ═══ RIGHT PANEL ═══
         rp_w = W - rp_l
@@ -349,9 +349,9 @@ class DisplayUI:
 
             if label == "PWR":
                 # Power icon: thicker and bolder
-                pr = 12
-                draw.arc((cx - pr, cy - pr + 1, cx + pr, cy + pr + 1), 60, 300, fill=ic, width=3)
-                draw.line((cx, cy - pr - 2, cx, cy + 4), fill=ic, width=3)
+                pr = 11
+                draw.arc((cx - pr, cy - pr , cx + pr, cy + pr), 135, 405, fill=ic, width=3)
+                draw.line((cx, cy - pr - 3, cx, cy - 2), fill=ic, width=3)
             elif label == "GAIN-":
                 # Down triangle
                 draw.polygon([(cx - 8, cy - 4), (cx + 8, cy - 4), (cx, cy + 8)], fill=ic)
