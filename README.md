@@ -10,8 +10,9 @@
 
 ---
 
-## 📸 Preview / ตัวอย่างการทำงาน
-<img width="1265" height="632" alt="image" src="https://github.com/user-attachments/assets/d910fccf-b820-4797-9988-af1286f550a3" />
+## Web Dashboard
+
+<img width="849" height="652" alt="image" src="https://github.com/user-attachments/assets/21fbd90b-5cef-49f2-b749-1e3895cb5151" />
 
 ---
 
