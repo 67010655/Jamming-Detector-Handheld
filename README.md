@@ -136,5 +136,6 @@ graph LR
 *Building tools for the future of satellite security.*
 ## 3D Designer
 67010281 Mrs.Nattakan Sanorlam **Space and Geospatial Engineering, KMITL**  
+*Designing the future of satellite security*
 ---
 © 2026 Jamming Detector Project. Built with ❤️ and Python.
