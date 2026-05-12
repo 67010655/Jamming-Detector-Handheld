@@ -241,18 +241,17 @@ class DisplayUI:
         draw.line((0, hdr_b, W, hdr_b), fill=accent, width=2)
 
         # Title row
-        draw.text((8, 3), "GNSS JAMMING DETECTOR", fill=white, font=self._f_title)
+        draw.text((8, 3), "GNSS JAMMING DETECTOR HANDHELD v1.0", fill=white, font=self._f_title)
         # Subtitle row
-        modes_name = ["NORMAL", "SEARCH", "ANALYTICS"]
-        sub = f"L1 1575.42MHz | {up_str} | G:{self.app.gain_db:.0f}dB | {modes_name[self.view_mode]}"
+        sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | UP Time: {up_str}"
         draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle)
 
-        # State badge (right side of header — uses smaller font to fit)
-        sw, sh = self._get_text_size(state, self._f_brg)
-        badge_x = W - sw - 12
-        badge_y = (hdr_b - sh) // 2
-        draw.rectangle((badge_x - 6, badge_y - 1, W - 3, badge_y + sh + 1), fill=accent)
-        draw.text((badge_x, badge_y), state, fill=(0, 0, 0), font=self._f_brg)
+        # State badge (right side of header)
+        sw, sh = self._get_text_size(state, self._f_small)
+        badge_x = W - sw - 10
+        badge_y = 4
+        draw.rectangle((badge_x - 5, badge_y - 1, W - 2, badge_y + sh + 1), fill=accent)
+        draw.text((badge_x, badge_y), state, fill=(0, 0, 0), font=self._f_small)
 
         # ═══ RIGHT PANEL ═══
         rp_w = W - rp_l
@@ -294,8 +293,8 @@ class DisplayUI:
             self._draw_spectrum(draw, content_l + 8, foot_t - 68, rp_l - 8, foot_t - 4, metrics, power, accent, grid, nf, peak, small=True)
 
         else:  # NORMAL MODE
-            # Spectrum: from header to about 60% of content area
-            spec_bot = hdr_b + 130
+            # Spectrum: large — this is the main display
+            spec_bot = foot_t - 72
             self._draw_spectrum(draw, content_l + 4, hdr_b + 4, rp_l - 4, spec_bot, metrics, power, accent, grid, nf, peak)
 
             # Metrics grid below spectrum (2x2 with full labels)
@@ -346,9 +345,10 @@ class DisplayUI:
             r = 12
 
             if label == "PWR":
-                # Power icon: arc + vertical line
-                draw.arc((cx - r, cy - r + 2, cx + r, cy + r + 2), 220, 320, fill=ic, width=3)
-                draw.line((cx, cy - r - 1, cx, cy + 2), fill=ic, width=3)
+                # Power icon: circle open at top + vertical line
+                pr = 10
+                draw.arc((cx - pr, cy - pr + 2, cx + pr, cy + pr + 2), 60, 300, fill=ic, width=2)
+                draw.line((cx, cy - pr, cx, cy + 4), fill=ic, width=2)
             elif label == "GAIN-":
                 # Down triangle
                 draw.polygon([(cx - 8, cy - 4), (cx + 8, cy - 4), (cx, cy + 8)], fill=ic)

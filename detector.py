@@ -354,6 +354,7 @@ class GPSJammerHandheld:
         """Safely shut down the Raspberry Pi."""
         print("[SYSTEM] Initiating safe shutdown...")
         self.ui.draw_splash("SHUTTING DOWN...")
+        time.sleep(2)  # Let user see the message
         self.shutdown() # Cleanup hardware
         import os
         if sys.platform != "win32" and not self.preview:
