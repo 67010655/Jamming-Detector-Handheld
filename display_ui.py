@@ -305,9 +305,9 @@ class DisplayUI:
             col_w = content_w // 4
             met_data = [
                 ("NOISE FLOOR", f"{nf:.1f}", white),
-                ("PEAK POWER",  f"{peak:.1f}", accent_br),
-                ("FLOOR RISE",  f"{rise:+.1f}", accent_br),
-                ("MARGIN",      f"{margin_val:+.1f}", accent_br),
+                ("PEAK POWER",  f"{peak:.1f}", white),
+                ("FLOOR RISE",  f"{rise:+.1f}", white),
+                ("MARGIN",      f"{margin_val:+.1f}", white),
             ]
             for i, (ml, mv, mcolor) in enumerate(met_data):
                 mx = content_l + i * col_w
