@@ -138,6 +138,34 @@ class DisplayUI:
         return max(self._bearing_log, key=lambda x: x[1])[0]
 
     # ════════════════════════════════════════════════════════════════
+    #                   SPLASH SCREEN
+    # ════════════════════════════════════════════════════════════════
+    def draw_splash(self, message="BOOTING..."):
+        draw = self.app._draw
+        W, H = self.app.w, self.app.h
+        
+        # Background
+        draw.rectangle((0, 0, W, H), fill=(8, 12, 16))
+        
+        # Title
+        tw, th = self._get_text_size("GNSS JAMMING DETECTOR", self._f_state_big)
+        draw.text(((W - tw) // 2, H // 2 - 40), "GNSS JAMMING DETECTOR", fill=(0, 255, 136), font=self._f_state_big)
+        
+        # Subtitle
+        sw, sh = self._get_text_size("KMITL SPACE ENG", self._f_status)
+        draw.text(((W - sw) // 2, H // 2), "KMITL SPACE ENG", fill=(255, 255, 255), font=self._f_status)
+        
+        # Message
+        mw, mh = self._get_text_size(message, self._f_value)
+        draw.text(((W - mw) // 2, H // 2 + 50), message, fill=(255, 220, 50), font=self._f_value)
+        
+        if self.preview:
+            self.app._img.save("preview.png")
+        else:
+            with self._spi_lock:
+                self.app.device.display(self.app._img)
+
+    # ════════════════════════════════════════════════════════════════
     #                   MAIN DRAW ENTRY POINT
     # ════════════════════════════════════════════════════════════════
     def draw_ui(self, metrics, power):
@@ -186,55 +214,27 @@ class DisplayUI:
 
         # ── layout ──────────────────────────────────────────────────
         hdr_b   = 44
-        lp_r    = 106
+        lp_r    = 0     # Removed left panel!
         rp_l    = 418
-        foot_t  = 284
+        foot_t  = 260   # Bigger bottom bar for buttons
 
         # Background
         draw.rectangle((0, 0, W - 1, H - 1), fill=(3, 3, 3))
 
         # HEADER
+        uptime = int(time.time() - self.app.start_time)
+        hrs, mins, secs = uptime // 3600, (uptime % 3600) // 60, uptime % 60
+        up_str = f"{hrs:02d}:{mins:02d}:{secs:02d}"
+
         draw.rectangle((0, 0, W, hdr_b), fill=hdr_bg)
         draw.line((0, hdr_b, W, hdr_b), fill=accent, width=1)
         draw.text((8, 5), "GNSS L1 JAMMING DETECTOR HANDHELD", fill=white, font=self._f_title)
-        sub = f"GPS L1 | 1575.42 MHz | G:{self.app.gain_db}dB | MODE:{self.view_mode}"
+        sub = f"GPS L1 | UP: {up_str} | G:{self.app.gain_db}dB | MODE:{self.view_mode}"
         draw.text((8, 23), sub, fill=accent, font=self._f_subtitle)
         sw, _ = self._get_text_size(state, self._f_status)
         draw.text((W - sw - 14, 10), state, fill=accent, font=self._f_status)
 
-        # LEFT PANEL — 6 CONTROL BUTTONS
-        draw.rectangle((0, hdr_b, lp_r, foot_t), fill=(6, 6, 6))
-        draw.line((lp_r, hdr_b, lp_r, foot_t), fill=accent, width=1)
-
-        btns = ["VIEW", "SNAP", "CALIB", "MUTE", "GAIN", "EXIT"]
-        btn_w, btn_h, btn_gap = lp_r - 12, 30, 5
-        btn_x, btn_top = 6, hdr_b + 6
-        self._touch_zones = {}
-
-        for i, label in enumerate(btns):
-            by = btn_top + i * (btn_h + btn_gap)
-            is_pressed = (label == self._last_pressed and now < self._pressed_until)
-            bg_c = white if is_pressed else (25, 25, 40)
-            tx_c = (0,0,0) if is_pressed else white
-            
-            draw.rectangle((btn_x, by, btn_x + btn_w, by + btn_h), fill=bg_c, outline=accent)
-            if label == "GAIN":
-                draw.line((btn_x + btn_w//2, by, btn_x + btn_w//2, by+btn_h), fill=accent)
-                draw.text((btn_x+12, by+8), "-", fill=tx_c, font=self._f_btn)
-                draw.text((btn_x+btn_w-18, by+8), "+", fill=tx_c, font=self._f_btn)
-                draw.text((btn_x+32, by+8), "GAIN", fill=tx_c, font=self._f_btn)
-            else:
-                tw, th = self._get_text_size(label, self._f_btn)
-                draw.text((btn_x + (btn_w - tw)//2, by + (btn_h - th)//2), label, fill=tx_c, font=self._f_btn)
-            self._touch_zones[label] = (btn_x, by, btn_x + btn_w, by + btn_h)
-
-        # UPTIME (BACK!)
-        uptime = int(time.time() - self.app.start_time)
-        hrs, mins, secs = uptime // 3600, (uptime % 3600) // 60, uptime % 60
-        up_str = f"UP {hrs:02d}:{mins:02d}:{secs:02d}"
-        draw.text((10, foot_t - 15), up_str, fill=white, font=self._f_small)
-
-        # RIGHT PANEL (BACK!)
+        # RIGHT PANEL
         draw.rectangle((rp_l, hdr_b, W, foot_t), fill=(6, 6, 6))
         draw.line((rp_l, hdr_b, rp_l, foot_t), fill=accent, width=1)
         draw.text((rp_l + 8, hdr_b + 8), "SCORE", fill=lbl, font=self._f_label)
@@ -242,7 +242,7 @@ class DisplayUI:
         draw.text((rp_l + 12, hdr_b + 22), sc_str, fill=accent, font=self._f_score_big)
         draw.text((rp_l + 25, hdr_b + 58), "/99", fill=white, font=self._f_score_sub)
         
-        # Vertical bar (BACK!)
+        # Vertical bar
         bar_x, bar_w = rp_l + 10, (W - rp_l) - 20
         bar_top, bar_bot = hdr_b + 80, foot_t - 42
         bar_h = bar_bot - bar_top
@@ -251,7 +251,7 @@ class DisplayUI:
         if fill_h > 0:
             draw.rectangle((bar_x+1, bar_bot-fill_h, bar_x+bar_w-1, bar_bot), fill=accent)
 
-        # FPS (BACK in right panel footer)
+        # FPS (in right panel footer)
         draw.text((rp_l + 8, foot_t - 36), "FPS", fill=lbl, font=self._f_label)
         draw.text((rp_l + 8, foot_t - 22), f"{fps_val}", fill=accent, font=self._f_fps)
 
@@ -261,24 +261,49 @@ class DisplayUI:
             self._draw_radar(draw, lp_r + content_w//2, (hdr_b + foot_t)//2, 95, accent, grid, white)
             
         elif self.view_mode == 2: # ANALYTICS MODE (History Focus)
-            self._draw_history(draw, lp_r + 15, hdr_b + 40, rp_l - 15, foot_t - 60, accent, grid, white)
-            self._draw_spectrum(draw, lp_r + 10, foot_t - 55, rp_l - 10, foot_t - 5, metrics, power, accent, grid, nf, peak, small=True)
+            self._draw_history(draw, lp_r + 15, hdr_b + 20, rp_l - 15, foot_t - 80, accent, grid, white)
+            self._draw_spectrum(draw, lp_r + 10, foot_t - 70, rp_l - 10, foot_t - 5, metrics, power, accent, grid, nf, peak, small=True)
             
         else: # NORMAL MODE
-            self._draw_spectrum(draw, lp_r + 2, hdr_b + 2, rp_l - 2, 210, metrics, power, accent, grid, nf, peak)
+            self._draw_spectrum(draw, lp_r + 2, hdr_b + 2, rp_l - 2, hdr_b + 150, metrics, power, accent, grid, nf, peak)
             # Metrics below spectrum
-            met_t, met_b = 210, foot_t
+            met_t, met_b = hdr_b + 160, foot_t
             col_w = content_w // 2
             for i, (ml, mv, mu) in enumerate([("NOISE",f"{nf:.1f}","dB"), ("PEAK",f"{peak:.1f}","dB"), ("RISE",f"{rise:+.1f}","dB"), ("MARGIN",f"{margin_val:+.1f}","dB")]):
-                mx = lp_r + (i%2)*col_w + 10
-                my = met_t + (i//2)*32 + 5
+                mx = lp_r + (i%2)*col_w + 30
+                my = met_t + (i//2)*25
                 draw.text((mx, my), ml, fill=lbl, font=self._f_label)
                 draw.text((mx, my+12), f"{mv} {mu}", fill=accent, font=self._f_brg)
 
-        # FOOTER
-        draw.rectangle((0, foot_t, W, H), fill=(6, 6, 6))
-        draw.line((0, foot_t, W, foot_t), fill=accent, width=1)
-        draw.text((W//2 - 100, foot_t + 15), "KMITL SPACE ENG | GNSS HANDHELD v1.0", fill=white, font=self._f_footer)
+        # BOTTOM BUTTON BAR
+        draw.rectangle((0, foot_t, W, H), fill=(10, 10, 10))
+        draw.line((0, foot_t, W, foot_t), fill=accent, width=2)
+        
+        btns = ["MODE", "CALIB", "GAIN -", "GAIN +", "PWR"]
+        btn_count = len(btns)
+        btn_w = W // btn_count
+        self._touch_zones = {}
+
+        for i, label in enumerate(btns):
+            bx = i * btn_w
+            is_pressed = (label == self._last_pressed and now < self._pressed_until)
+            
+            # Use red color for PWR button
+            if label == "PWR":
+                bg_c = (200, 50, 50) if is_pressed else (60, 10, 10)
+                outline_c = (255, 100, 100)
+                tx_c = white
+            else:
+                bg_c = white if is_pressed else (20, 20, 30)
+                outline_c = accent
+                tx_c = (0, 0, 0) if is_pressed else white
+            
+            # Button outline
+            draw.rectangle((bx + 2, foot_t + 4, bx + btn_w - 2, H - 4), fill=bg_c, outline=outline_c)
+            tw, th = self._get_text_size(label, self._f_btn)
+            draw.text((bx + (btn_w - tw)//2, foot_t + 20), label, fill=tx_c, font=self._f_btn)
+            
+            self._touch_zones[label] = (bx, foot_t, bx + btn_w, H)
 
         # Output
         if self.preview: self.app._img.save("preview.png")
@@ -355,12 +380,14 @@ class DisplayUI:
         for label, (x1, y1, x2, y2) in self._touch_zones.items():
             if x1 <= x <= x2 and y1 <= y <= y2:
                 self._last_pressed, self._pressed_until = label, time.time() + 0.15
-                if label == "VIEW": self.view_mode = (self.view_mode + 1) % 3
-                elif label == "GAIN":
-                    if x < x1 + (x2-x1)//2: self.app.adjust_gain(-2.0)
-                    else: self.app.adjust_gain(2.0)
-                elif label == "MUTE": self.app.toggle_mute()
-                elif label == "CALIB": self.app.recalibrate()
-                elif label == "SNAP": self.app.manual_capture()
-                elif label == "EXIT": self.app.running = False
+                if label == "MODE": 
+                    self.view_mode = (self.view_mode + 1) % 3
+                elif label == "GAIN -": 
+                    self.app.adjust_gain(-2.0)
+                elif label == "GAIN +": 
+                    self.app.adjust_gain(2.0)
+                elif label == "CALIB": 
+                    self.app.recalibrate()
+                elif label == "PWR":
+                    self.app.safe_power_off()
                 return

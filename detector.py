@@ -1,3 +1,4 @@
+import sys
 import time
 import numpy as np
 
@@ -48,12 +49,22 @@ class GPSJammerHandheld:
         self.device = None
         self.sdr = None
 
+        # Initialize UI first to show splash screens
+        self.ui = DisplayUI(self, preview=self.preview)
+        self.ui.draw_splash("SYSTEM BOOTING...")
+        
         if not self.preview:
             # Initialize database first so calibration can log baseline
+            self.ui.draw_splash("INITIALIZING DB...")
             database_manager.init_db()
             
+            self.ui.draw_splash("INIT SDR...")
             self._init_sdr()
+            
+            self.ui.draw_splash("CALIBRATING...")
             self._calibrate()
+            
+            self.ui.draw_splash("STARTING MODULES...")
             self.led = LEDController(enabled=True)
             self.buzzer = BuzzerController(enabled=True)
         else:
@@ -62,8 +73,6 @@ class GPSJammerHandheld:
             self.buzzer = BuzzerController(enabled=False)
             print("[INFO] Preview mode: synthetic spectrum is enabled.")
 
-        self.ui = DisplayUI(self, preview=self.preview)
-        
         # Start background web dashboard
         self.last_log_time = 0
         self.log_interval = 1.0 # Seconds between logs for the same persistent event
@@ -329,6 +338,18 @@ class GPSJammerHandheld:
             uptime
         )
         # We could also trigger a screen save here if implemented
+        
+    def safe_power_off(self):
+        """Safely shut down the Raspberry Pi."""
+        print("[SYSTEM] Initiating safe shutdown...")
+        self.ui.draw_splash("SHUTTING DOWN...")
+        self.shutdown() # Cleanup hardware
+        import os
+        if sys.platform != "win32" and not self.preview:
+            os.system("sudo shutdown -h now")
+        else:
+            print("[INFO] Shutdown command skipped in preview/Windows mode.")
+            self.running = False
     
     def shutdown(self):
         print("\n[SYSTEM] Stopping...")
