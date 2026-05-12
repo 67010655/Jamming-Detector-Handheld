@@ -102,6 +102,10 @@ class BuzzerController:
         elif state == "JAMMING":
             self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.05, frequency_hz=1500)
 
+    def play_click(self):
+        """Play a short 'click' sound for UI interaction."""
+        self._tone(pulses=1, pulse_duration=0.03, gap_duration=0, frequency_hz=1500)
+
     def cleanup(self):
         """Clean up GPIO resources used by the buzzer."""
         self._running = False

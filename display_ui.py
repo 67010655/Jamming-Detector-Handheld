@@ -564,6 +564,7 @@ class DisplayUI:
 
     def _handle_click(self, x, y):
         now = time.time()
+        self.app.buzzer.play_click()
 
         # If PWR dialog is showing, only respond to YES/NO
         if self._pwr_confirm and now < self._pwr_confirm_until:
