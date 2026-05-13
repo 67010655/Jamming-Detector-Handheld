@@ -386,18 +386,36 @@ class GPSJammerHandheld:
                 ["sudo", "shutdown", "-h", "now"],
                 ["/sbin/poweroff"],
             ]
-            for cmd in try_cmds:
-                try:
-                    tried.append(" ".join(cmd))
-                    subprocess.run(cmd, timeout=5)
-                except Exception:
-                    # try next method
-                    continue
+            log_path = "/tmp/jamming_shutdown.log"
+            with open(log_path, "a", encoding="utf-8") as lf:
+                lf.write(f"\n--- shutdown attempt {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+                for cmd in try_cmds:
+                    cmd_s = " ".join(cmd)
+                    tried.append(cmd_s)
+                    lf.write(f"Trying: {cmd_s}\n")
+                    try:
+                        # capture output for debugging
+                        res = subprocess.run(cmd, timeout=8, capture_output=True, text=True)
+                        lf.write(f"Returncode: {res.returncode}\n")
+                        if res.stdout:
+                            lf.write(f"STDOUT:\n{res.stdout}\n")
+                        if res.stderr:
+                            lf.write(f"STDERR:\n{res.stderr}\n")
+                    except Exception as e:
+                        lf.write(f"Exception: {e}\n")
+
+                lf.write(f"Tried: {tried}\n")
+                lf.write("Waiting briefly for system to handle poweroff...\n")
 
             # Small pause to allow systemd to act; if it didn't, force exit
-            time.sleep(2)
-            print(f"[SYSTEM] Shutdown commands attempted: {tried}")
-            print("[SYSTEM] If the device did not power off, exiting application to avoid hanging.")
+            time.sleep(3)
+            # Append final note
+            try:
+                with open(log_path, "a", encoding="utf-8") as lf:
+                    lf.write("Shutdown commands completed; exiting process if host still up.\n")
+            except Exception:
+                pass
+
             # Ensure the Python process terminates even if poweroff failed
             try:
                 os._exit(0)
