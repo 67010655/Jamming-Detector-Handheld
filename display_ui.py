@@ -90,7 +90,7 @@ class DisplayUI:
         self._f_subtitle  = _try(bold, 11)
         self._f_status    = _try(bold, 22)
         self._f_state_big = _try(bold, 26)
-        self._f_score_big = _try(mono, 32)
+        self._f_score_big = _try(mono, 30)
         self._f_score_sub = _try(regular, 11)
         self._f_label     = _try(bold, 11)
         self._f_value     = _try(bold, 22)
@@ -661,12 +661,6 @@ class DisplayUI:
                 elif label == "PWR":
                     self._pwr_confirm = True
                     self._pwr_confirm_until = now + 5.0  # 5 seconds to decide
-                return
-
-        # Check for Mute icon click
-        mute_zone = self._touch_zones.get("MUTE")
-        if mute_zone:
-            x1, y1, x2, y2 = mute_zone
-            if x1 <= x <= x2 and y1 <= y <= y2:
-                self.app.buzzer.toggle_mute()
+                elif label == "MUTE":
+                    self.app.buzzer.toggle_mute()
                 return
