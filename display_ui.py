@@ -252,11 +252,29 @@ class DisplayUI:
 
         # State badge (right side of header) - Extra large for field visibility
         sw, sh = self._get_text_size(state, self._f_status)
-        badge_x = W - sw - 12
-        badge_y = (hdr_b - sh) // 2
-        # Draw badge box with a slight rounding look (just a rectangle for now but larger)
-        draw.rectangle((badge_x - 8, 2, W - 2, hdr_b - 2), fill=accent, outline=white, width=1)
-        draw.text((badge_x - 2, badge_y), state, fill=(0, 0, 0), font=self._f_status)
+        badge_w = sw + 20
+        bx1, by1, bx2, by2 = W - badge_w - 2, 2, W - 2, hdr_b - 2
+        draw.rectangle((bx1, by1, bx2, by2), fill=accent, outline=white, width=1)
+        # Center text exactly in the badge box
+        tx = bx1 + (badge_w - sw) // 2
+        ty = by1 + (by2 - by1 - sh) // 2
+        draw.text((tx, ty), state, fill=(0, 0, 0), font=self._f_status)
+
+        # Mute Icon (Speaker) - Left of the badge
+        mute_x = bx1 - 36
+        self._touch_zones["MUTE"] = (mute_x - 5, 0, bx1, hdr_b)
+        # Draw speaker icon
+        ic_c = accent_br
+        sy = hdr_b // 2
+        if self.app.buzzer.muted:
+            # Muted icon (Speaker with X)
+            draw.polygon([(mute_x, sy-5), (mute_x+4, sy-5), (mute_x+10, sy-10), (mute_x+10, sy+10), (mute_x+4, sy+5), (mute_x, sy+5)], fill=self._dim(ic_c, 0.5))
+            draw.line((mute_x, sy-8, mute_x+14, sy+8), fill=(255, 50, 50), width=2)
+        else:
+            # Unmuted icon
+            draw.polygon([(mute_x, sy-5), (mute_x+4, sy-5), (mute_x+10, sy-10), (mute_x+10, sy+10), (mute_x+4, sy+5), (mute_x, sy+5)], fill=ic_c)
+            draw.arc((mute_x+6, sy-8, mute_x+16, sy+8), -45, 45, fill=ic_c, width=1)
+            draw.arc((mute_x+4, sy-12, mute_x+20, sy+12), -45, 45, fill=ic_c, width=1)
 
         # ═══ RIGHT PANEL ═══
         rp_w = W - rp_l
@@ -292,6 +310,8 @@ class DisplayUI:
 
         if self.view_mode == 1:  # SEARCH MODE (Radar)
             self._draw_radar(draw, content_l + content_w // 2, (hdr_b + foot_t) // 2, 100, accent, grid, white)
+            # Label
+            draw.text((content_l + 10, hdr_b + 5), "DIRECTIONAL RADAR", fill=self._dim(white, 0.4), font=self._f_footer)
 
         elif self.view_mode == 2:  # ANALYTICS MODE (History)
             self._draw_history(draw, content_l + 12, hdr_b + 18, rp_l - 12, foot_t - 75, accent, grid, white)
@@ -324,8 +344,9 @@ class DisplayUI:
                 vw, vh = self._get_text_size(mv, self._f_value)
                 draw.text((mx + (col_w - vw)//2, met_y + 16), mv, fill=mcolor, font=self._f_value)
                 
-                uw, _ = self._get_text_size("dB", self._f_small)
-                draw.text((mx + (col_w - uw)//2, met_y + 40), "dB", fill=mcolor, font=self._f_small)
+                unit = "dBm" if i < 2 else "dB"
+                uw, _ = self._get_text_size(unit, self._f_small)
+                draw.text((mx + (col_w - uw)//2, met_y + 40), unit, fill=mcolor, font=self._f_small)
 
         # ═══ BOTTOM BUTTON BAR ═══
         draw.rectangle((0, foot_t, W, H), fill=(12, 12, 18))
@@ -359,10 +380,11 @@ class DisplayUI:
             r = 12
 
             if label == "PWR":
-                # Power icon: thicker and bolder
-                pr = 11
-                draw.arc((cx - pr, cy - pr , cx + pr, cy + pr), 135, 405, fill=ic, width=3)
-                draw.line((cx, cy - pr - 3, cx, cy - 2), fill=ic, width=3)
+                # Standard Power Icon (Gap at Top)
+                pr = 10
+                gap = 60
+                draw.arc((cx - pr, cy - pr, cx + pr, cy + pr), 270 + gap//2, 270 - gap//2 + 360, fill=ic, width=3)
+                draw.line((cx, cy - pr - 2, cx, cy + 1), fill=ic, width=3)
             elif label == "GAIN-":
                 # Down triangle
                 draw.polygon([(cx - 8, cy - 4), (cx + 8, cy - 4), (cx, cy + 8)], fill=ic)
@@ -471,8 +493,13 @@ class DisplayUI:
                 self.app.device.display(self.app._img)
 
     def _draw_spectrum(self, draw, l, t, r, b, metrics, power, accent, grid, nf, peak, small=False):
-        draw.rectangle((l, t, r, b), outline=accent, fill=(10, 10, 12))
+        # Draw background and grid first
+        draw.rectangle((l, t, r, b), outline=None, fill=(10, 10, 12))
         sw, sh = r - l, b - t
+        
+        # Label (Subtle)
+        lbl = "MINI SPECTRUM" if small else "REAL-TIME SPECTRUM"
+        draw.text((l + 6, t + 4), lbl, fill=self._dim(accent, 0.5), font=self._f_footer)
 
         # Dotted Grid
         grid_c = (50, 50, 60)
@@ -507,9 +534,14 @@ class DisplayUI:
         pts_off = [(px + l, py) for px, py in pts]
         if len(pts_off) > 2:
             sm = self._smooth(pts_off, sw)
+            # Clip points slightly to stay inside borders
+            sm = [(max(l+1, min(r-1, px)), py) for px, py in sm]
             poly = list(sm) + [(sm[-1][0], b-1), (sm[0][0], b-1)]
             draw.polygon(poly, fill=self._dim(accent, 0.15))
             draw.line(sm, fill=accent, width=1 if small else 2)
+            
+        # Draw outline LAST so it's always visible
+        draw.rectangle((l, t, r, b), outline=accent, fill=None, width=1)
 
     def _draw_radar(self, draw, cx, cy, radius, accent, grid, white):
         for r in [radius, radius*0.66, radius*0.33]:
@@ -523,14 +555,17 @@ class DisplayUI:
             draw.line((cx, cy, lx, ly), fill=accent, width=2)
 
     def _draw_history(self, draw, l, t, r, b, accent, grid, white):
-        draw.text((l, t-15), "MARGIN HISTORY", fill=white, font=self._f_label)
+        draw.text((l, t-15), "MARGIN HISTORY", fill=self._dim(white, 0.6), font=self._f_label)
         draw.rectangle((l, t, r, b), outline=grid)
         if not self._history_log: return
-        bw = (r - l) // 50
+        
+        count = 50
+        bw = (r - l) / float(count) # Use float for precise width
         for i, val in enumerate(self._history_log):
             h = int(np.clip((val+20) * (b-t)/40, 0, b - t))
-            bx = l + i * bw
-            draw.rectangle((bx, b - h, bx + bw - 1, b), fill=accent if val > 0 else (200,0,0))
+            bx1 = l + int(i * bw)
+            bx2 = l + int((i + 1) * bw) - 1
+            draw.rectangle((bx1, b - h, bx2, b), fill=accent if val > 0 else (200,0,0))
 
     def _init_touch(self):
         if spidev is None or GPIO is None: return
@@ -626,4 +661,12 @@ class DisplayUI:
                 elif label == "PWR":
                     self._pwr_confirm = True
                     self._pwr_confirm_until = now + 5.0  # 5 seconds to decide
+                return
+
+        # Check for Mute icon click
+        mute_zone = self._touch_zones.get("MUTE")
+        if mute_zone:
+            x1, y1, x2, y2 = mute_zone
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                self.app.buzzer.toggle_mute()
                 return
