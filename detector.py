@@ -370,14 +370,40 @@ class GPSJammerHandheld:
         # Keep the splash screen visible for 5 seconds as requested
         time.sleep(5)
         
-        self.shutdown() # Cleanup hardware and black screen
+        # Cleanup hardware and black screen
+        self.shutdown()
+
+        # Attempt to power off the system. Try multiple safe methods and
+        # then force-exit the process if none succeed so we don't hang.
         import os
+        import subprocess
+
         if sys.platform != "win32" and not self.preview:
-            os.system("sudo poweroff")
-            # Block forever — prevent process from exiting so systemd
-            # won't restart us. OS shutdown will kill us naturally.
-            while True:
-                time.sleep(1)
+            tried = []
+            try_cmds = [
+                ["sudo", "poweroff"],
+                ["sudo", "systemctl", "poweroff"],
+                ["sudo", "shutdown", "-h", "now"],
+                ["/sbin/poweroff"],
+            ]
+            for cmd in try_cmds:
+                try:
+                    tried.append(" ".join(cmd))
+                    subprocess.run(cmd, timeout=5)
+                except Exception:
+                    # try next method
+                    continue
+
+            # Small pause to allow systemd to act; if it didn't, force exit
+            time.sleep(2)
+            print(f"[SYSTEM] Shutdown commands attempted: {tried}")
+            print("[SYSTEM] If the device did not power off, exiting application to avoid hanging.")
+            # Ensure the Python process terminates even if poweroff failed
+            try:
+                os._exit(0)
+            except Exception:
+                pass
+            # Fallback infinite sleep removed — exiting is preferable
         else:
             print("[INFO] Shutdown command skipped in preview/Windows mode.")
     
@@ -394,8 +420,17 @@ class GPSJammerHandheld:
 
         if self.device is not None:
             try:
-                self._draw.rectangle((0, 0, self.w, self.h), fill=(0, 0, 0))
-                self.device.display(self._img)
+                # Use the DisplayUI's drawing surface to clear the screen
+                if getattr(self, 'ui', None) is not None and hasattr(self.ui, '_draw'):
+                    try:
+                        self.ui._draw.rectangle((0, 0, self.w, self.h), fill=(0, 0, 0))
+                        self.device.display(self.ui._img)
+                    except Exception:
+                        # Fallback: try to blank device directly
+                        try:
+                            self.device.display(self.ui._img)
+                        except Exception:
+                            pass
             except Exception:
                 pass
 
