@@ -10,13 +10,17 @@
 
 ---
 
-## Web Dashboard
+## 📸 Web Dashboard Overview
 
 <img width="849" height="652" alt="image" src="https://github.com/user-attachments/assets/21fbd90b-5cef-49f2-b749-1e3895cb5151" />
 
 ---
 
-## 🏗️ System Architecture / โครงสร้างระบบ
+## 🏗️ System Architecture
+
+The software and hardware architecture is designed to handle continuous digital signal processing alongside real-time user interface rendering on a constrained edge device.
+
+### High-Level Data Flow
 ```mermaid
 graph TD
     SDR[RTL-SDR Dongle] -->|IQ Samples| DSP[DSP Engine - Python]
@@ -27,7 +31,7 @@ graph TD
     WEB -->|User Action| CSV[Smart CSV Export]
 ```
 
-### ⚙️ Software Logic Flow / ขั้นตอนการทำงานของโปรแกรม
+### State Machine Logic
 ```mermaid
 flowchart TD
     Start([Start Program]) --> Init[Initialize Hardware & Web Server]
@@ -51,36 +55,25 @@ flowchart TD
     DB --> Loop
 ```
 
-### 🔌 Hardware Interconnect / ผังการเชื่อมต่ออุปกรณ์
-```mermaid
-graph LR
-    subgraph "Raspberry Pi Zero 2W"
-        GPIO[GPIO Pins]
-        SPI[SPI Interface]
-        USB[USB OTG]
-    end
-    
-    USB --- SDR[RTL-SDR V3]
-    SPI --- LCD[ILI9488 3.5 LCD]
-    GPIO --- LED[LEDs Status]
-    GPIO --- BUZ[Buzzer]
-    SDR --- ANT[Directional Antenna]
-```
+---
+
+## 📦 Bill of Materials (BOM)
+
+| Component | Description / Spec | Purpose |
+| :--- | :--- | :--- |
+| **Raspberry Pi Zero 2W** | Quad-core 64-bit ARM Cortex-A53, 512MB RAM | Core processing unit |
+| **RTL-SDR V3** | RTL2832U ADC, 500 kHz – 1766 MHz | RF Signal Receiver |
+| **ILI9488 LCD Display** | 3.5" TFT SPI 480x320 with Touch (XPT2046) | Field User Interface |
+| **MPU6050** | 6-DoF Accelerometer & Gyroscope | Directional tracking for Polar Radar |
+| **LX-28UPS Module** | UPS/Power Management Board | Charging & 5V Boost Converter |
+| **18650 Batteries** | 2x Lithium-ion Cells | Portable power source |
+| **Directional Antenna** | Optimized for GNSS L1 (1575.42 MHz) | Directional signal capture |
+| **Peripherals** | RGB LEDs, Active Buzzer | Visual and auditory alerts |
 
 ---
 
-## 🌟 Key Technical Highlights / ความโดดเด่นทางเทคนิค
-- **Field-Optimized UI:** หน้าจอความละเอียดสูงที่ออกแบบมาเพื่อสู้แสงแดดในสนาม พร้อมระบบ State Badge ขนาดใหญ่และพารามิเตอร์ 4 คอลัมน์ที่อ่านง่าย
-- **Interactive Calibration:** ระบบเลือกโหมด Calibrate หน้างานได้ทันทีระหว่าง **Auto NF** (ติดตามอัตโนมัติ) หรือ **Fixed NF** (ล็อกค่าคงที่) เพื่อความแม่นยำสูงสุด
-- **Polar Radar (Search Mode):** ระบบเข็มทิศเรดาร์ที่ช่วยระบุทิศทางของแหล่งกำเนิดสัญญาณรบกวนตามระดับความเข้มของสัญญาณ (Signal Strength)
-- **Safe Shutdown Sequence:** ระบบปิดเครื่องที่ปลอดภัยพร้อมหน้าจอ Splash Screen แจ้งเตือน 5 วินาที เพื่อป้องกันการเสียหายของข้อมูล (SD Card Corruption)
-- **Adaptive Signal Analysis:** คำนวณ Noise Floor และ Peak Power แบบเรียลไทม์ พร้อมระบบ Adaptive Thresholding
-- **Glassmorphism Web Dashboard:** เข้าถึงข้อมูลเชิงลึกผ่าน WiFi Hotspot ด้วย Dashboard ดีไซน์ทันสมัยแบบ Glassmorphism UI
-- **Adaptive Heartbeat Logging:** ระบบบันทึกข้อมูลอัจฉริยะที่ปรับความถี่ตามสถานการณ์ (1s/30s) เพื่อประสิทธิภาพสูงสุดในการจัดเก็บข้อมูล
+## 📂 File Structure
 
----
-
-## 📂 Project Structure / โครงสร้างไฟล์
 ```text
 .
 ├── web/
@@ -95,39 +88,41 @@ graph LR
 ├── dsp.py                  # DSP Utilities (FFT & Power Calculation)
 ├── led_control.py          # Visual Status Indicators (RGB LEDs)
 ├── main.py                 # Application Entry Point
-├── jamming_events.db       # Local SQLite Database (Auto-generated)
 ├── requirements.txt        # Python Dependencies List
 └── README.md               # Project Documentation
 ```
 
 ---
 
-## 🛠️ Hardware Setup / การต่ออุปกรณ์
-- **CPU:** Raspberry Pi Zero 2W
-- **SDR:** RTL-SDR V3
-- **Display:** 3.5" ILI9488 TFT SPI LCD
-- **Peripherals:** 3-Color LEDs, Buzzer
+## 🌟 Key Technical Highlights
+- **Field-Optimized UI:** High-visibility UI designed for outdoor use, featuring clear State Badges and critical metrics.
+- **Interactive Calibration:** On-the-fly calibration selection (**Auto NF** vs. **Fixed NF**) to ensure precision in varied RF environments.
+- **Polar Radar (Search Mode):** Visual compass utilizing IMU data to map signal strength directivity, aiding in identifying jammer locations.
+- **Safe Shutdown Sequence:** Prevents SD card corruption via a 5-second splash screen sequence before power-off.
+- **Adaptive Signal Analysis:** Real-time Noise Floor and Peak Power calculations coupled with Adaptive Thresholding.
+- **Adaptive Heartbeat Logging:** Smart logging frequency (1s during events, 30s during idle) to optimize storage capacity and I/O.
 
 ---
 
-## 🚀 Installation & Deployment / การติดตั้ง
-1. **Prepare OS:** ติดตั้ง Raspberry Pi OS (64-bit Lite/Desktop)
+## 🚀 Installation & Deployment
+
+1. **Prepare OS:** Install Raspberry Pi OS (64-bit Lite/Desktop).
 2. **Setup Code:**
    ```bash
    git clone https://github.com/User/Jamming-Detector-Handheld.git
    cd Jamming-Detector-Handheld
    pip install -r requirements.txt
    ```
-3. **Configure Hotspot:** ตั้งค่า `nmcli` เพื่อให้ Pi ปล่อย WiFi อัตโนมัติ (แนะนำ SSID: Jamming-Detector-Handheld)
-4. **Auto-Start:** ตั้งค่า `jamming.service` เพื่อให้ระบบรันทันทีที่เปิดเครื่อง
+3. **Configure Hotspot:** Use `nmcli` to set up an auto-starting WiFi Hotspot (e.g., SSID: `Jamming-Detector-Handheld`).
+4. **Auto-Start:** Create and enable a systemd service (`jamming.service`) to execute `main.py` on boot.
 
 ---
 
-## 🛣️ Roadmap / แผนพัฒนาในอนาคต
-- [x] **Compass Integration:** เพิ่มหน้าจอเข็มทิศเพื่อระบุทิศทางของแหล่งกำเนิดสัญญาณรบกวน (Polar Radar Mode)
-- [x] **Interactive Gain Control:** ระบบปรับ Gain ได้ทันทีผ่านหน้าจอสัมผัส
-- [ ] **GPS Module Integration:** แสดงตำแหน่งการตรวจพบลงบนแผนที่ (Map) แบบเรียลไทม์
-- [ ] **Offline Map Tiles:** ระบบแผนที่ออฟไลน์บน Dashboard สำหรับการใช้งานในป่าหรือพื้นที่ห่างไกล
+## 🛣️ Roadmap
+- [x] **Compass Integration:** Add Polar Radar Mode to locate signal sources.
+- [x] **Interactive Gain Control:** Enable on-the-fly RF gain adjustment via touch interface.
+- [ ] **GPS Module Integration:** Plot jamming locations on real-time maps.
+- [ ] **Offline Map Tiles:** Enable dashboard mapping in remote/offline environments.
 
 ---
 
