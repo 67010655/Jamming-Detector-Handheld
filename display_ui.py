@@ -543,27 +543,24 @@ class DisplayUI:
         draw.line((cx-radius, cy, cx+radius, cy), fill=grid)
         draw.line((cx, cy-radius, cx, cy+radius), fill=grid)
         
-        # Draw cardinal labels (Degrees)
+        # Draw cardinal labels (Degrees) - Swapped 90 and 270 per user request
         draw.text((cx-10, cy-radius-15), "0", fill=white, font=self._f_compass)
-        draw.text((cx+radius+5, cy-5), "90", fill=white, font=self._f_compass)
+        draw.text((cx+radius+5, cy-5), "270", fill=white, font=self._f_compass)
         draw.text((cx-15, cy+radius+5), "180", fill=white, font=self._f_compass)
-        draw.text((cx-radius-25, cy-5), "270", fill=white, font=self._f_compass)
+        draw.text((cx-radius-25, cy-5), "90", fill=white, font=self._f_compass)
         
         for angle, strength in self._bearing_log:
             rad = np.radians(angle - 90)
             lx, ly = cx + int(radius * strength * np.cos(rad)), cy + int(radius * strength * np.sin(rad))
             draw.line((cx, cy, lx, ly), fill=accent, width=2)
         
-        # Draw current bearing in the top-right corner of the radar area
+        # Draw current bearing in the far top-right corner of the radar panel (UX focus)
         brg_val = f"{int(self.app.current_bearing):03d}°"
         
-        # Draw Label "BEARING" (Small)
-        lx, ly = cx + radius - 40, cy - radius - 18
+        # Position: Far right of the content area (rp_l is 420)
+        lx, ly = 330, cy - 30
         draw.text((lx, ly), "BEARING", fill=(160, 160, 180), font=self._f_small)
-        
-        # Draw Value (Slightly larger, no box)
-        vx, vy = lx, ly + 12
-        draw.text((vx, vy), brg_val, fill=accent, font=self._f_brg)
+        draw.text((lx, ly + 15), brg_val, fill=accent, font=self._f_score_big) # Larger for clear reading
 
     def _draw_history(self, draw, l, t, r, b, accent, grid, white):
         draw.text((l, t-15), "MARGIN HISTORY", fill=self._dim(white, 0.6), font=self._f_label)

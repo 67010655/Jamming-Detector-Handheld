@@ -220,9 +220,10 @@ body {
 
 #bearing-display {
     font-family: var(--font-mono);
-    font-size: 1.4rem;
+    font-size: 2.2rem;
     font-weight: 800;
     color: var(--theme-color);
+    line-height: 1;
 }
 
 /* Spectrum Card */
