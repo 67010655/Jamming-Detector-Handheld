@@ -3,10 +3,13 @@ const spectrumCanvas = document.getElementById('spectrumCanvas');
 const polarCanvas = document.getElementById('polarCanvas');
 let bearingLog = [];
 
-// Initialize Clocks
+// Initialize Clocks (Local fallback)
 function updateClock() {
     const now = new Date();
-    document.getElementById('realtime-clock').innerText = now.toTimeString().split(' ')[0];
+    // Only update if not yet received from API
+    if (document.getElementById('realtime-clock').innerText === '00:00:00') {
+        document.getElementById('realtime-clock').innerText = now.toTimeString().split(' ')[0];
+    }
 }
 setInterval(updateClock, 1000);
 
@@ -30,9 +33,9 @@ function drawSpectrum(data) {
     const ctx = spectrumCanvas.getContext('2d');
     const w = spectrumCanvas.width;
     const h = spectrumCanvas.height;
-    
     ctx.clearRect(0, 0, w, h);
     
+    // Grid
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -100,7 +103,9 @@ function drawPolar(bearing, state) {
     ctx.fillText('270°', cx + r + 22, cy + 5);
 
     if (bearing !== undefined && bearing !== null) {
+        // UPDATE BEARING TEXT
         document.getElementById('bearing-display').innerText = `${Math.round(bearing).toString().padStart(3, '0')}°`;
+        
         const rad = (-bearing - 90) * Math.PI / 180;
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
@@ -132,9 +137,13 @@ function drawPolar(bearing, state) {
 
 async function fetchStatus() {
     try {
-        const response = await fetch('/api/status'); // FIXED: Added /api/
+        const response = await fetch('/api/status');
         const data = await response.json();
         
+        // Update Time & Date from API
+        if (data.real_time) document.getElementById('realtime-clock').innerText = data.real_time;
+        if (data.real_date) document.getElementById('realtime-date').innerText = data.real_date.toUpperCase();
+
         if (data.metrics) {
             const m = data.metrics;
             const badge = document.getElementById('status-badge');
@@ -150,8 +159,6 @@ async function fetchStatus() {
             
             const rise = m.floor_rise;
             document.getElementById('rise-text').innerText = (rise >= 0 ? '+' : '') + rise.toFixed(1);
-            document.getElementById('rise-text').style.color = rise > 5 ? '#ff3333' : 'var(--theme-color)';
-            
             document.getElementById('margin-text').innerText = (m.margin >= 0 ? '+' : '') + m.margin.toFixed(1) + " dB";
         }
 
