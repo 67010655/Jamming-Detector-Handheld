@@ -117,9 +117,9 @@ function drawPolar(bearing, state) {
     polarCtx.font = '700 10px Outfit';
     polarCtx.textAlign = 'center';
     polarCtx.fillText('0°', cx, cy - r - 8);
-    polarCtx.fillText('S', cx, cy + r + 15);
-    polarCtx.fillText('W', cx - r - 12, cy + 4);
-    polarCtx.fillText('E', cx + r + 12, cy + 4);
+    polarCtx.fillText('180°', cx, cy + r + 15);
+    polarCtx.fillText('270°', cx - r - 20, cy + 4);
+    polarCtx.fillText('90°', cx + r + 18, cy + 4);
 
     if (bearing !== undefined && bearing !== null) {
         document.getElementById('bearing-display').innerText = `${Math.round(bearing).toString().padStart(3, '0')}°`;
