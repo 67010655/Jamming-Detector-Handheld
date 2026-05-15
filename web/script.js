@@ -3,14 +3,13 @@ const spectrumCanvas = document.getElementById('spectrumCanvas');
 const polarCanvas = document.getElementById('polarCanvas');
 let bearingLog = [];
 
-// Initialize Clocks and Intervals
+// Initialize Clocks
 function updateClock() {
     const now = new Date();
     document.getElementById('realtime-clock').innerText = now.toTimeString().split(' ')[0];
 }
 setInterval(updateClock, 1000);
 
-// Format seconds into HH:MM:SS
 function formatUptime(seconds) {
     const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
     const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
@@ -21,20 +20,19 @@ function formatUptime(seconds) {
 function updateScoreRing(score) {
     const ring = document.getElementById('score-ring-fill');
     if (!ring) return;
-    const maxOffset = 283; // 2 * PI * 45
+    const maxOffset = 283;
     const pct = Math.min(Math.max(score / 99, 0), 1);
     ring.style.strokeDashoffset = maxOffset - (pct * maxOffset);
 }
 
 function drawSpectrum(data) {
-    if (!spectrumCanvas) return;
+    if (!spectrumCanvas || spectrumCanvas.width === 0) return;
     const ctx = spectrumCanvas.getContext('2d');
     const w = spectrumCanvas.width;
     const h = spectrumCanvas.height;
     
     ctx.clearRect(0, 0, w, h);
     
-    // Grid
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -46,7 +44,6 @@ function drawSpectrum(data) {
 
     if (!data || data.length === 0) return;
 
-    // Line & Area
     const step = w / (data.length - 1);
     ctx.beginPath();
     ctx.moveTo(0, h);
@@ -56,7 +53,6 @@ function drawSpectrum(data) {
         ctx.lineTo(x, y);
     });
     
-    // Fill
     const grad = ctx.createLinearGradient(0, 0, 0, h);
     grad.addColorStop(0, 'rgba(0, 255, 170, 0.2)');
     grad.addColorStop(1, 'rgba(0, 255, 170, 0)');
@@ -64,7 +60,6 @@ function drawSpectrum(data) {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    // Stroke
     ctx.shadowBlur = 8;
     ctx.shadowColor = '#00ffaa';
     ctx.strokeStyle = '#00ffaa';
@@ -74,13 +69,13 @@ function drawSpectrum(data) {
 }
 
 function drawPolar(bearing, state) {
-    if (!polarCanvas) return;
+    if (!polarCanvas || polarCanvas.width === 0) return;
     const ctx = polarCanvas.getContext('2d');
     const w = polarCanvas.width;
     const h = polarCanvas.height;
     const cx = w / 2;
     const cy = h / 2;
-    const r = (w / 2) - 40;
+    const r = Math.min(cx, cy) - 40;
 
     ctx.clearRect(0, 0, w, h);
 
@@ -88,7 +83,6 @@ function drawPolar(bearing, state) {
     if (state === 'WATCH') color = '#ffcc00';
     if (state === 'JAMMING') color = '#ff3333';
 
-    // Rings
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -97,7 +91,6 @@ function drawPolar(bearing, state) {
     ctx.arc(cx, cy, r * 0.33, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Labels (Match LCD: 0=Top, 90=Left, 180=Bot, 270=Right)
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.font = '700 12px Outfit';
     ctx.textAlign = 'center';
@@ -108,8 +101,6 @@ function drawPolar(bearing, state) {
 
     if (bearing !== undefined && bearing !== null) {
         document.getElementById('bearing-display').innerText = `${Math.round(bearing).toString().padStart(3, '0')}°`;
-        
-        // Scan Line (Counter-clockwise: 0=top, 90=left, 180=bot, 270=right)
         const rad = (-bearing - 90) * Math.PI / 180;
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
@@ -127,7 +118,6 @@ function drawPolar(bearing, state) {
         }
     }
 
-    // Dots
     bearingLog.forEach((log, i) => {
         const rad = (-log.brg - 90) * Math.PI / 180;
         const alpha = (i + 1) / bearingLog.length;
@@ -142,7 +132,7 @@ function drawPolar(bearing, state) {
 
 async function fetchStatus() {
     try {
-        const response = await fetch('/status');
+        const response = await fetch('/api/status'); // FIXED: Added /api/
         const data = await response.json();
         
         if (data.metrics) {
@@ -156,7 +146,7 @@ async function fetchStatus() {
 
             document.getElementById('noise-text').innerText = m.noise_floor.toFixed(1);
             document.getElementById('peak-text').innerText = m.peak_p.toFixed(1);
-            document.getElementById('base-text').innerText = (m.noise_floor - 5).toFixed(1); // Estimated baseline
+            document.getElementById('base-text').innerText = (m.noise_floor - 5).toFixed(1);
             
             const rise = m.floor_rise;
             document.getElementById('rise-text').innerText = (rise >= 0 ? '+' : '') + rise.toFixed(1);
@@ -203,8 +193,10 @@ function resizeCanvas() {
     [spectrumCanvas, polarCanvas].forEach(c => {
         if (!c) return;
         const container = c.parentElement;
-        c.width = container.clientWidth;
-        c.height = container.clientHeight;
+        if (container.clientWidth > 0 && container.clientHeight > 0) {
+            c.width = container.clientWidth;
+            c.height = container.clientHeight;
+        }
     });
 }
 
