@@ -218,8 +218,12 @@ body {
     border-top: 1px solid var(--glass-border);
 }
 
-#bearing-header {
+#bearing-container {
+    position: absolute;
+    bottom: -15px;
+    right: 0px;
     text-align: right;
+    pointer-events: none;
 }
 
 .brg-label {
@@ -236,6 +240,7 @@ body {
     font-weight: 800;
     color: var(--theme-color);
     line-height: 1;
+    text-shadow: 0 0 15px var(--theme-glow);
 }
 
 /* Spectrum Card */

@@ -1,4 +1,4 @@
-const POLL_INTERVAL_MS = 300; 
+const POLL_INTERVAL_MS = 100; 
 let canvas = document.getElementById('spectrumCanvas');
 let ctx = canvas.getContext('2d');
 let polarCanvas = document.getElementById('polarCanvas');
@@ -48,42 +48,27 @@ function drawSpectrum(data) {
 
     if (!data || data.length === 0) return;
 
-    const MIN_DB = -100;
-    const MAX_DB = -40;
-    const RANGE = MAX_DB - MIN_DB;
-
-    // Theme Color Logic
-    const state = document.body.getAttribute('data-state');
-    let color = '#00ffaa';
-    let r=0, g=255, b=170;
-    if (state === 'WATCH') { color = '#ffcc00'; r=255; g=204; b=0; }
-    if (state === 'JAMMING') { color = '#ff3333'; r=255; g=51; b=85; }
+    // Draw Gradient Area
+    const gradient = ctx.createLinearGradient(0, height, 0, 0);
+    gradient.addColorStop(0, 'rgba(0, 255, 170, 0.0)');
+    gradient.addColorStop(1, 'rgba(0, 255, 170, 0.2)');
 
     ctx.beginPath();
     ctx.moveTo(0, height);
-
-    for (let i = 0; i < data.length; i++) {
-        let x = (i / (data.length - 1)) * width;
-        let db = data[i];
-        let normalized = Math.max(0, Math.min(1, (db - MIN_DB) / RANGE));
-        let y = height - (normalized * height);
+    data.forEach((val, i) => {
+        let x = (width / (data.length - 1)) * i;
+        let y = height - ((val + 100) * (height / 100)); // Normalized
         ctx.lineTo(x, y);
-    }
-
+    });
     ctx.lineTo(width, height);
     ctx.closePath();
-
-    // Fill Gradient
-    let gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.3)`);
-    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.0)`);
     ctx.fillStyle = gradient;
     ctx.fill();
 
     // Main Line with Glow
     ctx.shadowBlur = 10;
-    ctx.shadowColor = color;
-    ctx.strokeStyle = color;
+    ctx.shadowColor = '#00ffaa';
+    ctx.strokeStyle = '#00ffaa';
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.shadowBlur = 0; // reset
@@ -112,81 +97,76 @@ function drawPolar(bearing, state) {
     polarCtx.arc(cx, cy, r * 0.33, 0, Math.PI * 2);
     polarCtx.stroke();
 
-    // Cardinal Labels (Corrected positions and values)
+    // Cardinal Labels (Matching LCD: Left=90, Right=270)
     polarCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     polarCtx.font = '700 12px Outfit';
     polarCtx.textAlign = 'center';
-    polarCtx.fillText('0°', cx, cy - r - 15);     // Top
-    polarCtx.fillText('180°', cx, cy + r + 22);   // Bottom
+    polarCtx.fillText('0°', cx, cy - r - 15);      // Top
+    polarCtx.fillText('180°', cx, cy + r + 22);    // Bottom
     polarCtx.fillText('90°', cx - r - 22, cy + 5);  // Left (Match LCD)
     polarCtx.fillText('270°', cx + r + 22, cy + 5); // Right
 
     if (bearing !== undefined && bearing !== null) {
         document.getElementById('bearing-display').innerText = `${Math.round(bearing).toString().padStart(3, '0')}°`;
         
+        // Draw Current Scanning/Detection Line (Glow effect)
+        // Counter-clockwise math: 0=top, 90=left, 180=bot, 270=right
+        const currentRad = (-bearing - 90) * Math.PI / 180;
+        polarCtx.strokeStyle = color;
+        polarCtx.lineWidth = 3;
+        polarCtx.shadowBlur = 15;
+        polarCtx.shadowColor = color;
+        polarCtx.beginPath();
+        polarCtx.moveTo(cx, cy);
+        polarCtx.lineTo(cx + Math.cos(currentRad) * r, cy + Math.sin(currentRad) * r);
+        polarCtx.stroke();
+        polarCtx.shadowBlur = 0;
+
         // Log jammers if state is not normal
         if (state !== 'SCANNING') {
             bearingLog.push({ brg: bearing, color: color });
-            if (bearingLog.length > 15) bearingLog.shift();
+            if (bearingLog.length > 20) bearingLog.shift();
         }
     }
 
     // Draw past detected jammers (Fading dots)
     bearingLog.forEach((log, i) => {
-        const rad = (log.brg - 90) * Math.PI / 180;
+        const rad = (-log.brg - 90) * Math.PI / 180;
         const px = cx + Math.cos(rad) * r;
         const py = cy + Math.sin(rad) * r;
         const alpha = (i + 1) / bearingLog.length;
         
         polarCtx.fillStyle = log.color;
-        polarCtx.globalAlpha = alpha * 0.6;
+        polarCtx.globalAlpha = alpha * 0.7;
         polarCtx.beginPath();
-        polarCtx.arc(px, py, 5, 0, Math.PI * 2);
+        polarCtx.arc(px, py, 6, 0, Math.PI * 2);
         polarCtx.fill();
     });
     polarCtx.globalAlpha = 1.0;
-
-    // Draw Current Heading Line (Glow)
-    if (bearing !== undefined) {
-        const rad = (bearing - 90) * Math.PI / 180;
-        polarCtx.shadowBlur = 10;
-        polarCtx.shadowColor = color;
-        polarCtx.strokeStyle = color;
-        polarCtx.lineWidth = 3;
-        polarCtx.beginPath();
-        polarCtx.moveTo(cx, cy);
-        polarCtx.lineTo(cx + Math.cos(rad) * r, cy + Math.sin(rad) * r);
-        polarCtx.stroke();
-        polarCtx.shadowBlur = 0;
-    }
 }
 
 async function fetchStatus() {
     try {
-        const response = await fetch('/api/status');
+        const response = await fetch('/status');
         const data = await response.json();
-
-        // Update Clock
-        if (data.real_time) {
-            document.getElementById('real-time').innerText = data.real_time;
-            document.getElementById('real-date').innerText = data.real_date || "";
-        }
-
-        const m = data.metrics;
+        
+        // Metrics Update
+        let m = data.metrics;
         if (m) {
-            document.body.setAttribute('data-state', m.state);
             document.getElementById('state-badge').innerText = m.state;
-            
-            document.getElementById('nf-val').innerText = m.noise_floor ? m.noise_floor.toFixed(1) : "-90.0";
-            document.getElementById('peak-val').innerText = m.peak_p ? m.peak_p.toFixed(1) : "0.0";
-            document.getElementById('base-val').innerText = m.baseline_p ? m.baseline_p.toFixed(1) : "0.0";
-            document.getElementById('rise-val').innerText = m.floor_rise ? `+${m.floor_rise.toFixed(1)}` : "+0.0";
-            
-            document.getElementById('score-text').innerText = m.score ? m.score.toString().padStart(2, '0') : "00";
-            updateScoreRing(m.score || 0);
+            document.getElementById('state-badge').dataset.state = m.state;
+            document.getElementById('score-text').innerText = Math.round(m.score);
+            updateScoreRing(m.score);
 
-            if (m.margin !== undefined) {
-                let marginStr = m.margin > 0 ? `+${m.margin.toFixed(1)}` : m.margin.toFixed(1);
+            document.getElementById('noise-text').innerText = `${m.noise_floor.toFixed(1)} dBm`;
+            document.getElementById('peak-text').innerText = `${m.peak_p.toFixed(1)} dBm`;
+            
+            let rise = m.floor_rise;
+            let riseStr = (rise >= 0 ? '+' : '') + rise.toFixed(1);
+            document.getElementById('rise-text').innerText = `${riseStr} dB`;
+            
+            if (document.getElementById('margin-text')) {
+                let marginStr = (m.margin >= 0 ? '+' : '') + m.margin.toFixed(1);
                 document.getElementById('margin-text').innerText = `${marginStr} dB`;
             }
         }
