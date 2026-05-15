@@ -9,6 +9,7 @@ from led_control import LEDController
 from buzzer import BuzzerController
 import web_server
 import database_manager
+from hardware.mpu6050 import MPU6050
 
 class GPSJammerHandheld:
     def __init__(self, preview=False):
@@ -51,6 +52,8 @@ class GPSJammerHandheld:
 
         self.device = None
         self.sdr = None
+        self.imu = None
+        self.current_bearing = 0.0
 
         # Initialize UI first to show splash screens
         self.ui = DisplayUI(self, preview=self.preview)
@@ -69,6 +72,14 @@ class GPSJammerHandheld:
             self.ui.draw_splash("CALIBRATING...")
             self._calibrate()
             
+            self.ui.draw_splash("INIT IMU & CALIBRATE...")
+            try:
+                self.imu = MPU6050(address=0x69)
+                self.imu.calibrate(samples=50)
+            except Exception as e:
+                print(f"[IMU] Failed to initialize MPU6050: {e}")
+                self.imu = None
+
             self.ui.draw_splash("STARTING MODULES...")
             self.led = LEDController(enabled=True)
             self.buzzer = BuzzerController(enabled=True)
@@ -206,6 +217,9 @@ class GPSJammerHandheld:
         while self.running:
             frame_start = time.time()
             try:
+                if self.imu:
+                    self.current_bearing = self.imu.update_bearing()
+
                 if self.preview:
                     samples = self._generate_preview_samples()
                 else:
@@ -277,6 +291,9 @@ class GPSJammerHandheld:
 
                 if self.frame_count % 10 == 0:
                     self._debug_print(power)
+                if metrics["state"] in ["WATCH", "JAMMING"]:
+                    self.ui.record_bearing(self.current_bearing, metrics["peak_p"])
+
                 self.ui.draw_ui(metrics, power)
                 self.frame_count += 1
 
@@ -293,7 +310,8 @@ class GPSJammerHandheld:
                         metrics["peak_p"],
                         metrics["floor_rise"],
                         metrics["noise_floor"],
-                        uptime
+                        uptime,
+                        bearing_deg=int(self.current_bearing)
                     )
                     self.last_log_time = current_time
 
@@ -355,7 +373,8 @@ class GPSJammerHandheld:
             -50.0, # Dummy peak or use real metrics
             0.0,
             self.noise_floor,
-            uptime
+            uptime,
+            bearing_deg=int(self.current_bearing)
         )
         # We could also trigger a screen save here if implemented
         

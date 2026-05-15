@@ -247,7 +247,8 @@ class DisplayUI:
         # Title row
         draw.text((8, 3), "GNSS JAMMING DETECTOR", fill=white, font=self._f_title)
         # Subtitle row
-        sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | UP Time: {up_str}"
+        brg_str = f"BRG: {int(self.app.current_bearing):03d}°"
+        sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | {brg_str} | UP: {up_str}"
         draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle_small)
 
         # State badge (right side of header) - Extra large for field visibility
