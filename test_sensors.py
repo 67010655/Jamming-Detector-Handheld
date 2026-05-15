@@ -7,10 +7,10 @@ def main():
     try:
         # Initialize sensors
         imu = MPU6050(address=0x69)
-        rtc = DS3231(address=0x68)
+        # RTC is handled by Kernel now, so we use system time
         
         print("--- Sensor Test Utility ---")
-        print(f"Current RTC Time: {rtc.get_timestamp_str()}")
+        print(f"System Time (Synced with RTC): {time.strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Calibrate IMU
         print("\nStarting IMU Calibration. PLEASE KEEP THE DEVICE STILL...")
@@ -22,7 +22,7 @@ def main():
         
         while True:
             bearing = imu.update_bearing()
-            timestamp = rtc.get_timestamp_str()
+            timestamp = time.strftime('%H:%M:%S')
             
             # Print with carriage return to update the same line
             sys.stdout.write(f"\r{timestamp} | Bearing: {bearing:6.2f}°")
