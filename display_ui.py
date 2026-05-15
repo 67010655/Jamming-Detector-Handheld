@@ -99,6 +99,7 @@ class DisplayUI:
         self._f_compass   = _try(regular, 10)
         self._f_small     = _try(bold, 10)
         self._f_footer    = _try(bold, 9)
+        self._f_footer_bold = _try(bold, 9)
         self._f_fps       = _try(bold, 14)
         self._f_fps_label = _try(regular, 10)
         self._f_dblabel   = _try(regular, 9)
@@ -518,13 +519,6 @@ class DisplayUI:
             draw.text((l + 4, gy - 8), str(db_val), fill=(80, 80, 90), font=self._f_footer)
 
         # Noise Floor line (dashed)
-        # Map nf (-120 to -40 usually) to y
-        # scale_points maps 0-100% where 0 is nf and 100 is peak? 
-        # Actually scale_points uses a different logic. 
-        # Let's draw a fixed line for NF since it's the baseline in the graph usually.
-        # But wait, the graph points are RELATIVE to NF.
-        # So NF is at the bottom of the graph by definition of scale_points.
-        # Let's draw the "NOISE FLOOR" label at the baseline.
         nf_y = b - 15
         draw.text((l + 10, nf_y), "NOISE FLOOR", fill=(100, 100, 110), font=self._f_footer)
         for gx in range(l, r, 8):
@@ -548,22 +542,28 @@ class DisplayUI:
             draw.ellipse((cx-r, cy-r, cx+r, cy+r), outline=grid)
         draw.line((cx-radius, cy, cx+radius, cy), fill=grid)
         draw.line((cx, cy-radius, cx, cy+radius), fill=grid)
+        
+        # Draw cardinal labels (Degrees)
         draw.text((cx-10, cy-radius-15), "0", fill=white, font=self._f_compass)
         draw.text((cx+radius+5, cy-5), "90", fill=white, font=self._f_compass)
         draw.text((cx-15, cy+radius+5), "180", fill=white, font=self._f_compass)
         draw.text((cx-radius-25, cy-5), "270", fill=white, font=self._f_compass)
+        
         for angle, strength in self._bearing_log:
             rad = np.radians(angle - 90)
             lx, ly = cx + int(radius * strength * np.cos(rad)), cy + int(radius * strength * np.sin(rad))
             draw.line((cx, cy, lx, ly), fill=accent, width=2)
         
         # Draw current bearing in the top-right corner of the radar area
-        brg_txt = f"{int(self.app.current_bearing):03d}°"
-        bw, bh = self._get_text_size(brg_txt, self._f_brg)
-        # Position: Top-right relative to radar center
-        tx, ty = cx + radius - 10, cy - radius - 5
-        draw.rectangle((tx - 5, ty - 2, tx + bw + 5, ty + bh + 2), fill=(0,0,0,180), outline=accent)
-        draw.text((tx, ty), brg_txt, fill=white, font=self._f_brg)
+        brg_val = f"{int(self.app.current_bearing):03d}°"
+        
+        # Draw Label "BEARING" (Small)
+        lx, ly = cx + radius - 40, cy - radius - 18
+        draw.text((lx, ly), "BEARING", fill=(160, 160, 180), font=self._f_small)
+        
+        # Draw Value (Slightly larger, no box)
+        vx, vy = lx, ly + 12
+        draw.text((vx, vy), brg_val, fill=accent, font=self._f_brg)
 
     def _draw_history(self, draw, l, t, r, b, accent, grid, white):
         draw.text((l, t-15), "MARGIN HISTORY", fill=self._dim(white, 0.6), font=self._f_label)
