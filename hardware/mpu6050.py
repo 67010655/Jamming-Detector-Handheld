@@ -50,6 +50,11 @@ class MPU6050:
         raw_z = self.read_raw_data(0x47)
         gyro_z_rate = (raw_z - self.gyro_z_offset) / 131.0
         
+        # Apply Deadzone (Threshold) to prevent drift
+        # If the rotation speed is less than 0.2 degrees/sec, treat it as zero
+        if abs(gyro_z_rate) < 0.2:
+            gyro_z_rate = 0
+            
         # Integrate to get angle (Bearing)
         self.bearing += gyro_z_rate * dt
         
