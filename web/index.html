@@ -1,51 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GNSS Jammer Dashboard | Premium Edition</title>
-    <!-- Premium Fonts -->
+    <title>GNSS Jammer Dashboard | Premium UI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;700;900&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+<body data-theme="dark">
+    <div class="glow-container">
+        <div class="glow-sphere sphere-1"></div>
+        <div class="glow-sphere sphere-2"></div>
+    </div>
 
-<body data-state="SCANNING">
-    <div class="glass-bg"></div>
-
-    <div class="dashboard-wrapper">
-        <!-- Top Navigation / Header -->
-        <header class="main-header">
+    <main class="dashboard">
+        <!-- Top Header -->
+        <header class="main-header glass-panel">
             <div class="brand">
-                <div class="logo-icon"></div>
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" fill="var(--theme-color)" fill-opacity="0.3" stroke="var(--theme-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 17L12 22L22 17" stroke="var(--theme-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12L12 17L22 12" stroke="var(--theme-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
                 <div class="brand-text">
-                    <h1>JAMMING DETECTOR HANDHELD<span class="highlight"> | Monitoring Dashboard</span></h1>
+                    <h1>JAMMING DETECTOR HANDHELD <span class="accent-text">| Monitoring Dashboard</span></h1>
                     <p>GNSS L1 BAND | SPACE AND GEOSPATIAL ENGINEERING | Develop by PEERAYOOT WATTANANUALSAKUL</p>
                 </div>
             </div>
-
-            <div class="system-clock" id="system-clock-panel">
-                <div class="time" id="real-time">00:00:00</div>
-                <div class="date" id="real-date">-- --- ----</div>
-            </div>
-
-            <div class="status-container">
-                <div class="status-indicator" id="state-badge">SCANNING</div>
+            <div class="header-metrics">
+                <div class="clock-box">
+                    <span id="realtime-clock">00:00:00</span>
+                    <span class="label">SYSTEM TIME</span>
+                </div>
+                <div id="status-badge" class="status-badge" data-state="SCANNING">SCANNING</div>
             </div>
         </header>
 
-        <main class="grid-container">
+        <div class="grid-container">
             <!-- Left: Polar Radar -->
             <section class="card polar-card">
                 <div class="card-header">
                     <span class="card-label">DIRECTIONAL MAPPING</span>
                 </div>
                 <div class="polar-wrapper">
-                    <canvas id="polarCanvas" width="240" height="240"></canvas>
+                    <canvas id="polarCanvas"></canvas>
                     <div id="bearing-container">
                         <span class="brg-label">BEARING</span>
                         <span id="bearing-display">000°</span>
@@ -54,101 +52,95 @@
                 <div class="card-footer">
                     <div class="mini-metric">
                         <span class="mini-label">UPTIME</span>
-                        <span class="mini-value" id="uptime-text">00:00:00</span>
+                        <span id="uptime-text">00:00:00</span>
                     </div>
                 </div>
             </section>
 
-            <!-- Center: Live Spectrum -->
+            <!-- Center: Spectrum -->
             <section class="card spectrum-card">
                 <div class="card-header">
                     <span class="card-label">LIVE RF SPECTRUM</span>
-                    <div class="unit-tag">dBFS</div>
+                    <span class="unit-label">dBFS</span>
                 </div>
                 <div class="spectrum-wrapper">
                     <canvas id="spectrumCanvas"></canvas>
                 </div>
                 <div class="metrics-grid">
                     <div class="metric-item">
-                        <span class="m-label">NOISE FLOOR</span>
-                        <span class="m-value" id="nf-val">-90.0</span>
+                        <span class="label">NOISE FLOOR</span>
+                        <span id="noise-text" class="value">-90.0</span>
                     </div>
                     <div class="metric-item">
-                        <span class="m-label">PEAK SIGNAL</span>
-                        <span class="m-value" id="peak-val">-80.0</span>
+                        <span class="label">PEAK SIGNAL</span>
+                        <span id="peak-text" class="value">-80.0</span>
                     </div>
                     <div class="metric-item">
-                        <span class="m-label">BASELINE</span>
-                        <span class="m-value" id="base-val">-85.0</span>
+                        <span class="label">BASELINE</span>
+                        <span id="base-text" class="value">-85.0</span>
                     </div>
                     <div class="metric-item">
-                        <span class="m-label">FLOOR RISE</span>
-                        <span class="m-value highlight-val" id="rise-val">+0.0</span>
+                        <span class="label">FLOOR RISE</span>
+                        <span id="rise-text" class="value">+0.0</span>
                     </div>
                 </div>
             </section>
 
-            <!-- Right: Stats & Score -->
-            <section class="card stats-card">
+            <!-- Right: Threat Info -->
+            <section class="card threat-card">
                 <div class="card-header">
                     <span class="card-label">THREAT ANALYSIS</span>
                 </div>
-                <div class="score-circular">
-                    <div class="score-inner">
-                        <span class="score-num" id="score-text">00</span>
-                        <span class="score-sub">INTENSITY</span>
+                <div class="score-container">
+                    <div class="score-ring">
+                        <svg viewBox="0 0 100 100">
+                            <circle class="score-ring-bg" cx="50" cy="50" r="45"></circle>
+                            <circle id="score-ring-fill" class="score-ring-fill" cx="50" cy="50" r="45"></circle>
+                        </svg>
+                        <div class="score-content">
+                            <span id="score-text">00</span>
+                            <span class="score-label">INTENSITY</span>
+                        </div>
                     </div>
-                    <svg class="score-ring" viewBox="0 0 100 100">
-                        <circle class="ring-bg" cx="50" cy="50" r="45"></circle>
-                        <circle class="ring-fill" id="score-ring-fill" cx="50" cy="50" r="45"></circle>
-                    </svg>
                 </div>
-
-                <div class="margin-container">
-                    <span class="m-label">SIGNAL MARGIN</span>
-                    <div class="margin-box">
-                        <span class="margin-val" id="margin-text">+0.0 dB</span>
+                <div class="threat-details">
+                    <div class="detail-box">
+                        <span class="label">SIGNAL MARGIN</span>
+                        <span id="margin-text" class="value big">+0.0 dB</span>
                     </div>
                 </div>
             </section>
+        </div>
 
-            <!-- Bottom: History Table -->
-            <section class="card history-card full-width">
-                <div class="card-header">
-                    <span class="card-label">DETECTION LOGS</span>
-                    <div class="actions">
-                        <button id="export-btn" class="btn btn-primary">EXPORT CSV</button>
-                        <button id="clear-btn" class="btn btn-danger">CLEAR</button>
-                    </div>
+        <!-- Bottom: History Table -->
+        <section class="card table-card">
+            <div class="card-header">
+                <span class="card-label">DETECTION LOGS</span>
+                <div class="table-actions">
+                    <button id="export-btn" class="btn btn-primary">EXPORT CSV</button>
+                    <button id="clear-btn" class="btn btn-danger">CLEAR</button>
                 </div>
-                <div class="table-scroll">
-                    <table id="history-table">
-                        <thead>
-                            <tr>
-                                <th>TIMESTAMP</th>
-                                <th>STATE</th>
-                                <th>SCORE</th>
-                                <th>BEARING</th>
-                                <th>PEAK</th>
-                                <th>RISE</th>
-                            </tr>
-                        </thead>
-                        <tbody id="history-body">
-                            <tr>
-                                <td colspan="6" class="loading">Loading records...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </main>
-
-        <footer class="bottom-branding">
-            <p>KMITL SPACE & GEOSPATIAL ENGINEERING | EXPERIMENTAL SYSTEM</p>
-        </footer>
-    </div>
+            </div>
+            <div class="table-wrapper">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>TIMESTAMP</th>
+                            <th>STATE</th>
+                            <th>SCORE</th>
+                            <th>BEARING</th>
+                            <th>PEAK</th>
+                            <th>RISE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body">
+                        <tr><td colspan="6" class="loading">Waiting for data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
 
     <script src="script.js"></script>
 </body>
-
 </html>
