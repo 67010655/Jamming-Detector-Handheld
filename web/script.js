@@ -112,14 +112,14 @@ function drawPolar(bearing, state) {
     polarCtx.arc(cx, cy, r * 0.33, 0, Math.PI * 2);
     polarCtx.stroke();
 
-    // Cardinal Labels
-    polarCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    polarCtx.font = '700 10px Outfit';
+    // Cardinal Labels (Corrected positions and values)
+    polarCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    polarCtx.font = '700 12px Outfit';
     polarCtx.textAlign = 'center';
-    polarCtx.fillText('0°', cx, cy - r - 8);
-    polarCtx.fillText('180°', cx, cy + r + 15);
-    polarCtx.fillText('270°', cx - r - 20, cy + 4);
-    polarCtx.fillText('90°', cx + r + 18, cy + 4);
+    polarCtx.fillText('0°', cx, cy - r - 15);     // Top
+    polarCtx.fillText('180°', cx, cy + r + 22);   // Bottom
+    polarCtx.fillText('90°', cx - r - 22, cy + 5);  // Left (Match LCD)
+    polarCtx.fillText('270°', cx + r + 22, cy + 5); // Right
 
     if (bearing !== undefined && bearing !== null) {
         document.getElementById('bearing-display').innerText = `${Math.round(bearing).toString().padStart(3, '0')}°`;

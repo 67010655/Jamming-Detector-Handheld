@@ -199,11 +199,23 @@ body {
 }
 
 /* Polar Radar */
+.polar-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 480px; /* Ensure enough height for spacing */
+}
+
 .polar-wrapper {
     position: relative;
     width: 240px;
     height: 240px;
-    margin: 0 auto;
+    margin: 40px auto;
+}
+
+.card-footer {
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid var(--glass-border);
 }
 
 #bearing-header {
