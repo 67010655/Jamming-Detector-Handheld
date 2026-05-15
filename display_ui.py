@@ -548,7 +548,7 @@ class DisplayUI:
             draw.ellipse((cx-r, cy-r, cx+r, cy+r), outline=grid)
         draw.line((cx-radius, cy, cx+radius, cy), fill=grid)
         draw.line((cx, cy-radius, cx, cy+radius), fill=grid)
-        draw.text((cx-5, cy-radius-12), "N", fill=white, font=self._f_compass)
+        draw.text((cx-10, cy-radius-15), "0°", fill=white, font=self._f_compass)
         for angle, strength in self._bearing_log:
             rad = np.radians(angle - 90)
             lx, ly = cx + int(radius * strength * np.cos(rad)), cy + int(radius * strength * np.sin(rad))

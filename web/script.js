@@ -116,7 +116,7 @@ function drawPolar(bearing, state) {
     polarCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
     polarCtx.font = '700 10px Outfit';
     polarCtx.textAlign = 'center';
-    polarCtx.fillText('N', cx, cy - r - 8);
+    polarCtx.fillText('0°', cx, cy - r - 8);
     polarCtx.fillText('S', cx, cy + r + 15);
     polarCtx.fillText('W', cx - r - 12, cy + 4);
     polarCtx.fillText('E', cx + r + 12, cy + 4);
