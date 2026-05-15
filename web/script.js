@@ -95,7 +95,7 @@ function drawPolar(bearing, state) {
     const h = polarCanvas.height;
     const cx = w / 2;
     const cy = h / 2;
-    const r = (w / 2) - 20;
+    const r = (w / 2) - 40;
 
     polarCtx.clearRect(0, 0, w, h);
 
