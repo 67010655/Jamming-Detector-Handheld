@@ -247,8 +247,7 @@ class DisplayUI:
         # Title row
         draw.text((8, 3), "GNSS JAMMING DETECTOR", fill=white, font=self._f_title)
         # Subtitle row
-        brg_str = f"BRG: {int(self.app.current_bearing):03d}°"
-        sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | {brg_str} | UP: {up_str}"
+        sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | UP Time: {up_str}"
         draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle_small)
 
         # State badge (right side of header) - Extra large for field visibility
@@ -554,6 +553,13 @@ class DisplayUI:
             rad = np.radians(angle - 90)
             lx, ly = cx + int(radius * strength * np.cos(rad)), cy + int(radius * strength * np.sin(rad))
             draw.line((cx, cy, lx, ly), fill=accent, width=2)
+        
+        # Draw current bearing in the center or bottom of radar
+        brg_txt = f"{int(self.app.current_bearing):03d}°"
+        bw, bh = self._get_text_size(brg_txt, self._f_brg)
+        # Draw a small semi-transparent box for the bearing
+        draw.rectangle((cx - bw//2 - 5, cy + radius + 5, cx + bw//2 + 5, cy + radius + 5 + bh + 5), fill=(0,0,0,160), outline=accent)
+        draw.text((cx - bw//2, cy + radius + 7), brg_txt, fill=white, font=self._f_brg)
 
     def _draw_history(self, draw, l, t, r, b, accent, grid, white):
         draw.text((l, t-15), "MARGIN HISTORY", fill=self._dim(white, 0.6), font=self._f_label)

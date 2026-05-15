@@ -4,134 +4,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GNSS Jammer Dashboard</title>
-    <!-- Modern clean font -->
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap"
-        rel="stylesheet">
+    <title>GNSS Jammer Dashboard | Premium Edition</title>
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body data-state="SCANNING">
-    <div class="dashboard-container">
-        <!-- Header Section -->
-        <header class="header panel">
-            <div class="header-titles">
-                <h1>GNSS JAMMING DETECTOR HANDHELD V1.0</h1>
-                <h2>1575.42 MHz | GNSS L1 Band | KMITL SPACE AND GEOSPATIAL ENGINEERING</h2>
+    <div class="glass-bg"></div>
+    
+    <div class="dashboard-wrapper">
+        <!-- Top Navigation / Header -->
+        <header class="main-header">
+            <div class="brand">
+                <div class="logo-icon"></div>
+                <div class="brand-text">
+                    <h1>JAMMING <span class="highlight">DETECTOR</span></h1>
+                    <p>GNSS L1 BAND | HANDHELD SYSTEM</p>
+                </div>
             </div>
-            <div class="header-status">
-                <div class="status-badge" id="state-badge">SCANNING</div>
+
+            <div class="system-clock" id="system-clock-panel">
+                <div class="time" id="real-time">00:00:00</div>
+                <div class="date" id="real-date">-- --- ----</div>
+            </div>
+
+            <div class="status-container">
+                <div class="status-indicator" id="state-badge">SCANNING</div>
             </div>
         </header>
 
-        <!-- Main Layout Grid -->
-        <main class="main-grid">
-
-            <!-- Left Side: State & Time -->
-            <aside class="left-panel panel">
-                <div class="metric-block center-text">
-                    <span class="label">DIRECTIONAL MAPPING</span>
-                    <div class="polar-container">
-                        <canvas id="polarCanvas" width="200" height="200"></canvas>
-                        <div id="bearing-display">---°</div>
-                    </div>
+        <main class="grid-container">
+            <!-- Left: Polar Radar -->
+            <section class="card polar-card">
+                <div class="card-header">
+                    <span class="card-label">DIRECTIONAL MAPPING</span>
                 </div>
-
-                <div class="metric-block center-text mt-auto">
-                    <span class="label">UPTIME</span>
-                    <span class="value small-value" id="uptime-text">00:00:00</span>
+                <div class="polar-wrapper">
+                    <canvas id="polarCanvas" width="240" height="240"></canvas>
+                    <div id="bearing-display">000°</div>
                 </div>
-            </aside>
-
-            <!-- Center: Spectrum Graph -->
-            <section class="spectrum-panel panel">
-                <div class="spectrum-header">
-                    <span class="label">LIVE RF SPECTRUM</span>
-                    <span class="label">dBFS</span>
-                </div>
-                <div class="canvas-container">
-                    <canvas id="spectrumCanvas" width="800" height="400"></canvas>
-                </div>
-                <!-- Metrics Row under graph -->
-                <div class="metrics-row">
-                    <div class="metric-col">
-                        <span class="label">NOISE FLOOR</span>
-                        <div class="val-unit"><span class="value" id="nf-val">-90.0</span><span class="unit">dBFS</span>
-                        </div>
-                    </div>
-                    <div class="metric-col">
-                        <span class="label">PEAK SIGNAL</span>
-                        <div class="val-unit"><span class="value" id="peak-val">-80.0</span><span
-                                class="unit">dBFS</span></div>
-                    </div>
-                    <div class="metric-col">
-                        <span class="label">BASELINE</span>
-                        <div class="val-unit"><span class="value" id="base-val">-85.0</span><span
-                                class="unit">dBFS</span></div>
-                    </div>
-                    <div class="metric-col">
-                        <span class="label">FLOOR RISE</span>
-                        <div class="val-unit"><span class="value" id="rise-val">+0.0</span><span class="unit">dB</span>
-                        </div>
+                <div class="card-footer">
+                    <div class="mini-metric">
+                        <span class="mini-label">UPTIME</span>
+                        <span class="mini-value" id="uptime-text">00:00:00</span>
                     </div>
                 </div>
             </section>
 
-            <!-- Right Side: Score & Margin -->
-            <aside class="right-panel panel">
-                <div class="metric-block center-text">
-                    <span class="label">THREAT SCORE</span>
-                    <div class="score-container">
-                        <span class="score-value" id="score-text">00</span>
-                        <span class="score-max">/99</span>
+            <!-- Center: Live Spectrum -->
+            <section class="card spectrum-card">
+                <div class="card-header">
+                    <span class="card-label">LIVE RF SPECTRUM</span>
+                    <div class="unit-tag">dBFS</div>
+                </div>
+                <div class="spectrum-wrapper">
+                    <canvas id="spectrumCanvas"></canvas>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-item">
+                        <span class="m-label">NOISE FLOOR</span>
+                        <span class="m-value" id="nf-val">-90.0</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="m-label">PEAK SIGNAL</span>
+                        <span class="m-value" id="peak-val">-80.0</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="m-label">BASELINE</span>
+                        <span class="m-value" id="base-val">-85.0</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="m-label">FLOOR RISE</span>
+                        <span class="m-value highlight-val" id="rise-val">+0.0</span>
                     </div>
                 </div>
+            </section>
 
-                <div class="bar-container">
-                    <div class="bar-fill" id="score-bar"></div>
+            <!-- Right: Stats & Score -->
+            <section class="card stats-card">
+                <div class="card-header">
+                    <span class="card-label">THREAT ANALYSIS</span>
                 </div>
-
-                <div class="metric-block center-text mt-auto">
-                    <span class="label">MARGIN</span>
-                    <span class="value small-value" id="margin-text">+0.0 dB</span>
+                <div class="score-circular">
+                    <div class="score-inner">
+                        <span class="score-num" id="score-text">00</span>
+                        <span class="score-sub">INTENSITY</span>
+                    </div>
+                    <svg class="score-ring" viewBox="0 0 100 100">
+                        <circle class="ring-bg" cx="50" cy="50" r="45"></circle>
+                        <circle class="ring-fill" id="score-ring-fill" cx="50" cy="50" r="45"></circle>
+                    </svg>
                 </div>
-            </aside>
+                
+                <div class="margin-container">
+                    <span class="m-label">SIGNAL MARGIN</span>
+                    <div class="margin-box">
+                        <span class="margin-val" id="margin-text">+0.0 dB</span>
+                    </div>
+                </div>
+            </section>
 
+            <!-- Bottom: History Table -->
+            <section class="card history-card full-width">
+                <div class="card-header">
+                    <span class="card-label">DETECTION LOGS</span>
+                    <div class="actions">
+                        <button id="export-btn" class="btn btn-primary">EXPORT CSV</button>
+                        <button id="clear-btn" class="btn btn-danger">CLEAR</button>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table id="history-table">
+                        <thead>
+                            <tr>
+                                <th>TIMESTAMP</th>
+                                <th>STATE</th>
+                                <th>SCORE</th>
+                                <th>BEARING</th>
+                                <th>PEAK</th>
+                                <th>RISE</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body">
+                            <tr><td colspan="6" class="loading">Loading records...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </main>
-
-        <!-- History Section -->
-        <section class="history-panel panel">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <span class="label">DETECTION HISTORY (LAST 50 EVENTS)</span>
-                <div class="header-actions">
-                    <button id="export-btn" class="export-button">EXPORT CSV</button>
-                    <button id="clear-btn" class="clear-button">CLEAR HISTORY</button>
-                </div>
-            </div>
-            <div class="history-table-container">
-                <table id="history-table">
-                    <thead>
-                        <tr>
-                            <th>TIME</th>
-                            <th>STATE</th>
-                            <th>SCORE</th>
-                            <th>BEARING</th>
-                            <th>PEAK (dB)</th>
-                            <th>RISE (dB)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-body">
-                        <!-- History rows will be inserted here -->
-                        <tr>
-                            <td colspan="5" style="text-align: center; padding: 20px; color: var(--text-muted);">
-                                Waiting for data...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+        
+        <footer class="bottom-branding">
+            <p>KMITL SPACE & GEOSPATIAL ENGINEERING | EXPERIMENTAL SYSTEM</p>
+        </footer>
     </div>
 
     <script src="script.js"></script>
