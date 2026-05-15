@@ -25,7 +25,7 @@ def main():
             timestamp = time.strftime('%H:%M:%S')
             
             # Print with carriage return to update the same line
-            sys.stdout.write(f"\r{timestamp} | Bearing: {bearing:6.2f}°")
+            sys.stdout.write(f"\r{timestamp} | Bearing: {bearing:6.2f} deg")
             sys.stdout.flush()
             
             time.sleep(0.05)
