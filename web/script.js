@@ -1,12 +1,10 @@
 const POLL_INTERVAL_MS = 100;
 const spectrumCanvas = document.getElementById('spectrumCanvas');
-const polarCanvas = document.getElementById('polarCanvas');
 let bearingLog = [];
 
-// Initialize Clocks (Local fallback)
+// Initialize Clocks
 function updateClock() {
     const now = new Date();
-    // Only update if not yet received from API
     if (document.getElementById('realtime-clock').innerText === '00:00:00') {
         document.getElementById('realtime-clock').innerText = now.toTimeString().split(' ')[0];
     }
@@ -63,76 +61,12 @@ function drawSpectrum(data) {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = '#00ffaa';
-    ctx.strokeStyle = '#00ffaa';
-    ctx.lineWidth = 2;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = getComputedStyle(document.documentElement).getPropertyValue('--theme-color');
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--theme-color');
+    ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.shadowBlur = 0;
-}
-
-function drawPolar(bearing, state) {
-    if (!polarCanvas || polarCanvas.width === 0) return;
-    const ctx = polarCanvas.getContext('2d');
-    const w = polarCanvas.width;
-    const h = polarCanvas.height;
-    const cx = w / 2;
-    const cy = h / 2;
-    const r = Math.min(cx, cy) - 40;
-
-    ctx.clearRect(0, 0, w, h);
-
-    let color = '#00ffaa';
-    if (state === 'WATCH') color = '#ffcc00';
-    if (state === 'JAMMING') color = '#ff3333';
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.arc(cx, cy, r * 0.66, 0, Math.PI * 2);
-    ctx.arc(cx, cy, r * 0.33, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.font = '700 12px Outfit';
-    ctx.textAlign = 'center';
-    ctx.fillText('0°', cx, cy - r - 12);
-    ctx.fillText('180°', cx, cy + r + 20);
-    ctx.fillText('90°', cx - r - 22, cy + 5);
-    ctx.fillText('270°', cx + r + 22, cy + 5);
-
-    if (bearing !== undefined && bearing !== null) {
-        // UPDATE BEARING TEXT
-        document.getElementById('bearing-display').innerText = `${Math.round(bearing).toString().padStart(3, '0')}°`;
-        
-        const rad = (-bearing - 90) * Math.PI / 180;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = color;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + Math.cos(rad) * r, cy + Math.sin(rad) * r);
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-
-        if (state !== 'SCANNING') {
-            bearingLog.push({ brg: bearing, color: color });
-            if (bearingLog.length > 20) bearingLog.shift();
-        }
-    }
-
-    bearingLog.forEach((log, i) => {
-        const rad = (-log.brg - 90) * Math.PI / 180;
-        const alpha = (i + 1) / bearingLog.length;
-        ctx.fillStyle = log.color;
-        ctx.globalAlpha = alpha * 0.7;
-        ctx.beginPath();
-        ctx.arc(cx + Math.cos(rad)*r, cy + Math.sin(rad)*r, 6, 0, Math.PI*2);
-        ctx.fill();
-    });
-    ctx.globalAlpha = 1.0;
 }
 
 async function fetchStatus() {
@@ -140,7 +74,6 @@ async function fetchStatus() {
         const response = await fetch('/api/status');
         const data = await response.json();
         
-        // Update Time & Date from API
         if (data.real_time) document.getElementById('realtime-clock').innerText = data.real_time;
         if (data.real_date) document.getElementById('realtime-date').innerText = data.real_date.toUpperCase();
 
@@ -168,10 +101,11 @@ async function fetchStatus() {
 
             document.getElementById('noise-text').innerText = m.noise_floor.toFixed(1);
             document.getElementById('peak-text').innerText = m.peak_p.toFixed(1);
-            document.getElementById('base-text').innerText = (m.noise_floor - 5).toFixed(1);
             
             const rise = m.floor_rise;
             document.getElementById('rise-text').innerText = (rise >= 0 ? '+' : '') + rise.toFixed(1);
+            document.getElementById('rise-text').style.color = rise > 5 ? '#ff3333' : 'var(--theme-color)';
+            
             document.getElementById('margin-text').innerText = (m.margin >= 0 ? '+' : '') + m.margin.toFixed(1) + " dB";
         }
 
@@ -180,7 +114,6 @@ async function fetchStatus() {
         }
 
         if (data.spectrum) drawSpectrum(data.spectrum);
-        if (data.bearing !== undefined) drawPolar(data.bearing, data.metrics ? data.metrics.state : 'SCANNING');
 
     } catch (e) { console.error("Sync Error:", e); }
     setTimeout(fetchStatus, POLL_INTERVAL_MS);
@@ -210,14 +143,12 @@ async function fetchHistory() {
 }
 
 function resizeCanvas() {
-    [spectrumCanvas, polarCanvas].forEach(c => {
-        if (!c) return;
-        const container = c.parentElement;
-        if (container.clientWidth > 0 && container.clientHeight > 0) {
-            c.width = container.clientWidth;
-            c.height = container.clientHeight;
-        }
-    });
+    if (!spectrumCanvas) return;
+    const container = spectrumCanvas.parentElement;
+    if (container.clientWidth > 0 && container.clientHeight > 0) {
+        spectrumCanvas.width = container.clientWidth;
+        spectrumCanvas.height = container.clientHeight;
+    }
 }
 
 window.addEventListener('load', () => {

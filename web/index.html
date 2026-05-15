@@ -30,34 +30,14 @@
             <div class="header-metrics">
                 <div class="header-time">
                     <span id="realtime-clock">00:00:00</span>
-                    <span id="realtime-date" class="date-label">01 JAN 2026</span>
+                    <span id="realtime-date" class="date-label">LOADING...</span>
                 </div>
                 <div id="status-badge" class="status-badge" data-state="SCANNING">SCANNING</div>
             </div>
         </header>
 
         <div class="grid-container">
-            <!-- Left: Polar Radar -->
-            <section class="card polar-card">
-                <div class="card-header">
-                    <span class="card-label">DIRECTIONAL MAPPING</span>
-                </div>
-                <div class="polar-wrapper">
-                    <canvas id="polarCanvas"></canvas>
-                    <div id="bearing-container">
-                        <span class="brg-label">BEARING</span>
-                        <span id="bearing-display">000°</span>
-                    </div>
-                </div>
-                <div class="card-footer">
-                    <div class="mini-metric">
-                        <span class="mini-label">UPTIME</span>
-                        <span id="uptime-text">00:00:00</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Center: Spectrum -->
+            <!-- Center: Spectrum (Wide) -->
             <section class="card spectrum-card">
                 <div class="card-header">
                     <span class="card-label">LIVE RF SPECTRUM</span>
@@ -76,12 +56,12 @@
                         <span id="peak-text" class="value">-80.0</span>
                     </div>
                     <div class="metric-item">
-                        <span class="label">BASELINE</span>
-                        <span id="base-text" class="value">-85.0</span>
-                    </div>
-                    <div class="metric-item">
                         <span class="label">FLOOR RISE</span>
                         <span id="rise-text" class="value">+0.0</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="label">UPTIME</span>
+                        <span id="uptime-text" class="value">00:00:00</span>
                     </div>
                 </div>
             </section>
