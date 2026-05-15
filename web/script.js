@@ -149,6 +149,19 @@ async function fetchStatus() {
             const badge = document.getElementById('status-badge');
             badge.innerText = m.state;
             badge.dataset.state = m.state;
+
+            // DYNAMIC THEME SWITCHING
+            let themeColor = '#00ffaa';
+            let glowColor = 'rgba(0, 255, 170, 0.4)';
+            if (m.state === 'WATCH') {
+                themeColor = '#ffcc00';
+                glowColor = 'rgba(255, 204, 0, 0.4)';
+            } else if (m.state === 'JAMMING') {
+                themeColor = '#ff3333';
+                glowColor = 'rgba(255, 51, 51, 0.4)';
+            }
+            document.documentElement.style.setProperty('--theme-color', themeColor);
+            document.documentElement.style.setProperty('--theme-glow', glowColor);
             
             document.getElementById('score-text').innerText = Math.round(m.score).toString().padStart(2, '0');
             updateScoreRing(m.score);
