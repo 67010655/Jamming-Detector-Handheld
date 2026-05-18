@@ -99,7 +99,7 @@ body {
 .card-label { font-size: 0.75rem; font-weight: 800; letter-spacing: 2px; color: rgba(255,255,255,0.3); text-transform: uppercase; }
 
 /* Spectrum - Wide & Clear */
-.spectrum-wrapper { position: relative; flex: 1; min-height: 250px; background: rgba(0,0,0,0.15); border-radius: 16px; border: 1px solid rgba(255,255,255,0.03); overflow: hidden; }
+.spectrum-wrapper { position: relative; flex: 1; min-height: 450px; background: rgba(0,0,0,0.15); border-radius: 16px; border: 1px solid rgba(255,255,255,0.03); overflow: hidden; }
 #spectrumCanvas { width: 100%; height: 100%; }
 
 .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 1.5vh; padding-top: 1.5vh; border-top: 1px solid var(--glass-border); }
@@ -142,11 +142,13 @@ td { padding: 16px 14px; border-bottom: 1px solid rgba(255,255,255,0.03); }
 
 /* --- NEW RF ENGINEER STYLES --- */
 .analytics-row { margin-top: 1.5vh; }
-.small-grid { gap: 15px; padding-top: 10px; }
-.config-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
-.config-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.05); }
-.conf-label { font-size: 0.75rem; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 1px; }
-.conf-val { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; color: var(--theme-color); }
+.analytics-row .card { padding: 18px 24px; }
+.stats-card { justify-content: center; }
+.small-grid { gap: 15px; padding-top: 5px; margin-top: 5px; }
+.config-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.config-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px dashed rgba(255,255,255,0.05); }
+.conf-label { font-size: 0.7rem; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 1px; }
+.conf-val { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--theme-color); }
 .metric-item .unit { font-size: 0.6em; color: rgba(255,255,255,0.3); }
 
 /* Responsive Adjustments */
