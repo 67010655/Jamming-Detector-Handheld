@@ -115,6 +115,21 @@ async function fetchStatus() {
 
         if (data.spectrum) drawSpectrum(data.spectrum);
 
+        // Update RF Engineer Stats
+        if (data.metrics) {
+            let maxPeak = parseFloat(sessionStorage.getItem('maxPeak') || '-200');
+            if (data.metrics.peak_p > maxPeak) {
+                maxPeak = data.metrics.peak_p;
+                sessionStorage.setItem('maxPeak', maxPeak);
+            }
+            if (document.getElementById('max-peak-text')) {
+                document.getElementById('max-peak-text').innerHTML = maxPeak.toFixed(1) + ' <span class="unit">dBFS</span>';
+            }
+            if (document.getElementById('avg-nf-text')) {
+                document.getElementById('avg-nf-text').innerHTML = data.metrics.noise_floor.toFixed(1) + ' <span class="unit">dBFS</span>';
+            }
+        }
+
     } catch (e) { console.error("Sync Error:", e); }
     setTimeout(fetchStatus, POLL_INTERVAL_MS);
 }
@@ -127,7 +142,10 @@ async function fetchHistory() {
         if (!data || data.length === 0) return;
 
         let html = '';
-        data.forEach(row => {
+        let jamCount = 0;
+        let lastBearing = 0;
+
+        data.forEach((row, index) => {
             const timeStr = row.timestamp.split(' ')[1] || row.timestamp;
             html += `<tr>
                 <td>${timeStr}</td>
@@ -137,8 +155,18 @@ async function fetchHistory() {
                 <td>${row.peak_p.toFixed(1)}</td>
                 <td>+${row.floor_rise.toFixed(1)}</td>
             </tr>`;
+            
+            if (row.state === 'JAMMING') jamCount++;
+            if (index === 0) lastBearing = row.bearing_deg || 0; // Assuming newest first
         });
         tbody.innerHTML = html;
+
+        if (document.getElementById('jam-events-text')) {
+            document.getElementById('jam-events-text').innerText = jamCount;
+        }
+        if (document.getElementById('last-bearing-text')) {
+            document.getElementById('last-bearing-text').innerText = lastBearing + '°';
+        }
     } catch (e) { console.error("History Error:", e); }
 }
 

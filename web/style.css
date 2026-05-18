@@ -19,8 +19,9 @@ body {
     background-position: center center;
     color: #fff;
     font-family: var(--font-main);
-    overflow: hidden;
-    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
@@ -38,14 +39,15 @@ body {
     padding: 1.5vh 24px;
 }
 
-/* Header - Compact & Premium */
+/* Header - Responsive & Premium */
 .main-header {
-    height: 9vh;
-    min-height: 70px;
+    min-height: 9vh;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 32px;
+    padding: 10px 32px;
+    flex-wrap: wrap;
+    gap: 15px;
 }
 .brand { display: flex; align-items: center; gap: 18px; }
 .logo-icon { width: auto; height: 48px; display: flex; align-items: center; justify-content: center; margin-right: 5px; }
@@ -134,5 +136,22 @@ td { padding: 14px; border-bottom: 1px solid rgba(255,255,255,0.03); }
 .btn-danger { background: rgba(255, 51, 51, 0.15); color: #ff3333; }
 
 /* Scrollbar Style */
-.table-wrapper::-webkit-scrollbar { width: 5px; }
-.table-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+.table-wrapper::-webkit-scrollbar, body::-webkit-scrollbar { width: 8px; }
+.table-wrapper::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+
+/* --- NEW RF ENGINEER STYLES --- */
+.analytics-row { margin-top: 1.5vh; }
+.small-grid { gap: 15px; padding-top: 10px; }
+.config-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
+.config-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px dashed rgba(255,255,255,0.05); }
+.conf-label { font-size: 0.75rem; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 1px; }
+.conf-val { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; color: var(--theme-color); }
+.metric-item .unit { font-size: 0.6em; color: rgba(255,255,255,0.3); }
+
+/* Responsive Adjustments */
+@media (max-width: 1200px) {
+    .grid-container { grid-template-columns: 1fr; }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .main-header { justify-content: center; text-align: center; }
+    .header-time { text-align: center; margin-right: 0; margin-bottom: 10px; }
+}

@@ -20,7 +20,7 @@
         <header class="main-header glass-panel">
             <div class="brand">
                 <div class="logo-icon">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c2/KMITL_Logo.svg" alt="KMITL Logo" style="height: 48px; filter: drop-shadow(0 0 12px rgba(255, 102, 0, 0.4));">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/KMITL_Sublogo.svg/1280px-KMITL_Sublogo.svg.png" alt="KMITL" style="height: 48px; filter: drop-shadow(0 0 10px rgba(255,102,0,0.5));">
                 </div>
                 <div class="brand-text">
                     <h1 class="gradient-text">JAMMING DETECTOR <span class="accent-text">HANDHELD</span></h1>
@@ -87,6 +87,59 @@
                     <div class="detail-box">
                         <span class="label">SIGNAL MARGIN</span>
                         <span id="margin-text" class="value big">+0.0 dB</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+        <!-- RF Engineer Analytics Row -->
+        <div class="grid-container analytics-row">
+            <!-- Left: RF Statistics -->
+            <section class="card stats-card">
+                <div class="card-header">
+                    <span class="card-label">RF SIGNAL STATISTICS</span>
+                </div>
+                <div class="metrics-grid small-grid">
+                    <div class="metric-item">
+                        <span class="label">MAX PEAK HOLD</span>
+                        <span id="max-peak-text" class="value">-70.0 <span class="unit">dBFS</span></span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="label">AVG NOISE FLOOR</span>
+                        <span id="avg-nf-text" class="value">-89.5 <span class="unit">dBFS</span></span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="label">TOTAL JAM EVENTS</span>
+                        <span id="jam-events-text" class="value">0</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="label">LAST BEARING</span>
+                        <span id="last-bearing-text" class="value">0°</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: System Configuration -->
+            <section class="card config-card">
+                <div class="card-header">
+                    <span class="card-label">SYSTEM PARAMETERS</span>
+                </div>
+                <div class="config-list">
+                    <div class="config-item">
+                        <span class="conf-label">CENTER FREQ</span>
+                        <span class="conf-val">1575.42 MHz (L1)</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="conf-label">SAMPLE RATE</span>
+                        <span class="conf-val">1.024 MSPS</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="conf-label">HARDWARE GAIN</span>
+                        <span class="conf-val">7.7 dB</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="conf-label">FFT SIZE</span>
+                        <span class="conf-val">8192 BINS</span>
                     </div>
                 </div>
             </section>
