@@ -136,7 +136,7 @@ async function fetchStatus() {
 
 async function fetchHistory() {
     try {
-        const response = await fetch('/api/history');
+        const response = await fetch('/api/history?limit=200');
         const data = await response.json();
         const tbody = document.getElementById('history-body');
         if (!data || data.length === 0) return;
