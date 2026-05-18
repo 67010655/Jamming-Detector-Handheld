@@ -57,7 +57,7 @@ class DisplayUI:
         from luma.core.interface.serial import spi
         from luma.lcd.device import ili9488
         serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25,
-                     bus_speed_hz=24000000) # Slightly slower for stability
+                     bus_speed_hz=16000000) # Lowered to 16MHz for jumper wire stability
         self.app.device = ili9488(serial, width=self.app.w,
                                   height=self.app.h, rotate=0)
 
