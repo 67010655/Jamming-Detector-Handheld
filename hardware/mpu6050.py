@@ -101,9 +101,12 @@ class MPU6050:
         # Calculate rate and remove offset
         gyro_z_rate = (raw_z - self.gyro_z_offset) / 131.0
         
-        # Deadzone: Ignore values below 1.5 deg/s to stop drift from noise
-        # This is increased to 1.5 to prevent the 1-degree drift issue
-        if abs(gyro_z_rate) < 1.5:
+        # Dynamic Calibration & Deadzone
+        # If the movement is very small, assume the device is still.
+        # This will filter out noise AND automatically correct long-term drift.
+        if abs(gyro_z_rate) < 2.0:
+            # Slowly adjust the offset to compensate for temperature/bias drift
+            self.gyro_z_offset = (self.gyro_z_offset * 0.99) + (raw_z * 0.01)
             gyro_z_rate = 0
             
         self.bearing += gyro_z_rate * dt
