@@ -151,6 +151,11 @@ td { padding: 16px 14px; border-bottom: 1px solid rgba(255,255,255,0.03); }
 .conf-val { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--theme-color); }
 .metric-item .unit { font-size: 0.6em; color: rgba(255,255,255,0.3); }
 
+/* Footer */
+.footer { text-align: center; margin-top: 20px; padding: 15px 0; border-top: 1px solid rgba(255,255,255,0.05); }
+.github-link { display: inline-flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.75rem; font-weight: 700; transition: color 0.3s ease; }
+.github-link:hover { color: var(--theme-color); }
+
 /* Responsive Adjustments */
 @media (max-width: 1200px) {
     .grid-container { grid-template-columns: 1fr; }

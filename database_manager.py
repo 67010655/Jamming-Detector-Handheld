@@ -125,9 +125,11 @@ def clear_db():
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         cursor.execute('DELETE FROM events')
+        # Reset AUTOINCREMENT counter
+        cursor.execute('DELETE FROM sqlite_sequence WHERE name="events"')
         conn.commit()
         conn.close()
-        print("[DATABASE] History cleared")
+        print("[DATABASE] History and ID counter cleared")
         return True
     except Exception as e:
         print(f"[DATABASE] Error clearing history: {e}")
