@@ -101,9 +101,9 @@ class MPU6050:
         # Calculate rate and remove offset
         gyro_z_rate = (raw_z - self.gyro_z_offset) / 131.0
         
-        # Deadzone: Ignore values below 0.8 deg/s to stop drift from noise
-        # This is high but necessary for breadboard/noisy environments
-        if abs(gyro_z_rate) < 0.8:
+        # Deadzone: Ignore values below 1.5 deg/s to stop drift from noise
+        # This is increased to 1.5 to prevent the 1-degree drift issue
+        if abs(gyro_z_rate) < 1.5:
             gyro_z_rate = 0
             
         self.bearing += gyro_z_rate * dt

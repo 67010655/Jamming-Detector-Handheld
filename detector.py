@@ -75,7 +75,7 @@ class GPSJammerHandheld:
             self.ui.draw_splash("INIT IMU & CALIBRATE...")
             try:
                 self.imu = MPU6050(address=0x69)
-                self.imu.calibrate(samples=50)
+                self.imu.calibrate(samples=150)
             except Exception as e:
                 print(f"[IMU] Failed to initialize MPU6050: {e}")
                 self.imu = None
