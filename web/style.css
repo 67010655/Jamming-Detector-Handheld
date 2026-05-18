@@ -12,6 +12,11 @@
 
 body {
     background: var(--bg-dark);
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 30px 30px;
+    background-position: center center;
     color: #fff;
     font-family: var(--font-main);
     overflow: hidden;
@@ -43,9 +48,17 @@ body {
     padding: 0 32px;
 }
 .brand { display: flex; align-items: center; gap: 18px; }
-.logo-icon { width: 38px; height: 38px; }
-.brand-text h1 { font-size: 1.2rem; font-weight: 800; letter-spacing: 2px; }
-.brand-text p { font-size: 0.65rem; color: rgba(255,255,255,0.4); font-weight: 600; letter-spacing: 0.5px; }
+.logo-icon { width: auto; height: 48px; display: flex; align-items: center; justify-content: center; margin-right: 5px; }
+.brand-text h1 { font-size: 1.3rem; font-weight: 800; letter-spacing: 2px; }
+.gradient-text {
+    background: linear-gradient(90deg, #fff 0%, #b3ffdf 50%, var(--theme-color) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(0, 255, 170, 0.2);
+}
+.accent-text { color: var(--theme-color); -webkit-text-fill-color: var(--theme-color); }
+.brand-text p { font-size: 0.65rem; color: rgba(255,255,255,0.5); font-weight: 600; letter-spacing: 1px; margin-top: 2px; }
 
 .header-time { text-align: right; margin-right: 32px; }
 #realtime-clock { display: block; font-family: var(--font-mono); font-size: 1.8rem; font-weight: 700; color: var(--theme-color); line-height: 1; margin-bottom: 4px; transition: color 1s ease; }
@@ -63,14 +76,20 @@ body {
 }
 
 .card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(15px);
-    border: 1px solid var(--glass-border);
+    background: linear-gradient(145deg, rgba(15, 22, 30, 0.8) 0%, rgba(5, 10, 15, 0.9) 100%);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     border-radius: 24px;
     padding: 24px;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover {
+    box-shadow: 0 15px 40px rgba(0, 255, 170, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5vh; }
