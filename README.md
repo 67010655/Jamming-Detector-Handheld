@@ -134,7 +134,7 @@ flowchart TD
 ---
 
 ## 🎨 3D Designer
-**67010281 Mrs.Nattakan Sanorlam**  
+**67010281 Ms.Nattakan Sanorlam**  
 *Space and Geospatial Engineering, KMITL*  
 *Designing the future of satellite security.*
 
