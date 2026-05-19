@@ -399,37 +399,44 @@ class DisplayUI:
         # ═══ PWR CONFIRM DIALOG ═══
         if self._pwr_confirm and now < self._pwr_confirm_until:
             cx, cy = W // 2, (hdr_b + foot_t) // 2
-            dlg_w, dlg_h = 280, 120
+            dlg_w, dlg_h = 360, 120
 
             # Dialog background
-            draw.rectangle((cx - dlg_w//2 - 3, cy - dlg_h//2 - 3, cx + dlg_w//2 + 3, cy + dlg_h//2 + 3), fill=(80, 10, 10))
-            draw.rectangle((cx - dlg_w//2, cy - dlg_h//2, cx + dlg_w//2, cy + dlg_h//2), fill=(15, 8, 12), outline=(255, 80, 80), width=2)
+            draw.rectangle((cx - dlg_w//2 - 3, cy - dlg_h//2 - 3, cx + dlg_w//2 + 3, cy + dlg_h//2 + 3), fill=(80, 40, 10))
+            draw.rectangle((cx - dlg_w//2, cy - dlg_h//2, cx + dlg_w//2, cy + dlg_h//2), fill=(15, 8, 8), outline=(255, 150, 50), width=2)
 
             # Title text
-            q_text = "POWER OFF?"
-            qw, qh = self._get_text_size(q_text, self._f_value)
-            draw.text((cx - qw//2, cy - dlg_h//2 + 14), q_text, fill=(255, 100, 100), font=self._f_value)
+            q_text = "CHOOSE POWER ACTION"
+            qw, qh = self._get_text_size(q_text, self._f_btn)
+            draw.text((cx - qw//2, cy - dlg_h//2 + 14), q_text, fill=(255, 200, 100), font=self._f_btn)
 
-            # YES / NO buttons
-            btn_y_top = cy + 8
-            btn_y_bot = cy + dlg_h//2 - 10
-            btn_gap = 20
+            # YES / NO / RESTART buttons
+            btn_y_top = cy + 12
+            btn_y_bot = cy + dlg_h//2 - 12
 
-            # YES button (left)
-            yes_x1 = cx - dlg_w//2 + 20
-            yes_x2 = cx - btn_gap//2
-            draw.rectangle((yes_x1, btn_y_top, yes_x2, btn_y_bot), fill=(200, 40, 40), outline=(255, 120, 120))
-            yw, yh = self._get_text_size("YES", self._f_btn)
-            draw.text(((yes_x1 + yes_x2 - yw)//2, (btn_y_top + btn_y_bot - yh)//2), "YES", fill=white, font=self._f_btn)
-            self._touch_zones["PWR_YES"] = (yes_x1, btn_y_top, yes_x2, btn_y_bot)
+            # SHUTDOWN button (left)
+            s_x1 = cx - 165
+            s_x2 = cx - 55
+            draw.rectangle((s_x1, btn_y_top, s_x2, btn_y_bot), fill=(180, 30, 30), outline=(255, 100, 100))
+            sw, sh = self._get_text_size("SHUTDOWN", self._f_subtitle_small)
+            draw.text(((s_x1 + s_x2 - sw)//2, (btn_y_top + btn_y_bot - sh)//2), "SHUTDOWN", fill=white, font=self._f_subtitle_small)
+            self._touch_zones["PWR_SHUT"] = (s_x1, btn_y_top, s_x2, btn_y_bot)
 
-            # NO button (right)
-            no_x1 = cx + btn_gap//2
-            no_x2 = cx + dlg_w//2 - 20
-            draw.rectangle((no_x1, btn_y_top, no_x2, btn_y_bot), fill=(30, 80, 50), outline=(80, 200, 120))
-            nw, nh = self._get_text_size("NO", self._f_btn)
-            draw.text(((no_x1 + no_x2 - nw)//2, (btn_y_top + btn_y_bot - nh)//2), "NO", fill=white, font=self._f_btn)
-            self._touch_zones["PWR_NO"] = (no_x1, btn_y_top, no_x2, btn_y_bot)
+            # RESTART button (middle)
+            r_x1 = cx - 45
+            r_x2 = cx + 45
+            draw.rectangle((r_x1, btn_y_top, r_x2, btn_y_bot), fill=(30, 80, 180), outline=(100, 150, 255))
+            rw, rh = self._get_text_size("RESTART", self._f_subtitle_small)
+            draw.text(((r_x1 + r_x2 - rw)//2, (btn_y_top + btn_y_bot - rh)//2), "RESTART", fill=white, font=self._f_subtitle_small)
+            self._touch_zones["PWR_REBOOT"] = (r_x1, btn_y_top, r_x2, btn_y_bot)
+
+            # CANCEL button (right)
+            c_x1 = cx + 55
+            c_x2 = cx + 165
+            draw.rectangle((c_x1, btn_y_top, c_x2, btn_y_bot), fill=(40, 50, 60), outline=(150, 160, 170))
+            cw, ch = self._get_text_size("CANCEL", self._f_subtitle_small)
+            draw.text(((c_x1 + c_x2 - cw)//2, (btn_y_top + btn_y_bot - ch)//2), "CANCEL", fill=white, font=self._f_subtitle_small)
+            self._touch_zones["PWR_CANCEL"] = (c_x1, btn_y_top, c_x2, btn_y_bot)
 
         # ═══ CALIB CHOICE DIALOG ═══
         if self._calib_confirm and now < self._calib_confirm_until:
@@ -464,8 +471,9 @@ class DisplayUI:
             self._touch_zones["CAL_FIXED"] = (fx1, fy1, fx2, fy2)
         # ═══ CLEANUP UNUSED ZONES ═══
         if not self._pwr_confirm or now >= self._pwr_confirm_until:
-            self._touch_zones.pop("PWR_YES", None)
-            self._touch_zones.pop("PWR_NO", None)
+            self._touch_zones.pop("PWR_SHUT", None)
+            self._touch_zones.pop("PWR_REBOOT", None)
+            self._touch_zones.pop("PWR_CANCEL", None)
         if not self._calib_confirm or now >= self._calib_confirm_until:
             self._touch_zones.pop("CAL_AUTO", None)
             self._touch_zones.pop("CAL_FIXED", None)
@@ -598,18 +606,19 @@ class DisplayUI:
         now = time.time()
         self.app.buzzer.play_click()
 
-        # If PWR dialog is showing, only respond to YES/NO
+        # If PWR dialog is showing, only respond to buttons
         if self._pwr_confirm and now < self._pwr_confirm_until:
-            for label in ["PWR_YES", "PWR_NO"]:
+            for label in ["PWR_SHUT", "PWR_REBOOT", "PWR_CANCEL"]:
                 zone = self._touch_zones.get(label)
                 if zone:
                     x1, y1, x2, y2 = zone
                     if x1 <= x <= x2 and y1 <= y <= y2:
-                        if label == "PWR_YES":
-                            self._pwr_confirm = False
+                        self._pwr_confirm = False
+                        if label == "PWR_SHUT":
                             self.app.shutdown_requested = True
+                        elif label == "PWR_REBOOT":
+                            self.app.reboot_requested = True
                         else:
-                            self._pwr_confirm = False
                             self.show_toast("CANCELLED", 1.0)
                         return
             # Tapped outside dialog = cancel

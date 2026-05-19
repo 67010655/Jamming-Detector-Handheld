@@ -289,6 +289,10 @@ class GPSJammerHandheld:
                     self.safe_power_off()
                     break
 
+                if getattr(self, 'reboot_requested', False):
+                    self.safe_reboot()
+                    break
+
                 if self.frame_count % 10 == 0:
                     self._debug_print(power)
                 if metrics["state"] in ["WATCH", "JAMMING"]:
@@ -379,70 +383,54 @@ class GPSJammerHandheld:
         # We could also trigger a screen save here if implemented
         
     def safe_power_off(self):
-        """Safely shut down the Raspberry Pi."""
-        self.running = False  # STOP the main loop immediately to prevent UI flicker
-        time.sleep(0.1)       # Small gap to let the last frame finish
+        """Safely shuts down the Raspberry Pi after stopping threads."""
+        self.running = False
+        time.sleep(0.5)
         
-        print("[SYSTEM] Initiating safe shutdown...")
+        print("[SYSTEM] Initiating safe power off sequence...")
         self.ui.draw_splash("SHUTTING DOWN...")
+        time.sleep(4.0)
         
-        # Keep the splash screen visible for 5 seconds as requested
-        time.sleep(5)
-        
-        # Cleanup hardware and black screen
         self.shutdown()
-
-        # Attempt to power off the system. Try multiple safe methods and
-        # then force-exit the process if none succeed so we don't hang.
+        
         import os
         import subprocess
-
         if sys.platform != "win32" and not self.preview:
-            tried = []
-            try_cmds = [
-                ["sudo", "poweroff"],
-                ["sudo", "systemctl", "poweroff"],
-                ["sudo", "shutdown", "-h", "now"],
-                ["/sbin/poweroff"],
-            ]
-            log_path = "/tmp/jamming_shutdown.log"
-            with open(log_path, "a", encoding="utf-8") as lf:
-                lf.write(f"\n--- shutdown attempt {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
-                for cmd in try_cmds:
-                    cmd_s = " ".join(cmd)
-                    tried.append(cmd_s)
-                    lf.write(f"Trying: {cmd_s}\n")
-                    try:
-                        # capture output for debugging
-                        res = subprocess.run(cmd, timeout=8, capture_output=True, text=True)
-                        lf.write(f"Returncode: {res.returncode}\n")
-                        if res.stdout:
-                            lf.write(f"STDOUT:\n{res.stdout}\n")
-                        if res.stderr:
-                            lf.write(f"STDERR:\n{res.stderr}\n")
-                    except Exception as e:
-                        lf.write(f"Exception: {e}\n")
-
-                lf.write(f"Tried: {tried}\n")
-                lf.write("Waiting briefly for system to handle poweroff...\n")
-
-            # Small pause to allow systemd to act; if it didn't, force exit
-            time.sleep(3)
-            # Append final note
             try:
-                with open(log_path, "a", encoding="utf-8") as lf:
-                    lf.write("Shutdown commands completed; exiting process if host still up.\n")
-            except Exception:
-                pass
-
-            # Ensure the Python process terminates even if poweroff failed
+                subprocess.Popen(["sudo", "poweroff"])
+            except Exception as e:
+                print(f"[SHUTDOWN] Failed to run poweroff: {e}")
             try:
                 os._exit(0)
             except Exception:
                 pass
-            # Fallback infinite sleep removed — exiting is preferable
         else:
             print("[INFO] Shutdown command skipped in preview/Windows mode.")
+
+    def safe_reboot(self):
+        """Safely reboots the Raspberry Pi after stopping threads."""
+        self.running = False
+        time.sleep(0.5)
+        
+        print("[SYSTEM] Initiating safe reboot sequence...")
+        self.ui.draw_splash("REBOOTING...")
+        time.sleep(4.0)
+        
+        self.shutdown()
+        
+        import os
+        import subprocess
+        if sys.platform != "win32" and not self.preview:
+            try:
+                subprocess.Popen(["sudo", "reboot"])
+            except Exception as e:
+                print(f"[REBOOT] Failed to run reboot: {e}")
+            try:
+                os._exit(0)
+            except Exception:
+                pass
+        else:
+            print("[INFO] Reboot command skipped in preview/Windows mode.")
     
     def shutdown(self):
         print("\n[SYSTEM] Stopping...")
