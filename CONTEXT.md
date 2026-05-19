@@ -7,24 +7,27 @@ A handheld system designed to detect and log GNSS (GPS L1) jamming signals in th
 - **Core Processing:** Raspberry Pi Zero 2W
 - **SDR Receiver:** RTL-SDR v3 (USB interface)
 - **Display:** 3.5" ILI9488 TFT LCD with Touch (SPI interface)
-- **Sensors:** MPU6050 (IMU) for directional mapping and compass functionality
+- **Sensors:** MPU6050 (IMU) for directional mapping and compass functionality (Fully Integrated)
 - **Antenna:** Directional Antenna (tuned for 1575.42 MHz)
-- **Peripherals:** Status RGB LEDs, Active Buzzer (GPIO)
+- **Peripherals:** Status RGB LEDs, Active Buzzer (GPIO 18), and Physical Mute Switch (GPIO 23 / Configurable)
 
 ## Power Architecture
 - **Battery:** 2x 18650 Lithium-ion batteries
 - **Power Management:** LX-28UPS module (Provides safe charging circuitry and 5V boost conversion)
+- **Soft Power Actions:** 3-button Confirm Dialogue on LCD (SHUTDOWN / RESTART / CANCEL).
+  - **SHUTDOWN:** Safe OS halt sequence to prevent MicroSD corruption.
+  - **RESTART:** Fast 2-second in-process Python reload (`os.execv`) to reset system & MPU6050 I2C states instantly without a full OS reboot.
 
 ## Software Stack & File Structure
 - `main.py`: The application entry point that initializes all modules.
-- `detector.py`: Core signal processing, Power Spectral Density (PSD) calculation, and jamming state logic evaluation.
-- `display_ui.py`: Manages the LCD interface rendering (e.g., Normal, Search, Analytics modes) and touch interactions.
-- `web_server.py` / `web/`: Flask API and frontend dashboard (Glassmorphism UI) for remote monitoring.
+- `detector.py`: Core signal processing, Power Spectral Density (PSD) calculation, and jamming state logic evaluation. Supports soft reboot signals.
+- `display_ui.py`: Manages the LCD interface rendering (e.g., Normal, Search, Analytics modes) and touch interactions. Features a clean header with MUTE state visual feedback.
+- `web_server.py` / `web/`: Flask API and frontend dashboard. Includes minimalist **Day/Night Theme Toggle** ☀️🌙.
 - `database_manager.py`: Handles SQLite database logging with adaptive heartbeat intervals to optimize I/O.
 - `dsp.py`: Contains DSP utilities for FFT operations and power metric calculations.
 - `buzzer.py` / `led_control.py`: Controls hardware feedback modules via GPIO.
 
 ## Known Issues & Development Focus
-- UI responsiveness on the ILI9488 touch screen needs continuous optimization to prevent blocking the DSP thread.
-- Integration of the MPU6050 IMU to enable accurate "Search Mode" (Polar Radar) is an ongoing focus.
-- CPU/Thermal limitations of the Pi Zero 2W when running SDR sampling, DSP calculations, database I/O, and UI rendering concurrently.
+- **Solved:** UI lag on both Pi Zero and client browsers completely resolved via Event-Driven Canvas rendering (Spectrum & Margin Trend at 4Hz, Waterfall Spectrogram at 2Hz) and DOM Value Differencing (bypassing DOM writes for unchanged values).
+- **Solved:** MPU6050 connection drops due to loose wiring handled smoothly with the instant LCD RESTART button.
+- **Ongoing:** Maximizing RF shielding in the handheld enclosure to isolate internal Pi Zero clock noise from the RTL-SDR front-end.

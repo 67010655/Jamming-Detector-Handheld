@@ -97,10 +97,13 @@ flowchart TD
 ## 🌟 Key Technical Highlights
 - **Field-Optimized UI:** High-visibility UI designed for outdoor use, featuring clear State Badges and critical metrics.
 - **Interactive Calibration:** On-the-fly calibration selection (**Auto NF** vs. **Fixed NF**) to ensure precision in varied RF environments.
-- **Polar Radar (Search Mode):** Visual compass utilizing IMU data to map signal strength directivity, aiding in identifying jammer locations.
-- **Safe Shutdown Sequence:** Prevents SD card corruption via a 5-second splash screen sequence before power-off.
-- **Adaptive Signal Analysis:** Real-time Noise Floor and Peak Power calculations coupled with Adaptive Thresholding.
-- **Adaptive Heartbeat Logging:** Smart logging frequency (1s during events, 30s during idle) to optimize storage capacity and I/O.
+- **Polar Radar (Search Mode):** Visual compass utilizing IMU data (MPU6050) to map signal strength directivity, aiding in identifying jammer locations.
+- **In-Process Software Restart:** Fast 2-second in-place application reload (via `os.execv`) to instantly reset MPU6050 and system I2C/SPI interfaces from the LCD without waiting for a full OS reboot.
+- **Safe Shutdown Sequence:** Prevents SD card corruption via a robust 5-second splash screen sequence and synchronous system halt fallbacks before power-off.
+- **Optimized Day/Night Web UI:** Ultra-smooth Glassmorphism minimalist web dashboard with Day/Night Theme toggling ☀️🌙. Engineered for low CPU overhead on Raspberry Pi using **Event-Driven rendering** (draws canvases only when new RF data arrives at 4Hz/2Hz) and **DOM Value Differencing** to eliminate forced layout reflows.
+- **Buzzer Mute Versatility:** Replaced unreliable touchscreen controls with support for an external physical solder-on button (GPIO 23) for robust audio silencing in the field.
+- **Adaptive Signal Analysis:** Real-time Noise Floor and Peak Power calculations coupled with Adaptive Thresholding and SNR metrics.
+- **Adaptive Heartbeat Logging:** Smart SQLite logging frequency (1s during events, 30s during idle) to optimize storage capacity, prevent write exhaustion, and reduce MicroSD I/O strain.
 
 ---
 
