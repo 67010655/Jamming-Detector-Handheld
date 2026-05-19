@@ -383,23 +383,58 @@ class GPSJammerHandheld:
         # We could also trigger a screen save here if implemented
         
     def safe_power_off(self):
-        """Safely shuts down the Raspberry Pi after stopping threads."""
-        self.running = False
-        time.sleep(0.5)
+        """Safely shut down the Raspberry Pi."""
+        self.running = False  # STOP the main loop immediately to prevent UI flicker
+        time.sleep(0.1)       # Small gap to let the last frame finish
         
-        print("[SYSTEM] Initiating safe power off sequence...")
+        print("[SYSTEM] Initiating safe shutdown...")
         self.ui.draw_splash("SHUTTING DOWN...")
-        time.sleep(4.0)
         
+        # Keep the splash screen visible for 5 seconds as requested
+        time.sleep(5)
+        
+        # Cleanup hardware and black screen
         self.shutdown()
-        
+
+        # Attempt to power off the system. Try multiple safe methods and
+        # then force-exit the process if none succeed so we don't hang.
         import os
         import subprocess
+
         if sys.platform != "win32" and not self.preview:
+            tried = []
+            try_cmds = [
+                ["sudo", "poweroff"],
+                ["sudo", "systemctl", "poweroff"],
+                ["sudo", "shutdown", "-h", "now"],
+                ["/sbin/poweroff"],
+            ]
+            log_path = "/tmp/jamming_shutdown.log"
             try:
-                subprocess.Popen(["sudo", "poweroff"])
-            except Exception as e:
-                print(f"[SHUTDOWN] Failed to run poweroff: {e}")
+                with open(log_path, "a", encoding="utf-8") as lf:
+                    lf.write(f"\n--- shutdown attempt {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+                    for cmd in try_cmds:
+                        cmd_s = " ".join(cmd)
+                        tried.append(cmd_s)
+                        lf.write(f"Trying: {cmd_s}\n")
+                        try:
+                            # capture output for debugging (synchronous block)
+                            res = subprocess.run(cmd, timeout=8, capture_output=True, text=True)
+                            lf.write(f"Returncode: {res.returncode}\n")
+                            if res.stdout:
+                                lf.write(f"STDOUT:\n{res.stdout}\n")
+                            if res.stderr:
+                                lf.write(f"STDERR:\n{res.stderr}\n")
+                        except Exception as e:
+                            lf.write(f"Exception: {e}\n")
+
+                    lf.write(f"Tried: {tried}\n")
+                    lf.write("Waiting briefly for system to handle poweroff...\n")
+            except Exception:
+                pass
+
+            # Small pause to allow systemd to act; if it didn't, force exit
+            time.sleep(3)
             try:
                 os._exit(0)
             except Exception:
