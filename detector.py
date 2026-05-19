@@ -422,7 +422,11 @@ class GPSJammerHandheld:
         import subprocess
         if sys.platform != "win32" and not self.preview:
             try:
-                subprocess.Popen(["sudo", "systemctl", "restart", "jammer.service"])
+                # Use a fully detached background shell process with a sleep delay
+                # This lets this python process exit cleanly before the systemctl restart command runs,
+                # preventing the systemd self-restart deadlock!
+                cmd = "sudo sh -c 'sleep 1 && systemctl restart jammer.service' &"
+                subprocess.Popen(cmd, shell=True)
             except Exception as e:
                 print(f"[RESTART] Failed to restart jammer service: {e}")
             try:
