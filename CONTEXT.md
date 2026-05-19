@@ -7,7 +7,9 @@ A handheld system designed to detect and log GNSS (GPS L1) jamming signals in th
 - **Core Processing:** Raspberry Pi Zero 2W
 - **SDR Receiver:** RTL-SDR v3 (USB interface)
 - **Display:** 3.5" ILI9488 TFT LCD with Touch (SPI interface)
-- **Sensors:** MPU6050 (IMU) for directional mapping and compass functionality (Fully Integrated)
+- **Sensors:** 
+  - **MPU6050 (IMU):** Directional mapping and compass heading calculations (Fully Integrated, I2C `0x69`)
+  - **DS3231 (RTC):** Precise Real-Time Clock for offline system time sync in field operations (I2C `0x68`)
 - **Antenna:** Directional Antenna (tuned for 1575.42 MHz)
 - **Peripherals:** Status RGB LEDs, Active Buzzer (GPIO 18), and Physical Mute Switch (GPIO 23 / Configurable)
 
