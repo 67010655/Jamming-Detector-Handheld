@@ -261,22 +261,6 @@ class DisplayUI:
         ty = by1 + (by2 - by1 - sh) // 2
         draw.text((tx, ty), state, fill=(0, 0, 0), font=self._f_status)
 
-        # Mute Icon (Speaker) - Left of the badge
-        mute_x = bx1 - 36
-        self._touch_zones["MUTE"] = (mute_x - 5, 0, bx1, hdr_b)
-        # Draw speaker icon
-        ic_c = accent_br
-        sy = hdr_b // 2
-        if self.app.buzzer.muted:
-            # Muted icon (Speaker with X)
-            draw.polygon([(mute_x, sy-5), (mute_x+4, sy-5), (mute_x+10, sy-10), (mute_x+10, sy+10), (mute_x+4, sy+5), (mute_x, sy+5)], fill=self._dim(ic_c, 0.5))
-            draw.line((mute_x, sy-8, mute_x+14, sy+8), fill=(255, 50, 50), width=2)
-        else:
-            # Unmuted icon
-            draw.polygon([(mute_x, sy-5), (mute_x+4, sy-5), (mute_x+10, sy-10), (mute_x+10, sy+10), (mute_x+4, sy+5), (mute_x, sy+5)], fill=ic_c)
-            draw.arc((mute_x+6, sy-8, mute_x+16, sy+8), -45, 45, fill=ic_c, width=1)
-            draw.arc((mute_x+4, sy-12, mute_x+20, sy+12), -45, 45, fill=ic_c, width=1)
-
         # ═══ RIGHT PANEL ═══
         rp_w = W - rp_l
         draw.rectangle((rp_l, hdr_b, W, foot_t), fill=(10, 10, 15))
@@ -670,6 +654,4 @@ class DisplayUI:
                 elif label == "PWR":
                     self._pwr_confirm = True
                     self._pwr_confirm_until = now + 5.0  # 5 seconds to decide
-                elif label == "MUTE":
-                    self.app.buzzer.toggle_mute()
                 return
