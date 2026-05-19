@@ -408,33 +408,32 @@ class GPSJammerHandheld:
             print("[INFO] Shutdown command skipped in preview/Windows mode.")
 
     def safe_reboot(self):
-        """Safely restarts the jammer service after stopping threads."""
+        """Safely restarts the jammer application in-place by replacing the current process."""
         self.running = False
         time.sleep(0.5)
         
-        print("[SYSTEM] Initiating jammer service restart...")
+        print("[SYSTEM] Initiating in-place application reload...")
         self.ui.draw_splash("RESTARTING...")
-        time.sleep(2.0)
+        time.sleep(1.5)
         
+        # Stop background threads and release SDR/LED/Buzzer hardware resources cleanly
         self.shutdown()
         
         import os
-        import subprocess
-        if sys.platform != "win32" and not self.preview:
+        import sys
+        
+        if not self.preview:
             try:
-                # Use a fully detached background shell process with a sleep delay
-                # This lets this python process exit cleanly before the systemctl restart command runs,
-                # preventing the systemd self-restart deadlock!
-                cmd = "sudo sh -c 'sleep 1 && systemctl restart jammer.service' &"
-                subprocess.Popen(cmd, shell=True)
+                print("[SYSTEM] Replacing process image now...")
+                # Re-execute the python interpreter with the same script and arguments
+                os.execv(sys.executable, [sys.executable] + sys.argv)
             except Exception as e:
-                print(f"[RESTART] Failed to restart jammer service: {e}")
-            try:
-                os._exit(0)
-            except Exception:
-                pass
+                print(f"[RESTART] In-place execv failed: {e}")
+                # Fallback to exit if reload fails
+                os._exit(1)
         else:
-            print("[INFO] Service restart command skipped in preview/Windows mode.")
+            print("[INFO] In-place restart skipped in preview mode.")
+            os._exit(0)
     
     def shutdown(self):
         print("\n[SYSTEM] Stopping...")
