@@ -3,6 +3,7 @@ import threading
 import logging
 import numpy as np
 from flask import Flask, jsonify, send_from_directory, Response
+import config
 import database_manager
 import io
 import csv
@@ -40,6 +41,7 @@ def status():
         "spectrum": state.power_spectrum,
         "uptime": state.uptime,
         "bearing": getattr(state, 'bearing', 0),
+        "gain": getattr(state, 'gain', config.GAIN),
         "real_time": getattr(state, 'current_time', '00:00:00'),
         "real_date": time.strftime('%d %b %Y')
     })
@@ -90,10 +92,11 @@ def start_server(port=8080):
     thread.start()
     print(f"[WEB] Dashboard Server running at http://0.0.0.0:{port}")
 
-def update_state(metrics, power, uptime, bearing=0):
+def update_state(metrics, power, uptime, bearing=0, gain=7.7):
     state.metrics = metrics
     state.uptime = uptime
     state.bearing = bearing
+    state.gain = gain
     state.current_time = time.strftime('%H:%M:%S')
     
     # Downsample the spectrum slightly to ensure the JSON payload remains small and fast.

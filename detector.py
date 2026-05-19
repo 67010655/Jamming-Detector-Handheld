@@ -299,7 +299,7 @@ class GPSJammerHandheld:
 
                 # Update web server state
                 uptime = int(time.time() - self.start_time)
-                web_server.update_state(metrics, power, uptime)
+                web_server.update_state(metrics, power, uptime, bearing=int(self.current_bearing), gain=self.gain_db)
 
                 # Log to database every second for a live web feed
                 current_time = time.time()
