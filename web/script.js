@@ -3,9 +3,9 @@
    ═══════════════════════════════════════════════ */
 
 // ── Constants ──
-const POLL_MS = 200;
+const POLL_MS = 250; // Relaxed polling for Pi CPU
 const MARGIN_MAX = 50;
-const WATERFALL_ROWS = 120;
+const WATERFALL_ROWS = 60; // Reduced from 120 for 2x performance
 const WATERFALL_ADD_MS = 500;
 
 // ── DOM Refs ──
@@ -22,6 +22,9 @@ let allLogs        = [];
 let activeFilter   = 'ALL';
 let isDark         = true;
 
+let latestSpectrum = null;
+let renderPending = false;
+
 const session = {
     maxPeak: -200, peakRise: 0, nfSum: 0, nfCount: 0,
     jamCount: 0, watchCount: 0, lastState: ''
@@ -32,6 +35,7 @@ function toggleTheme() {
     isDark = !isDark;
     document.body.dataset.theme = isDark ? 'dark' : 'light';
     localStorage.setItem('jd-theme', isDark ? 'dark' : 'light');
+    requestRender();
 }
 
 function loadTheme() {
@@ -74,8 +78,10 @@ function applyStateTheme(state) {
     document.documentElement.style.setProperty('--accent-glow', a.glow);
     document.documentElement.style.setProperty('--accent-dim', a.glow.replace(/[\d.]+\)$/, '0.1)'));
     const badge = $id('state-badge');
-    badge.textContent = state;
-    badge.dataset.state = state;
+    if (badge.textContent !== state) {
+        badge.textContent = state;
+        badge.dataset.state = state;
+    }
 }
 
 // ── Score Ring ──
@@ -90,17 +96,34 @@ function updateRing(score) {
 function canvasColors() {
     if (isDark) return {
         bg: '#080c10', grid: 'rgba(255,255,255,0.05)', gridText: 'rgba(255,255,255,0.2)',
-        text: 'rgba(255,255,255,0.5)', line: '#00e68a', fill: 'rgba(0,230,138,0.12)',
+        text: 'rgba(255,255,255,0.5)', line: '#00e68a', fill: 'rgba(0,230,138,0.08)',
         nfLine: 'rgba(255,255,255,0.15)', zero: 'rgba(255,255,255,0.1)'
     };
     return {
-        bg: '#eaecf0', grid: 'rgba(0,0,0,0.07)', gridText: 'rgba(0,0,0,0.25)',
-        text: 'rgba(0,0,0,0.45)', line: '#00a85a', fill: 'rgba(0,168,90,0.1)',
+        bg: '#eaecf0', grid: 'rgba(0,0,0,0.06)', gridText: 'rgba(0,0,0,0.25)',
+        text: 'rgba(0,0,0,0.45)', line: '#00a85a', fill: 'rgba(0,168,90,0.06)',
         nfLine: 'rgba(0,0,0,0.15)', zero: 'rgba(0,0,0,0.12)'
     };
 }
 
-// ═══ DRAW SPECTRUM ═══
+// ── Request Render via AnimationFrame ──
+function requestRender() {
+    if (!renderPending) {
+        renderPending = true;
+        requestAnimationFrame(performRender);
+    }
+}
+
+function performRender() {
+    renderPending = false;
+    if (latestSpectrum) {
+        drawSpectrum(latestSpectrum);
+    }
+    drawMarginTrend();
+    drawWaterfall();
+}
+
+// ═══ DRAW SPECTRUM (OPTIMIZED: NO SHADOWBLUR) ═══
 function drawSpectrum(data) {
     if (!spectrumCanvas) return;
     const ctx = spectrumCanvas.getContext('2d');
@@ -113,7 +136,7 @@ function drawSpectrum(data) {
     ctx.fillStyle = cc.bg;
     ctx.fillRect(0, 0, w, h);
 
-    // Grid
+    // Grid Lines
     ctx.strokeStyle = cc.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -136,6 +159,8 @@ function drawSpectrum(data) {
     if (!data || data.length === 0) return;
 
     const step = w / (data.length - 1);
+    
+    // Path for line and fill
     ctx.beginPath();
     ctx.moveTo(0, h);
     data.forEach((val, i) => {
@@ -144,32 +169,26 @@ function drawSpectrum(data) {
         ctx.lineTo(x, Math.max(0, Math.min(h, y)));
     });
 
-    // Fill
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    const fillBase = accent || cc.line;
-    grad.addColorStop(0, fillBase.replace(')', ',0.2)').replace('rgb', 'rgba'));
-    grad.addColorStop(1, 'transparent');
+    // Fill area below line
     ctx.lineTo(w, h);
+    ctx.closePath();
     ctx.fillStyle = cc.fill;
     ctx.fill();
 
-    // Line
+    // Pure Clean Line (No heavy shadowBlur)
     ctx.beginPath();
-    ctx.moveTo(0, h);
     data.forEach((val, i) => {
         const x = i * step;
         const y = h - ((val + 100) * (h / 80));
-        ctx.lineTo(x, Math.max(0, Math.min(h, y)));
+        const clampedY = Math.max(0, Math.min(h, y));
+        if (i === 0) ctx.moveTo(x, clampedY); else ctx.lineTo(x, clampedY);
     });
     ctx.strokeStyle = accent || cc.line;
-    ctx.lineWidth = 2;
-    ctx.shadowBlur = 6;
-    ctx.shadowColor = accent || cc.line;
+    ctx.lineWidth = 2.5; // Slightly thicker line to compensate for lack of glow
     ctx.stroke();
-    ctx.shadowBlur = 0;
 }
 
-// ═══ DRAW MARGIN TREND ═══
+// ═══ DRAW MARGIN TREND (OPTIMIZED: NO SHADOWBLUR) ═══
 function drawMarginTrend() {
     if (!marginCanvas) return;
     const ctx = marginCanvas.getContext('2d');
@@ -215,27 +234,22 @@ function drawMarginTrend() {
     else if (last > 0) lineColor = '#f0b429';
     else lineColor = '#00e68a';
 
+    // Draw Line (No heavy shadowBlur)
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 2;
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = lineColor;
     ctx.stroke();
-    ctx.shadowBlur = 0;
 
-    // Fill under
-    const lastX = (count - 1) * step;
-    ctx.lineTo(lastX, midY);
+    // Fill under trend line
+    ctx.lineTo((count - 1) * step, midY);
     ctx.lineTo(0, midY);
     ctx.closePath();
-    ctx.fillStyle = lineColor.replace(')', ',0.08)').replace('#', '');
-    // Simple fill with low opacity
-    ctx.globalAlpha = 0.12;
     ctx.fillStyle = lineColor;
+    ctx.globalAlpha = 0.08;
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = 1.0;
 }
 
-// ═══ WATERFALL SPECTROGRAM ═══
+// ═══ WATERFALL SPECTROGRAM (OPTIMIZED: 40 BINS) ═══
 function wfColor(dbfs) {
     const t = clamp((dbfs + 100) / 70, 0, 1);
     let c;
@@ -262,6 +276,8 @@ function drawWaterfall() {
         const cols = spectrum.length;
         const colW = w / cols;
         const y = r * rowH;
+        
+        // Draw larger blocks to reduce rendering context switches
         for (let c = 0; c < cols; c++) {
             ctx.fillStyle = wfColor(spectrum[c]);
             ctx.fillRect(c * colW, y, Math.ceil(colW), Math.ceil(rowH));
@@ -323,10 +339,9 @@ async function fetchStatus() {
             const margin = m.margin || 0;
             $id('margin-val').textContent = (margin >= 0 ? '+' : '') + margin.toFixed(1) + ' dB';
 
-            // Margin trend
+            // Margin trend history
             marginHistory.push(margin);
             if (marginHistory.length > MARGIN_MAX) marginHistory.shift();
-            drawMarginTrend();
 
             // Session
             updateSession(m);
@@ -340,14 +355,14 @@ async function fetchStatus() {
         if (data.gain !== undefined) $id('ss-gain').textContent = data.gain.toFixed(1) + ' dB';
 
         if (data.spectrum) {
-            drawSpectrum(data.spectrum);
+            latestSpectrum = data.spectrum;
 
             // Waterfall accumulation
             const now = Date.now();
             if (now - lastWfTime >= WATERFALL_ADD_MS) {
-                // Downsample to 60 bins for performance
+                // Downsample to 40 bins (reduced from 60 for better performance)
                 const src = data.spectrum;
-                const bins = 60;
+                const bins = 40;
                 const step = Math.max(1, Math.floor(src.length / bins));
                 const row = [];
                 for (let i = 0; i < bins; i++) {
@@ -357,9 +372,12 @@ async function fetchStatus() {
                 waterfallData.push(row);
                 if (waterfallData.length > WATERFALL_ROWS) waterfallData.shift();
                 lastWfTime = now;
-                drawWaterfall();
             }
         }
+        
+        // Batch and defer all renders to requestAnimationFrame
+        requestRender();
+        
     } catch (e) { console.error('Status fetch error:', e); }
     setTimeout(fetchStatus, POLL_MS);
 }
