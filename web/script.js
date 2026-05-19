@@ -3,9 +3,9 @@
    ═══════════════════════════════════════════════ */
 
 // ── Constants ──
-const POLL_MS = 250; // Relaxed polling for Pi CPU
+const POLL_MS = 250; 
 const MARGIN_MAX = 50;
-const WATERFALL_ROWS = 60; // Reduced from 120 for 2x performance
+const WATERFALL_ROWS = 60; 
 const WATERFALL_ADD_MS = 500;
 
 // ── DOM Refs ──
@@ -22,20 +22,33 @@ let allLogs        = [];
 let activeFilter   = 'ALL';
 let isDark         = true;
 
-let latestSpectrum = null;
-let renderPending = false;
+// Cache the last printed DOM values to avoid forced layouts (Value Differencing)
+const domCache = {};
 
 const session = {
     maxPeak: -200, peakRise: 0, nfSum: 0, nfCount: 0,
     jamCount: 0, watchCount: 0, lastState: ''
 };
 
+// ── Optimized DOM Text Updater (Throttles DOM writes) ──
+function setDomText(id, val) {
+    if (domCache[id] !== val) {
+        const el = $id(id);
+        if (el) el.textContent = val;
+        domCache[id] = val;
+    }
+}
+
 // ── Theme Toggle ──
 function toggleTheme() {
     isDark = !isDark;
     document.body.dataset.theme = isDark ? 'dark' : 'light';
     localStorage.setItem('jd-theme', isDark ? 'dark' : 'light');
-    requestRender();
+    
+    // Force redraw on theme switch since colors changed
+    drawSpectrum(lastSpectrumData);
+    drawMarginTrend();
+    drawWaterfall();
 }
 
 function loadTheme() {
@@ -45,11 +58,14 @@ function loadTheme() {
 
 $id('theme-toggle').addEventListener('click', toggleTheme);
 
-// ── Clock ──
+// ── Ultra-Smooth Client Clock (Local time, avoids server time jitters) ──
 function updateClock() {
     const now = new Date();
-    $id('clock-time').textContent = now.toTimeString().split(' ')[0];
+    const timeStr = now.toTimeString().split(' ')[0];
+    setDomText('clock-time', timeStr);
 }
+// Start immediate and run at smooth 1Hz interval
+updateClock();
 setInterval(updateClock, 1000);
 
 // ── Helpers ──
@@ -74,13 +90,19 @@ function stateAccent(state) {
 
 function applyStateTheme(state) {
     const a = stateAccent(state);
-    document.documentElement.style.setProperty('--accent', a.color);
-    document.documentElement.style.setProperty('--accent-glow', a.glow);
-    document.documentElement.style.setProperty('--accent-dim', a.glow.replace(/[\d.]+\)$/, '0.1)'));
-    const badge = $id('state-badge');
-    if (badge.textContent !== state) {
-        badge.textContent = state;
-        badge.dataset.state = state;
+    
+    // Only update CSS variables if they actually change
+    if (domCache['--current-state'] !== state) {
+        document.documentElement.style.setProperty('--accent', a.color);
+        document.documentElement.style.setProperty('--accent-glow', a.glow);
+        document.documentElement.style.setProperty('--accent-dim', a.glow.replace(/[\d.]+\)$/, '0.1)'));
+        
+        const badge = $id('state-badge');
+        if (badge) {
+            badge.textContent = state;
+            badge.dataset.state = state;
+        }
+        domCache['--current-state'] = state;
     }
 }
 
@@ -89,43 +111,34 @@ function updateRing(score) {
     const ring = $id('ring-fill');
     if (!ring) return;
     const pct = clamp(score / 99, 0, 1);
-    ring.style.strokeDashoffset = 283 - pct * 283;
+    const offset = 283 - pct * 283;
+    
+    if (domCache['ring-offset'] !== offset) {
+        ring.style.strokeDashoffset = offset;
+        domCache['ring-offset'] = offset;
+    }
 }
 
 // ── Canvas Color Helpers (Theme-Aware) ──
 function canvasColors() {
     if (isDark) return {
-        bg: '#080c10', grid: 'rgba(255,255,255,0.05)', gridText: 'rgba(255,255,255,0.2)',
-        text: 'rgba(255,255,255,0.5)', line: '#00e68a', fill: 'rgba(0,230,138,0.08)',
+        bg: '#080c10', grid: 'rgba(255,255,255,0.04)', gridText: 'rgba(255,255,255,0.2)',
+        text: 'rgba(255,255,255,0.5)', line: '#00e68a', fill: 'rgba(0,230,138,0.07)',
         nfLine: 'rgba(255,255,255,0.15)', zero: 'rgba(255,255,255,0.1)'
     };
     return {
-        bg: '#eaecf0', grid: 'rgba(0,0,0,0.06)', gridText: 'rgba(0,0,0,0.25)',
-        text: 'rgba(0,0,0,0.45)', line: '#00a85a', fill: 'rgba(0,168,90,0.06)',
+        bg: '#eaecf0', grid: 'rgba(0,0,0,0.05)', gridText: 'rgba(0,0,0,0.25)',
+        text: 'rgba(0,0,0,0.45)', line: '#00a85a', fill: 'rgba(0,168,90,0.05)',
         nfLine: 'rgba(0,0,0,0.15)', zero: 'rgba(0,0,0,0.12)'
     };
 }
 
-// ── Request Render via AnimationFrame ──
-function requestRender() {
-    if (!renderPending) {
-        renderPending = true;
-        requestAnimationFrame(performRender);
-    }
-}
+// Keep a reference to latest spectrum array to draw only when new data arrives
+let lastSpectrumData = null;
 
-function performRender() {
-    renderPending = false;
-    if (latestSpectrum) {
-        drawSpectrum(latestSpectrum);
-    }
-    drawMarginTrend();
-    drawWaterfall();
-}
-
-// ═══ DRAW SPECTRUM (OPTIMIZED: NO SHADOWBLUR) ═══
+// ═══ DRAW SPECTRUM (CALLED ONLY WHEN NEW DATA ARRIVES - 4Hz MAX) ═══
 function drawSpectrum(data) {
-    if (!spectrumCanvas) return;
+    if (!spectrumCanvas || !data || data.length === 0) return;
     const ctx = spectrumCanvas.getContext('2d');
     const w = spectrumCanvas.width, h = spectrumCanvas.height;
     if (w === 0 || h === 0) return;
@@ -156,8 +169,6 @@ function drawSpectrum(data) {
         ctx.fillText(`${db}`, 4, (h / 5) * i - 3);
     }
 
-    if (!data || data.length === 0) return;
-
     const step = w / (data.length - 1);
     
     // Path for line and fill
@@ -175,7 +186,7 @@ function drawSpectrum(data) {
     ctx.fillStyle = cc.fill;
     ctx.fill();
 
-    // Pure Clean Line (No heavy shadowBlur)
+    // Clean Line
     ctx.beginPath();
     data.forEach((val, i) => {
         const x = i * step;
@@ -184,11 +195,11 @@ function drawSpectrum(data) {
         if (i === 0) ctx.moveTo(x, clampedY); else ctx.lineTo(x, clampedY);
     });
     ctx.strokeStyle = accent || cc.line;
-    ctx.lineWidth = 2.5; // Slightly thicker line to compensate for lack of glow
+    ctx.lineWidth = 2.2; 
     ctx.stroke();
 }
 
-// ═══ DRAW MARGIN TREND (OPTIMIZED: NO SHADOWBLUR) ═══
+// ═══ DRAW MARGIN TREND (CALLED ONLY WHEN NEW DATA ARRIVES - 4Hz MAX) ═══
 function drawMarginTrend() {
     if (!marginCanvas) return;
     const ctx = marginCanvas.getContext('2d');
@@ -234,7 +245,7 @@ function drawMarginTrend() {
     else if (last > 0) lineColor = '#f0b429';
     else lineColor = '#00e68a';
 
-    // Draw Line (No heavy shadowBlur)
+    // Draw Line
     ctx.strokeStyle = lineColor;
     ctx.lineWidth = 2;
     ctx.stroke();
@@ -244,12 +255,12 @@ function drawMarginTrend() {
     ctx.lineTo(0, midY);
     ctx.closePath();
     ctx.fillStyle = lineColor;
-    ctx.globalAlpha = 0.08;
+    ctx.globalAlpha = 0.06;
     ctx.fill();
     ctx.globalAlpha = 1.0;
 }
 
-// ═══ WATERFALL SPECTROGRAM (OPTIMIZED: 40 BINS) ═══
+// ═══ WATERFALL SPECTROGRAM (CALLED ONLY WHEN NEW ROW IS ADDED - 2Hz MAX) ═══
 function wfColor(dbfs) {
     const t = clamp((dbfs + 100) / 70, 0, 1);
     let c;
@@ -277,7 +288,6 @@ function drawWaterfall() {
         const colW = w / cols;
         const y = r * rowH;
         
-        // Draw larger blocks to reduce rendering context switches
         for (let c = 0; c < cols; c++) {
             ctx.fillStyle = wfColor(spectrum[c]);
             ctx.fillRect(c * colW, y, Math.ceil(colW), Math.ceil(rowH));
@@ -293,18 +303,17 @@ function updateSession(m) {
     session.nfSum += m.noise_floor;
     session.nfCount++;
 
-    // Count state transitions
     if (m.state !== session.lastState) {
         if (m.state === 'JAMMING') session.jamCount++;
         if (m.state === 'WATCH') session.watchCount++;
         session.lastState = m.state;
     }
 
-    $id('ss-max-peak').textContent = session.maxPeak > -200 ? session.maxPeak.toFixed(1) + ' dBFS' : '— dBFS';
-    $id('ss-avg-nf').textContent = session.nfCount > 0 ? (session.nfSum / session.nfCount).toFixed(1) + ' dBFS' : '— dBFS';
-    $id('ss-peak-rise').textContent = session.peakRise > 0 ? '+' + session.peakRise.toFixed(1) + ' dB' : '0.0 dB';
-    $id('ss-jam-count').textContent = session.jamCount;
-    $id('ss-watch-count').textContent = session.watchCount;
+    setDomText('ss-max-peak', session.maxPeak > -200 ? session.maxPeak.toFixed(1) + ' dBFS' : '— dBFS');
+    setDomText('ss-avg-nf', session.nfCount > 0 ? (session.nfSum / session.nfCount).toFixed(1) + ' dBFS' : '— dBFS');
+    setDomText('ss-peak-rise', session.peakRise > 0 ? '+' + session.peakRise.toFixed(1) + ' dB' : '0.0 dB');
+    setDomText('ss-jam-count', session.jamCount.toString());
+    setDomText('ss-watch-count', session.watchCount.toString());
 }
 
 // ═══ FETCH STATUS ═══
@@ -313,54 +322,61 @@ async function fetchStatus() {
         const res = await fetch('/api/status');
         const data = await res.json();
 
-        if (data.real_time) $id('clock-time').textContent = data.real_time;
-        if (data.real_date) $id('clock-date').textContent = data.real_date.toUpperCase();
+        // Sync local clock date if provided (run once or verify shift)
+        if (data.real_date) {
+            setDomText('clock-date', data.real_date.toUpperCase());
+        }
 
         if (data.metrics) {
             const m = data.metrics;
             applyStateTheme(m.state);
 
-            $id('score-num').textContent = Math.round(m.score).toString().padStart(2, '0');
+            setDomText('score-num', Math.round(m.score).toString().padStart(2, '0'));
             updateRing(m.score);
 
-            $id('nf-val').textContent = m.noise_floor.toFixed(1);
-            $id('peak-val').textContent = m.peak_p.toFixed(1);
+            setDomText('nf-val', m.noise_floor.toFixed(1));
+            setDomText('peak-val', m.peak_p.toFixed(1));
 
             const rise = m.floor_rise;
+            setDomText('rise-val', (rise >= 0 ? '+' : '') + rise.toFixed(1));
+            
             const riseEl = $id('rise-val');
-            riseEl.textContent = (rise >= 0 ? '+' : '') + rise.toFixed(1);
-            riseEl.style.color = rise > 5 ? '#ef4444' : '';
+            if (riseEl) {
+                riseEl.style.color = rise > 5 ? '#ef4444' : '';
+            }
 
             // SNR = Peak - Noise Floor
             const snr = m.peak_p - m.noise_floor;
-            $id('snr-val').textContent = snr.toFixed(1);
+            setDomText('snr-val', snr.toFixed(1));
 
             // Margin
             const margin = m.margin || 0;
-            $id('margin-val').textContent = (margin >= 0 ? '+' : '') + margin.toFixed(1) + ' dB';
+            setDomText('margin-val', (margin >= 0 ? '+' : '') + margin.toFixed(1) + ' dB');
 
             // Margin trend history
             marginHistory.push(margin);
             if (marginHistory.length > MARGIN_MAX) marginHistory.shift();
 
-            // Session
+            // Session Stats
             updateSession(m);
         }
 
-        if (data.uptime !== undefined) $id('uptime-val').textContent = fmtUp(data.uptime);
+        if (data.uptime !== undefined) setDomText('uptime-val', fmtUp(data.uptime));
         if (data.bearing !== undefined) {
-            $id('bearing-val').textContent = Math.round(data.bearing).toString().padStart(3, '0') + '°';
-            $id('ss-bearing').textContent = Math.round(data.bearing).toString().padStart(3, '0') + '°';
+            const bearingStr = Math.round(data.bearing).toString().padStart(3, '0') + '°';
+            setDomText('bearing-val', bearingStr);
+            setDomText('ss-bearing', bearingStr);
         }
-        if (data.gain !== undefined) $id('ss-gain').textContent = data.gain.toFixed(1) + ' dB';
+        if (data.gain !== undefined) setDomText('ss-gain', data.gain.toFixed(1) + ' dB');
+
+        let waterfallChanged = false;
 
         if (data.spectrum) {
-            latestSpectrum = data.spectrum;
+            lastSpectrumData = data.spectrum;
 
             // Waterfall accumulation
             const now = Date.now();
             if (now - lastWfTime >= WATERFALL_ADD_MS) {
-                // Downsample to 40 bins (reduced from 60 for better performance)
                 const src = data.spectrum;
                 const bins = 40;
                 const step = Math.max(1, Math.floor(src.length / bins));
@@ -372,11 +388,22 @@ async function fetchStatus() {
                 waterfallData.push(row);
                 if (waterfallData.length > WATERFALL_ROWS) waterfallData.shift();
                 lastWfTime = now;
+                waterfallChanged = true;
             }
         }
         
-        // Batch and defer all renders to requestAnimationFrame
-        requestRender();
+        // ── EVENT-DRIVEN CANVAS RENDERING ──
+        // Only trigger drawing when new data arrives (4Hz max) instead of 60 FPS loop!
+        // This is a massive CPU optimization.
+        requestAnimationFrame(() => {
+            if (lastSpectrumData) {
+                drawSpectrum(lastSpectrumData);
+            }
+            drawMarginTrend();
+            if (waterfallChanged) {
+                drawWaterfall();
+            }
+        });
         
     } catch (e) { console.error('Status fetch error:', e); }
     setTimeout(fetchStatus, POLL_MS);
