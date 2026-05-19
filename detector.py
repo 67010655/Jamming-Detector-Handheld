@@ -408,13 +408,13 @@ class GPSJammerHandheld:
             print("[INFO] Shutdown command skipped in preview/Windows mode.")
 
     def safe_reboot(self):
-        """Safely reboots the Raspberry Pi after stopping threads."""
+        """Safely restarts the jammer service after stopping threads."""
         self.running = False
         time.sleep(0.5)
         
-        print("[SYSTEM] Initiating safe reboot sequence...")
-        self.ui.draw_splash("REBOOTING...")
-        time.sleep(4.0)
+        print("[SYSTEM] Initiating jammer service restart...")
+        self.ui.draw_splash("RESTARTING...")
+        time.sleep(2.0)
         
         self.shutdown()
         
@@ -422,15 +422,15 @@ class GPSJammerHandheld:
         import subprocess
         if sys.platform != "win32" and not self.preview:
             try:
-                subprocess.Popen(["sudo", "reboot"])
+                subprocess.Popen(["sudo", "systemctl", "restart", "jammer.service"])
             except Exception as e:
-                print(f"[REBOOT] Failed to run reboot: {e}")
+                print(f"[RESTART] Failed to restart jammer service: {e}")
             try:
                 os._exit(0)
             except Exception:
                 pass
         else:
-            print("[INFO] Reboot command skipped in preview/Windows mode.")
+            print("[INFO] Service restart command skipped in preview/Windows mode.")
     
     def shutdown(self):
         print("\n[SYSTEM] Stopping...")
