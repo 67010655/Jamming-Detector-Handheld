@@ -23,6 +23,13 @@ DC_BINS = 10
 HIT_FRAMES = 3
 CLEAR_FRAMES = 10
 
+# ── IMU (MPU6050) Orientation Setup ──────────────────────────────────
+IMU_ADDRESS = 0x69      # I2C Address (default is 0x69, on some boards it is 0x68)
+IMU_GYRO_AXIS = 'Z'     # Axis to measure horizontal rotation: 'X', 'Y', or 'Z'
+                        # - Use 'Z' if MPU6050 is mounted flat (horizontal)
+                        # - Use 'X' or 'Y' if mounted vertically on a wall
+IMU_INVERT_GYRO = False # Set to True to invert rotation direction (left/right)
+
 LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
 LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)
 LED_GREEN_PIN = 26      # GPIO26 (Physical Pin 37) for GREEN LED (SCANNING state)

@@ -6,7 +6,8 @@ import sys
 def main():
     try:
         # Initialize sensors
-        imu = MPU6050(address=0x69)
+        import config
+        imu = MPU6050(address=getattr(config, 'IMU_ADDRESS', 0x69))
         # RTC is handled by Kernel now, so we use system time
         
         print("--- Sensor Test Utility ---")
