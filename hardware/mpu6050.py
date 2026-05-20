@@ -1,4 +1,7 @@
-import smbus2
+try:
+    import smbus2
+except ImportError:
+    smbus2 = None
 import time
 import math
 
@@ -18,6 +21,10 @@ class MPU6050:
 
     def _init_sensor(self):
         """Initialize or Re-initialize the sensor."""
+        if smbus2 is None:
+            print("[IMU] smbus2 module is not available (expected on Windows). Simulated IMU enabled.")
+            self._init_success = False
+            return False
         try:
             if self.bus:
                 try:
@@ -38,6 +45,8 @@ class MPU6050:
             return False
 
     def read_raw_data(self, addr):
+        if self.bus is None:
+            return None
         try:
             high = self.bus.read_byte_data(self.address, addr)
             low = self.bus.read_byte_data(self.address, addr + 1)

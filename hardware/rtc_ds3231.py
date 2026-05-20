@@ -1,10 +1,17 @@
-import smbus2
+try:
+    import smbus2
+except ImportError:
+    smbus2 = None
 import time
 
 class DS3231:
     def __init__(self, address=0x68, bus=1):
         self.address = address
-        self.bus = smbus2.SMBus(bus)
+        if smbus2 is not None:
+            self.bus = smbus2.SMBus(bus)
+        else:
+            self.bus = None
+            print("[RTC] smbus2 module is not available (expected on Windows). Simulated RTC enabled.")
 
     def bcd_to_int(self, bcd):
         return (bcd & 0x0F) + ((bcd >> 4) * 10)
@@ -16,6 +23,18 @@ class DS3231:
         """
         Returns a dictionary with current time from RTC
         """
+        if self.bus is None:
+            # Fallback to system time on Windows
+            t = time.localtime()
+            return {
+                "year": t.tm_year,
+                "month": t.tm_mon,
+                "day": t.tm_mday,
+                "hour": t.tm_hour,
+                "minute": t.tm_min,
+                "second": t.tm_sec
+            }
+        
         data = self.bus.read_i2c_block_data(self.address, 0, 7)
         
         seconds = self.bcd_to_int(data[0] & 0x7F)
