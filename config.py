@@ -31,7 +31,7 @@ BUZZER_PIN = 18         # GPIO18 (Physical Pin 12) for piezo buzzer
 # ── Buzzer Alert Setup ───────────────────────────────────────────────
 # Available profiles: "STANDARD" (default beep), "PREMIUM_CHIME" (harmonic chimes),
 #                     "SIREN_WARP" (siren frequency sweep), "CUSTOM" (user defined)
-BUZZER_PROFILE = "SIREN_WARP"
+BUZZER_PROFILE = "STANDARD"
 
 # Custom tone configuration (Melodies / Multi-frequency note sequences)
 # Each note is defined as: (frequency_hz, duration_s, gap_duration_s)
