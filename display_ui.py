@@ -589,14 +589,67 @@ class DisplayUI:
             GPIO.output(self._T_CS_MANUAL, 1)
             return ((resp[1] << 8) | resp[2]) >> 3
 
+    def _load_touch_calibration(self):
+        import os
+        import json
+        self._calib_path = "touch_calibration.json"
+        
+        # Default calibration parameters for XPT2046
+        self._calib_params = {
+            "X_MIN": 300,
+            "X_MAX": 3850,
+            "Y_MIN": 130,
+            "Y_MAX": 3840,
+            "SWAP_XY": False,
+            "INVERT_X": True,
+            "INVERT_Y": True
+        }
+        
+        if os.path.exists(self._calib_path):
+            try:
+                with open(self._calib_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    for k in self._calib_params:
+                        if k in data:
+                            self._calib_params[k] = data[k]
+                print(f"[TOUCH] Loaded calibration from {self._calib_path}: {self._calib_params}")
+            except Exception as e:
+                print(f"[TOUCH] Error loading calibration, using defaults: {e}")
+
     def _touch_worker(self):
-        X_MIN, X_MAX, Y_MIN, Y_MAX = 300, 3850, 130, 3840
+        self._load_touch_calibration()
         while True:
             try:
                 x_raw, y_raw = self._read_xpt2046(0x94), self._read_xpt2046(0xD4)
                 if 50 < x_raw < 4050 and 50 < y_raw < 4050:
-                    sx = int(np.clip(479 - ((x_raw - X_MIN) * 480 / (X_MAX - X_MIN)), 0, 479))
-                    sy = int(np.clip(319 - ((y_raw - Y_MIN) * 320 / (Y_MAX - Y_MIN)), 0, 319))
+                    params = self._calib_params
+                    x_min, x_max = params["X_MIN"], params["X_MAX"]
+                    y_min, y_max = params["Y_MIN"], params["Y_MAX"]
+                    swap_xy = params.get("SWAP_XY", False)
+                    invert_x = params.get("INVERT_X", True)
+                    invert_y = params.get("INVERT_Y", True)
+
+                    # Swap axes if configured
+                    if swap_xy:
+                        x_raw, y_raw = y_raw, x_raw
+                        x_min, x_max, y_min, y_max = y_min, y_max, x_min, x_max
+                        invert_x, invert_y = invert_y, invert_x
+
+                    # Scale raw coordinates to 480x320 screen resolution
+                    dx = x_max - x_min if x_max != x_min else 1
+                    dy = y_max - y_min if y_max != y_min else 1
+
+                    sx = (x_raw - x_min) * 480.0 / dx
+                    sy = (y_raw - y_min) * 320.0 / dy
+
+                    if invert_x:
+                        sx = 479.0 - sx
+                    if invert_y:
+                        sy = 319.0 - sy
+
+                    sx = int(np.clip(sx, 0, 479))
+                    sy = int(np.clip(sy, 0, 319))
+
                     self._handle_click(sx, sy)
                     time.sleep(0.3)
                 time.sleep(0.05)
