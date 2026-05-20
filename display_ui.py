@@ -155,7 +155,7 @@ class DisplayUI:
     # ════════════════════════════════════════════════════════════════
     #                   SPLASH SCREEN
     # ════════════════════════════════════════════════════════════════
-    def draw_splash(self, message="BOOTING..."):
+    def draw_splash(self, message="BOOTING...", progress=None):
         draw = self.app._draw
         W, H = self.app.w, self.app.h
         
@@ -164,16 +164,39 @@ class DisplayUI:
         
         # Title
         tw, th = self._get_text_size("GNSS JAMMING DETECTOR", self._f_state_big)
-        draw.text(((W - tw) // 2, H // 2 - 40), "GNSS JAMMING DETECTOR", fill=(0, 255, 136), font=self._f_state_big)
+        draw.text(((W - tw) // 2, H // 2 - 50), "GNSS JAMMING DETECTOR", fill=(0, 255, 136), font=self._f_state_big)
         
         # Subtitle
         sw, sh = self._get_text_size("KMITL SPACE & GEO ENGINEERING", self._f_status)
-        draw.text(((W - sw) // 2, H // 2), "KMITL SPACE & GEO ENGINEERING", fill=(255, 255, 255), font=self._f_status)
+        draw.text(((W - sw) // 2, H // 2 - 15), "KMITL SPACE & GEO ENGINEERING", fill=(255, 255, 255), font=self._f_status)
         
-        # Message
-        msg_color = (255, 50, 50) if "SHUT" in message.upper() else (255, 220, 50)
-        mw, mh = self._get_text_size(message, self._f_state_big)
-        draw.text(((W - mw) // 2, H // 2 + 50), message, fill=msg_color, font=self._f_state_big)
+        # Draw Progress Bar if progress is provided
+        if progress is not None:
+            # Progress bar dimensions
+            bar_w, bar_h = 320, 14
+            bar_x = (W - bar_w) // 2
+            bar_y = H // 2 + 20
+            
+            # Draw progress bar background (track)
+            draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill=(16, 24, 32), outline=(0, 100, 60), width=1)
+            
+            # Calculate filled width
+            fill_w = int(bar_w * (np.clip(progress, 0, 100) / 100.0))
+            if fill_w > 0:
+                # Vibrant progress bar fill
+                draw.rectangle((bar_x + 1, bar_y + 1, bar_x + fill_w - 1, bar_y + bar_h - 1), fill=(0, 255, 136))
+                # Add light highlight line on top for standard premium glassmorphism
+                draw.line((bar_x + 1, bar_y + 1, bar_x + fill_w - 1, bar_y + 1), fill=(255, 255, 255))
+
+            # Put message underneath progress bar
+            msg_color = (255, 50, 50) if "SHUT" in message.upper() else (255, 220, 50)
+            mw, mh = self._get_text_size(message, self._f_subtitle)
+            draw.text(((W - mw) // 2, bar_y + 24), message, fill=msg_color, font=self._f_subtitle)
+        else:
+            # Fallback/Default layout when no progress bar is requested (e.g. shutdown or direct status)
+            msg_color = (255, 50, 50) if "SHUT" in message.upper() else (255, 220, 50)
+            mw, mh = self._get_text_size(message, self._f_state_big)
+            draw.text(((W - mw) // 2, H // 2 + 35), message, fill=msg_color, font=self._f_state_big)
         
         if self.preview:
             self.app._img.save("preview.png")

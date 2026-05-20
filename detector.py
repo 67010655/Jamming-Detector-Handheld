@@ -55,24 +55,24 @@ class GPSJammerHandheld:
         self.imu = None
         self.current_bearing = 0.0
 
-        # Initialize UI first to show splash screens
+        # Initialize UI first to show splash screens with dynamic progress
         self.ui = DisplayUI(self, preview=self.preview)
-        self.ui.draw_splash("SYSTEM BOOTING...")
-        time.sleep(1.5) # Give user time to read
+        self.ui.draw_splash("SYSTEM BOOTING...", progress=10)
+        time.sleep(1.0) # Give user time to read
         
         if not self.preview:
-            self.ui.draw_splash("INITIALIZING DB...")
+            self.ui.draw_splash("INITIALIZING DATABASE...", progress=30)
             database_manager.init_db()
-            time.sleep(0.5)
+            time.sleep(0.3)
             
-            self.ui.draw_splash("INIT SDR...")
+            self.ui.draw_splash("INITIALIZING SDR RECEIVER...", progress=50)
             self._init_sdr()
-            time.sleep(0.5)
+            time.sleep(0.3)
             
-            self.ui.draw_splash("CALIBRATING...")
+            self.ui.draw_splash("CALIBRATING RADIO BASICS...", progress=70)
             self._calibrate()
             
-            self.ui.draw_splash("INIT IMU & CALIBRATE...")
+            self.ui.draw_splash("CALIBRATING IMU SENSORS...", progress=90)
             try:
                 self.imu = MPU6050(address=0x69)
                 self.imu.calibrate(samples=150)
@@ -80,10 +80,10 @@ class GPSJammerHandheld:
                 print(f"[IMU] Failed to initialize MPU6050: {e}")
                 self.imu = None
 
-            self.ui.draw_splash("STARTING MODULES...")
+            self.ui.draw_splash("STARTING SYSTEM MODULES...", progress=100)
             self.led = LEDController(enabled=True)
             self.buzzer = BuzzerController(enabled=True)
-            time.sleep(1.0)
+            time.sleep(0.8)
         else:
             self.noise_floor = -90.0
             self.led = LEDController(enabled=False)
