@@ -42,29 +42,11 @@ class BuzzerController:
             if task is None:
                 break
                 
-            if isinstance(task, list):
-                # Advanced note sequence: each note is (frequency_hz, duration_s, gap_duration_s)
-                for item in task:
-                    if len(item) == 3:
-                        frequency_hz, duration_s, gap_duration_s = item
-                    else:
-                        frequency_hz, duration_s = item
-                        gap_duration_s = 0.0
-                        
-                    if frequency_hz > 0:
-                        self._buzz(duration_s, frequency_hz)
-                    else:
-                        time.sleep(duration_s) # Rest/silence note
-                        
-                    if gap_duration_s > 0:
-                        time.sleep(gap_duration_s)
-            else:
-                # Backward compatibility for traditional flat pulse train
-                pulses, pulse_duration, gap_duration, frequency_hz = task
-                for index in range(pulses):
-                    self._buzz(pulse_duration, frequency_hz)
-                    if index < pulses - 1:
-                        time.sleep(gap_duration)
+            pulses, pulse_duration, gap_duration, frequency_hz = task
+            for index in range(pulses):
+                self._buzz(pulse_duration, frequency_hz)
+                if index < pulses - 1:
+                    time.sleep(gap_duration)
                     
             self._queue.task_done()
 
@@ -91,89 +73,8 @@ class BuzzerController:
             except Exception:
                 pass
 
-    def _get_melody_for_event(self, event):
-        profile = getattr(config, 'BUZZER_PROFILE', 'STANDARD').upper()
-        
-        if profile == "CUSTOM":
-            custom_tones = getattr(config, 'CUSTOM_BUZZER_TONES', {})
-            if event in custom_tones:
-                return custom_tones[event]
-            profile = "STANDARD"
-
-        if profile == "PREMIUM_CHIME":
-            if event == "STARTUP":
-                return [
-                    (523, 0.08, 0.02),
-                    (659, 0.08, 0.02),
-                    (784, 0.08, 0.02),
-                    (1047, 0.15, 0.0)
-                ]
-            elif event == "SCANNING":
-                return [
-                    (988, 0.04, 0.06),
-                    (988, 0.04, 0.0)
-                ]
-            elif event == "WATCH":
-                return [
-                    (880, 0.06, 0.04),
-                    (1175, 0.08, 0.0)
-                ]
-            elif event == "JAMMING":
-                return [
-                    (1318, 0.06, 0.03),
-                    (1318, 0.06, 0.03),
-                    (1568, 0.12, 0.0)
-                ]
-            elif event == "TEST":
-                return [
-                    (523, 0.05, 0.05),
-                    (587, 0.05, 0.05),
-                    (659, 0.05, 0.05),
-                    (698, 0.05, 0.05),
-                    (784, 0.10, 0.0)
-                ]
-
-        elif profile == "SIREN_WARP":
-            if event == "STARTUP":
-                return [(f, 0.005, 0.001) for f in range(800, 1600, 40)]
-            elif event == "SCANNING":
-                return [(900, 0.05, 0.0)]
-            elif event == "WATCH":
-                return ([(f, 0.008, 0.001) for f in range(1000, 1500, 50)] + 
-                        [(f, 0.008, 0.001) for f in range(1500, 1000, -50)])
-            elif event == "JAMMING":
-                sweep = ([(f, 0.004, 0.001) for f in range(1200, 2200, 50)] + 
-                         [(f, 0.004, 0.001) for f in range(2200, 1200, -50)])
-                return sweep * 2
-            elif event == "TEST":
-                return [(f, 0.005, 0.001) for f in range(600, 1800, 30)]
-
-        # Default STANDARD profiles (original beeps)
-        if event == "STARTUP":
-            return [(1000, 0.08, 0.08)] * 3
-        elif event == "SCANNING":
-            return [(900, 0.08, 0.10)] * 2
-        elif event == "WATCH":
-            return [(1200, 0.08, 0.08)] * 2
-        elif event == "JAMMING":
-            return [(1500, 0.08, 0.05)] * 2
-        elif event == "TEST":
-            return [(1200, 0.06, 0.06)] * 3
-
-    def _play_event(self, event):
-        melody = self._get_melody_for_event(event)
-        # Clear any pending tones so the new state overrides immediately
-        while not self._queue.empty():
-            try:
-                self._queue.get_nowait()
-                self._queue.task_done()
-            except queue.Empty:
-                break
-                
-        self._queue.put(melody)
-
     def _tone(self, pulses=2, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1200):
-        # Kept for direct manual calls
+        # Clear any pending tones so the new state overrides immediately
         while not self._queue.empty():
             try:
                 self._queue.get_nowait()
@@ -186,7 +87,7 @@ class BuzzerController:
     def play_startup(self):
         """Play a short startup chime when the device starts."""
         print("[BUZZER] Playing startup sound")
-        self._play_event("STARTUP")
+        self._tone(pulses=3, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1000)
 
     def set_state(self, state):
         """Play a notification sound for each detector state change."""
@@ -194,7 +95,12 @@ class BuzzerController:
             return
 
         self.current_state = state
-        self._play_event(state)
+        if state == "SCANNING":
+            self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.10, frequency_hz=900)
+        elif state == "WATCH":
+            self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1200)
+        elif state == "JAMMING":
+            self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.05, frequency_hz=1500)
 
     def play_click(self):
         """Play a short 'click' sound for UI interaction."""
@@ -216,7 +122,7 @@ class BuzzerController:
     def test_sequence(self):
         """Play a test sound sequence for debugging."""
         print("[BUZZER] Running test sequence")
-        self._play_event("TEST")
+        self._tone(pulses=3, pulse_duration=0.06, gap_duration=0.06, frequency_hz=1200)
 
     def toggle_mute(self):
         """Toggle the mute state of the buzzer."""
