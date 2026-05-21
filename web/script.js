@@ -83,9 +83,15 @@ function lerpColor(c1, c2, t) {
 
 // ── State Colors ──
 function stateAccent(state) {
-    if (state === 'JAMMING') return { color: '#ef4444', glow: 'rgba(239,68,68,0.25)' };
-    if (state === 'WATCH')   return { color: '#f0b429', glow: 'rgba(240,180,41,0.25)' };
-    return { color: '#00e68a', glow: 'rgba(0,230,138,0.25)' };
+    if (isDark) {
+        if (state === 'JAMMING') return { color: '#ef4444', glow: 'rgba(239,68,68,0.25)' };
+        if (state === 'WATCH')   return { color: '#f0b429', glow: 'rgba(240,180,41,0.25)' };
+        return { color: '#00e68a', glow: 'rgba(0,230,138,0.25)' };
+    }
+    // Light mode: darker, more readable colors
+    if (state === 'JAMMING') return { color: '#dc2626', glow: 'rgba(220,38,38,0.3)' };
+    if (state === 'WATCH')   return { color: '#d97706', glow: 'rgba(217,119,6,0.3)' };
+    return { color: '#059669', glow: 'rgba(5,150,105,0.3)' };
 }
 
 function applyStateTheme(state) {
@@ -127,9 +133,9 @@ function canvasColors() {
         nfLine: 'rgba(255,255,255,0.15)', zero: 'rgba(255,255,255,0.1)'
     };
     return {
-        bg: '#eaecf0', grid: 'rgba(0,0,0,0.05)', gridText: 'rgba(0,0,0,0.25)',
-        text: 'rgba(0,0,0,0.45)', line: '#00a85a', fill: 'rgba(0,168,90,0.05)',
-        nfLine: 'rgba(0,0,0,0.15)', zero: 'rgba(0,0,0,0.12)'
+        bg: '#e5e7eb', grid: 'rgba(0,0,0,0.08)', gridText: 'rgba(0,0,0,0.35)',
+        text: 'rgba(0,0,0,0.55)', line: '#047857', fill: 'rgba(4,120,87,0.08)',
+        nfLine: 'rgba(0,0,0,0.2)', zero: 'rgba(0,0,0,0.15)'
     };
 }
 
@@ -504,8 +510,8 @@ window.addEventListener('resize', () => {
 const particleCanvas = document.getElementById('particleCanvas');
 const pCtx = particleCanvas ? particleCanvas.getContext('2d') : null;
 let particles = [];
-const PARTICLE_COUNT = 45;
-const CONNECTION_DIST = 120;
+const PARTICLE_COUNT = 65;
+const CONNECTION_DIST = 160;
 
 function resizeParticles() {
     if (!particleCanvas) return;
@@ -517,10 +523,10 @@ function createParticle() {
     return {
         x: Math.random() * particleCanvas.width,
         y: Math.random() * particleCanvas.height,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        r: Math.random() * 2 + 0.5,
-        alpha: Math.random() * 0.5 + 0.2,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        r: Math.random() * 2.5 + 0.8,
+        alpha: Math.random() * 0.6 + 0.3,
         pulse: Math.random() * Math.PI * 2
     };
 }
@@ -577,12 +583,12 @@ function animateParticles() {
             const dx = p.x - q.x, dy = p.y - q.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist < CONNECTION_DIST) {
-                const lineAlpha = (1 - dist / CONNECTION_DIST) * 0.12;
+                const lineAlpha = (1 - dist / CONNECTION_DIST) * 0.2;
                 pCtx.beginPath();
                 pCtx.moveTo(p.x, p.y);
                 pCtx.lineTo(q.x, q.y);
                 pCtx.strokeStyle = `rgba(${r},${g},${b},${lineAlpha})`;
-                pCtx.lineWidth = 0.5;
+                pCtx.lineWidth = 0.8;
                 pCtx.stroke();
             }
         }

@@ -13,6 +13,7 @@
     --amber: #f0b429;
     --amber-glow: rgba(240, 180, 41, 0.25);
     --font-ui: 'Inter', -apple-system, system-ui, sans-serif;
+    --font-thai: 'Prompt', 'Inter', sans-serif;
     --font-mono: 'JetBrains Mono', 'Consolas', monospace;
     --radius: 14px;
     --radius-sm: 8px;
@@ -39,20 +40,28 @@
 
 /* --- Light Theme --- */
 [data-theme="light"] {
-    --bg: #f2f4f7;
+    --bg: #f0f2f5;
     --bg-card: #ffffff;
-    --bg-inset: #e9ecf0;
-    --bg-hover: #f0f2f5;
-    --border: rgba(0, 0, 0, 0.07);
-    --border-hi: rgba(0, 0, 0, 0.13);
-    --text-1: #1a1e24;
-    --text-2: #57606a;
-    --text-3: #8b949e;
-    --shadow-card: 0 1px 6px rgba(0,0,0,0.07);
-    --canvas-bg: #eaecf0;
-    --grid-line: rgba(0,0,0,0.06);
-    --table-row-alt: rgba(0,0,0,0.025);
-    --scrollbar-thumb: rgba(0,0,0,0.15);
+    --bg-inset: #e4e7ec;
+    --bg-hover: #ebedf2;
+    --border: rgba(0, 0, 0, 0.10);
+    --border-hi: rgba(0, 0, 0, 0.18);
+    --text-1: #111827;
+    --text-2: #374151;
+    --text-3: #6b7280;
+    --shadow-card: 0 2px 8px rgba(0,0,0,0.08);
+    --canvas-bg: #e5e7eb;
+    --grid-line: rgba(0,0,0,0.08);
+    --table-row-alt: rgba(0,0,0,0.03);
+    --scrollbar-thumb: rgba(0,0,0,0.18);
+    /* Light mode uses darker accent for readability */
+    --accent: #059669;
+    --accent-glow: rgba(5, 150, 105, 0.3);
+    --accent-dim: rgba(5, 150, 105, 0.1);
+    --red: #dc2626;
+    --red-glow: rgba(220, 38, 38, 0.3);
+    --amber: #d97706;
+    --amber-glow: rgba(217, 119, 6, 0.3);
 }
 
 /* --- Reset & Base --- */
@@ -306,9 +315,9 @@ tr:nth-child(even) td { background: var(--table-row-alt); }
 /* ═══ PARTICLE BACKGROUND ═══ */
 .particle-bg {
     position: fixed; inset: 0; z-index: 0;
-    pointer-events: none; opacity: 0.4;
+    pointer-events: none; opacity: 0.75;
 }
-[data-theme="light"] .particle-bg { opacity: 0.15; }
+[data-theme="light"] .particle-bg { opacity: 0.4; }
 
 /* ═══ SCANLINE OVERLAY ═══ */
 .scanline-overlay {
@@ -338,13 +347,21 @@ tr:nth-child(even) td { background: var(--table-row-alt); }
 
 /* ═══ TITLE BRANDING ═══ */
 .title-thai {
+    font-family: var(--font-thai);
     background: linear-gradient(135deg, #00e68a 0%, #00bcd4 50%, #7c4dff 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    font-weight: 900;
+    font-weight: 700;
+    font-size: 1.25em;
+    letter-spacing: 0.5px;
     animation: shimmer-text 4s ease-in-out infinite;
     background-size: 200% 200%;
+}
+[data-theme="light"] .title-thai {
+    background: linear-gradient(135deg, #059669 0%, #0284c7 50%, #7c3aed 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
 }
 @keyframes shimmer-text {
     0%, 100% { background-position: 0% 50%; }
