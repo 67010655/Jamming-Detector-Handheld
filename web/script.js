@@ -493,5 +493,100 @@ window.addEventListener('load', () => {
     fetchStatus();
     fetchHistory();
     setInterval(fetchHistory, 5000);
+    initParticles();
 });
-window.addEventListener('resize', resizeAll);
+window.addEventListener('resize', () => {
+    resizeAll();
+    resizeParticles();
+});
+
+// ═══ PARTICLE BACKGROUND SYSTEM ═══
+const particleCanvas = document.getElementById('particleCanvas');
+const pCtx = particleCanvas ? particleCanvas.getContext('2d') : null;
+let particles = [];
+const PARTICLE_COUNT = 45;
+const CONNECTION_DIST = 120;
+
+function resizeParticles() {
+    if (!particleCanvas) return;
+    particleCanvas.width = window.innerWidth;
+    particleCanvas.height = window.innerHeight;
+}
+
+function createParticle() {
+    return {
+        x: Math.random() * particleCanvas.width,
+        y: Math.random() * particleCanvas.height,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        r: Math.random() * 2 + 0.5,
+        alpha: Math.random() * 0.5 + 0.2,
+        pulse: Math.random() * Math.PI * 2
+    };
+}
+
+function initParticles() {
+    if (!particleCanvas || !pCtx) return;
+    resizeParticles();
+    particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push(createParticle());
+    }
+    requestAnimationFrame(animateParticles);
+}
+
+function animateParticles() {
+    if (!pCtx) return;
+    const w = particleCanvas.width, h = particleCanvas.height;
+    if (w === 0 || h === 0) { requestAnimationFrame(animateParticles); return; }
+
+    pCtx.clearRect(0, 0, w, h);
+
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00e68a';
+
+    // Parse accent color to RGB for alpha manipulation
+    let r = 0, g = 230, b = 138;
+    if (accent.startsWith('#') && accent.length === 7) {
+        r = parseInt(accent.slice(1, 3), 16);
+        g = parseInt(accent.slice(3, 5), 16);
+        b = parseInt(accent.slice(5, 7), 16);
+    }
+
+    // Update & draw particles
+    for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.pulse += 0.015;
+
+        // Wrap edges
+        if (p.x < 0) p.x = w;
+        if (p.x > w) p.x = 0;
+        if (p.y < 0) p.y = h;
+        if (p.y > h) p.y = 0;
+
+        const glow = p.alpha * (0.7 + 0.3 * Math.sin(p.pulse));
+        pCtx.beginPath();
+        pCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        pCtx.fillStyle = `rgba(${r},${g},${b},${glow})`;
+        pCtx.fill();
+
+        // Draw connections to nearby particles
+        for (let j = i + 1; j < particles.length; j++) {
+            const q = particles[j];
+            const dx = p.x - q.x, dy = p.y - q.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < CONNECTION_DIST) {
+                const lineAlpha = (1 - dist / CONNECTION_DIST) * 0.12;
+                pCtx.beginPath();
+                pCtx.moveTo(p.x, p.y);
+                pCtx.lineTo(q.x, q.y);
+                pCtx.strokeStyle = `rgba(${r},${g},${b},${lineAlpha})`;
+                pCtx.lineWidth = 0.5;
+                pCtx.stroke();
+            }
+        }
+    }
+
+    requestAnimationFrame(animateParticles);
+}
