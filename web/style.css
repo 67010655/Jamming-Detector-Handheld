@@ -348,6 +348,13 @@ tr:nth-child(even) td { background: var(--table-row-alt); }
 /* ═══ TITLE BRANDING ═══ */
 .title-thai {
     font-family: var(--font-thai);
+    display: inline-block;
+    padding: 4px 10px;
+    margin: -4px -6px;
+    border-radius: 8px;
+    cursor: default;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     background: linear-gradient(135deg, #00e68a 0%, #00bcd4 50%, #7c4dff 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -357,11 +364,42 @@ tr:nth-child(even) td { background: var(--table-row-alt); }
     letter-spacing: 0.5px;
     animation: shimmer-text 4s ease-in-out infinite;
     background-size: 200% 200%;
+    transform: scale(1);
+    transform-origin: center center;
+    transition:
+        transform 0.28s var(--ease),
+        filter 0.28s var(--ease),
+        background-color 0.28s var(--ease);
+}
+@media (hover: hover) {
+    .title-thai:hover {
+        transform: scale(1.12);
+        filter: drop-shadow(0 0 14px rgba(0, 230, 138, 0.55));
+        background-color: rgba(0, 230, 138, 0.06);
+    }
+}
+.title-thai:active {
+    transform: scale(1.16);
+    filter: drop-shadow(0 0 18px rgba(0, 230, 138, 0.7));
+    transition-duration: 0.12s;
+}
+.title-thai:focus-visible {
+    outline: 2px solid rgba(0, 230, 138, 0.45);
+    outline-offset: 3px;
 }
 [data-theme="light"] .title-thai {
     background: linear-gradient(135deg, #059669 0%, #0284c7 50%, #7c3aed 100%);
     -webkit-background-clip: text;
     background-clip: text;
+}
+@media (hover: hover) {
+    [data-theme="light"] .title-thai:hover {
+        filter: drop-shadow(0 0 12px rgba(5, 150, 105, 0.45));
+        background-color: rgba(5, 150, 105, 0.08);
+    }
+}
+[data-theme="light"] .title-thai:active {
+    filter: drop-shadow(0 0 16px rgba(5, 150, 105, 0.55));
 }
 @keyframes shimmer-text {
     0%, 100% { background-position: 0% 50%; }
