@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════ */
 
 // ── Constants ──
-const POLL_MS = 250; 
+const POLL_MS = 500; 
 const MARGIN_MAX = 50;
 const WATERFALL_ROWS = 60; 
 const WATERFALL_ADD_MS = 500;

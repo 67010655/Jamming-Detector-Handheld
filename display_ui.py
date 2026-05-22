@@ -77,6 +77,12 @@ class DisplayUI:
         mono = ["DejaVuSansMono-Bold.ttf",
                 "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
                 "C:/Windows/Fonts/consola.ttf"]
+        thai_bold = ["/usr/share/fonts/truetype/tlwg/Loma-Bold.ttf",
+                     "/usr/share/fonts/truetype/tlwg/Garuda-Bold.ttf",
+                     "/usr/share/fonts/truetype/thai/Loma-Bold.ttf",
+                     "C:/Windows/Fonts/tahomabd.ttf",
+                     "C:/Windows/Fonts/tahoma.ttf",
+                     "C:/Windows/Fonts/cordiab.ttf"] + bold
 
         def _try(paths, size):
             for p in paths:
@@ -90,6 +96,7 @@ class DisplayUI:
         self._f_subtitle  = _try(bold, 11)
         self._f_status    = _try(bold, 22)
         self._f_state_big = _try(bold, 26)
+        self._f_thai_big  = _try(thai_bold, 38)
         self._f_score_big = _try(mono, 30)
         self._f_score_sub = _try(regular, 11)
         self._f_label     = _try(bold, 11)
@@ -156,26 +163,76 @@ class DisplayUI:
     #                   SPLASH SCREEN
     # ════════════════════════════════════════════════════════════════
     def draw_splash(self, message="BOOTING...", progress=None):
+        import os
         draw = self.app._draw
         W, H = self.app.w, self.app.h
         
         # Background
         draw.rectangle((0, 0, W, H), fill=(8, 12, 16))
         
-        # Title
-        tw, th = self._get_text_size("GNSS JAMMING DETECTOR", self._f_state_big)
-        draw.text(((W - tw) // 2, H // 2 - 50), "GNSS JAMMING DETECTOR", fill=(0, 255, 136), font=self._f_state_big)
+        # Title "กันแจม" with loaded beautiful Thai font
+        tw, th = self._get_text_size("กันแจม", self._f_thai_big)
+        title_y = 20
+        draw.text(((W - tw) // 2, title_y), "กันแจม", fill=(0, 255, 136), font=self._f_thai_big)
         
-        # Subtitle
-        sw, sh = self._get_text_size("KMITL SPACE & GEO ENGINEERING", self._f_status)
-        draw.text(((W - sw) // 2, H // 2 - 15), "KMITL SPACE & GEO ENGINEERING", fill=(255, 255, 255), font=self._f_status)
+        # Subtitle - Elegant smaller department caption
+        sub_text = "TELECOMMUNICATION ENGINEERING DEPARTMENT, KMITL"
+        sw, sh = self._get_text_size(sub_text, self._f_title)
+        subtitle_y = title_y + th + 6
+        draw.text(((W - sw) // 2, subtitle_y), sub_text, fill=(200, 220, 255), font=self._f_title)
         
+        # --- Sponsor Logos Row ---
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        logo_dir = os.path.join(current_dir, 'web')
+        
+        target_height = 42
+        filenames = [
+            "National_Broadcasting_and_Telecommunications_Commission_(Thailand)_Seal.png",
+            "BTFP_Logo.webp",
+            "KMITL_Sublogo.svg.png"
+        ]
+        
+        loaded_logos = []
+        for fn in filenames:
+            logo_path = os.path.join(logo_dir, fn)
+            if os.path.exists(logo_path):
+                try:
+                    logo_img = Image.open(logo_path)
+                    w_orig, h_orig = logo_img.size
+                    aspect = w_orig / h_orig
+                    target_width = int(target_height * aspect)
+                    
+                    if hasattr(Image, "Resampling"):
+                        resampler = Image.Resampling.LANCZOS
+                    else:
+                        resampler = Image.ANTIALIAS
+                    
+                    logo_resized = logo_img.resize((target_width, target_height), resampler)
+                    loaded_logos.append(logo_resized)
+                except Exception as e:
+                    print(f"[UI] Error loading logo {fn}: {e}")
+        
+        if loaded_logos:
+            spacing = 24
+            total_width = sum(l.size[0] for l in loaded_logos) + spacing * (len(loaded_logos) - 1)
+            start_x = (W - total_width) // 2
+            logo_y = subtitle_y + sh + 20
+            
+            cur_x = start_x
+            for logo in loaded_logos:
+                if logo.mode in ('RGBA', 'LA') or (logo.mode == 'P' and 'transparency' in logo.info):
+                    mask = logo.convert('RGBA')
+                    self.app._img.paste(logo, (cur_x, logo_y), mask)
+                else:
+                    self.app._img.paste(logo, (cur_x, logo_y))
+                cur_x += logo.size[0] + spacing
+
         # Draw Progress Bar if progress is provided
         if progress is not None:
             # Progress bar dimensions
             bar_w, bar_h = 320, 14
             bar_x = (W - bar_w) // 2
-            bar_y = H // 2 + 20
+            bar_y = 200
             
             # Draw progress bar background (track)
             draw.rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), fill=(16, 24, 32), outline=(0, 100, 60), width=1)
@@ -193,10 +250,10 @@ class DisplayUI:
             mw, mh = self._get_text_size(message, self._f_subtitle)
             draw.text(((W - mw) // 2, bar_y + 24), message, fill=msg_color, font=self._f_subtitle)
         else:
-            # Fallback/Default layout when no progress bar is requested (e.g. shutdown or direct status)
+            # Fallback/Default layout when no progress bar is requested
             msg_color = (255, 50, 50) if "SHUT" in message.upper() else (255, 220, 50)
             mw, mh = self._get_text_size(message, self._f_state_big)
-            draw.text(((W - mw) // 2, H // 2 + 35), message, fill=msg_color, font=self._f_state_big)
+            draw.text(((W - mw) // 2, 210), message, fill=msg_color, font=self._f_state_big)
         
         if self.preview:
             self.app._img.save("preview.png")

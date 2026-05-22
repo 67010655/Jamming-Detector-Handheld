@@ -25,7 +25,7 @@ CLEAR_FRAMES = 10
 
 # ── IMU (MPU6050) Orientation Setup ──────────────────────────────────
 IMU_ADDRESS = 0x69      # I2C Address (default is 0x69, on some boards it is 0x68)
-IMU_GYRO_AXIS = 'Z'     # Axis to measure horizontal rotation: 'X', 'Y', or 'Z'
+IMU_GYRO_AXIS = 'X'     # Axis to measure horizontal rotation: 'X', 'Y', or 'Z'
                         # - Use 'Z' if MPU6050 is mounted flat (horizontal)
                         # - Use 'X' or 'Y' if mounted vertically on a wall
 IMU_INVERT_GYRO = False # Set to True to invert rotation direction (left/right)

@@ -305,9 +305,13 @@ class GPSJammerHandheld:
                 uptime = int(time.time() - self.start_time)
                 web_server.update_state(metrics, power, uptime, bearing=int(self.current_bearing), gain=self.gain_db)
 
-                # Log to database every second for a live web feed
+                # Log to database intelligently to prevent SD card wear and reduce CPU/IO lag.
+                # Writes immediately on state change, every 30s in SCANNING, and every 3s in active events.
                 current_time = time.time()
-                if current_time - self.last_log_time > 1.0:
+                state_changed = (metrics["state"] != getattr(self, '_last_logged_state', ''))
+                log_interval = 30.0 if metrics["state"] == "SCANNING" else 3.0
+                
+                if state_changed or (current_time - self.last_log_time > log_interval):
                     database_manager.log_event(
                         metrics["state"],
                         metrics["score"],
@@ -318,6 +322,7 @@ class GPSJammerHandheld:
                         bearing_deg=int(self.current_bearing)
                     )
                     self.last_log_time = current_time
+                    self._last_logged_state = metrics["state"]
 
                 elapsed = time.time() - frame_start
                 if elapsed < frame_period:
