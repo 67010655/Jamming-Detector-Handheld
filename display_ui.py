@@ -191,7 +191,7 @@ class DisplayUI:
                 except Exception as e:
                     print(f"[UI] Error loading logo {fn}: {e}")
 
-        logo_y = 12
+        logo_y = 32
         if loaded_logos:
             spacing = 24
             total_width = sum(l.size[0] for l in loaded_logos) + spacing * (len(loaded_logos) - 1)
@@ -205,21 +205,23 @@ class DisplayUI:
                     self.app._img.paste(logo, (cur_x, logo_y))
                 cur_x += logo.size[0] + spacing
 
-        # --- Title block below logos ---
-        line_gap = 6
+        # --- Title block below logos (proportional vertical rhythm) ---
+        gap_logo_title = 22   # logos → GUNJAM
+        gap_title_sub = 14    # GUNJAM → department line
+        gap_sub_lines = 7     # department → KMITL (tighter pair)
         accent = (0, 255, 136)
         sub_color = (200, 220, 255)
-        title_y = logo_y + target_height + 16 if loaded_logos else 20
+        title_y = logo_y + target_height + gap_logo_title if loaded_logos else 44
 
         tw, th = self._get_text_size("GUNJAM", self._f_splash_title)
         draw.text(((W - tw) // 2, title_y), "GUNJAM", fill=accent, font=self._f_splash_title)
 
-        y = title_y + th + line_gap
+        y = title_y + th + gap_title_sub
         telecom_text = "TELECOMMUNICATION ENGINEERING DEPARTMENT"
         sw, sh = self._get_text_size(telecom_text, self._f_title)
         draw.text(((W - sw) // 2, y), telecom_text, fill=sub_color, font=self._f_title)
 
-        y += sh + line_gap
+        y += sh + gap_sub_lines
         kw, kh = self._get_text_size("KMITL", self._f_title)
         draw.text(((W - kw) // 2, y), "KMITL", fill=sub_color, font=self._f_title)
 
