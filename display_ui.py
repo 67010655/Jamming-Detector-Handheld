@@ -77,13 +77,6 @@ class DisplayUI:
         mono = ["DejaVuSansMono-Bold.ttf",
                 "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
                 "C:/Windows/Fonts/consola.ttf"]
-        thai_bold = ["/usr/share/fonts/truetype/tlwg/Loma-Bold.ttf",
-                     "/usr/share/fonts/truetype/tlwg/Garuda-Bold.ttf",
-                     "/usr/share/fonts/truetype/thai/Loma-Bold.ttf",
-                     "C:/Windows/Fonts/tahomabd.ttf",
-                     "C:/Windows/Fonts/tahoma.ttf",
-                     "C:/Windows/Fonts/cordiab.ttf"] + bold
-
         def _try(paths, size):
             for p in paths:
                 try:
@@ -96,7 +89,7 @@ class DisplayUI:
         self._f_subtitle  = _try(bold, 11)
         self._f_status    = _try(bold, 22)
         self._f_state_big = _try(bold, 26)
-        self._f_thai_big  = _try(thai_bold, 38)
+        self._f_splash_title = _try(bold, 38)
         self._f_score_big = _try(mono, 30)
         self._f_score_sub = _try(regular, 11)
         self._f_label     = _try(bold, 11)
@@ -169,29 +162,17 @@ class DisplayUI:
         
         # Background
         draw.rectangle((0, 0, W, H), fill=(8, 12, 16))
-        
-        # Title "กันแจม" with loaded beautiful Thai font
-        tw, th = self._get_text_size("กันแจม", self._f_thai_big)
-        title_y = 20
-        draw.text(((W - tw) // 2, title_y), "กันแจม", fill=(0, 255, 136), font=self._f_thai_big)
-        
-        # Subtitle - Elegant smaller department caption
-        sub_text = "TELECOMMUNICATION ENGINEERING DEPARTMENT, KMITL"
-        sw, sh = self._get_text_size(sub_text, self._f_title)
-        subtitle_y = title_y + th + 6
-        draw.text(((W - sw) // 2, subtitle_y), sub_text, fill=(200, 220, 255), font=self._f_title)
-        
-        # --- Sponsor Logos Row ---
+
+        # --- Sponsor logos (top, centered) ---
         current_dir = os.path.dirname(os.path.abspath(__file__))
         logo_dir = os.path.join(current_dir, 'web')
-        
         target_height = 42
         filenames = [
             "National_Broadcasting_and_Telecommunications_Commission_(Thailand)_Seal.png",
             "BTFP_Logo.webp",
             "KMITL_Sublogo.svg.png"
         ]
-        
+
         loaded_logos = []
         for fn in filenames:
             logo_path = os.path.join(logo_dir, fn)
@@ -201,23 +182,20 @@ class DisplayUI:
                     w_orig, h_orig = logo_img.size
                     aspect = w_orig / h_orig
                     target_width = int(target_height * aspect)
-                    
                     if hasattr(Image, "Resampling"):
                         resampler = Image.Resampling.LANCZOS
                     else:
                         resampler = Image.ANTIALIAS
-                    
                     logo_resized = logo_img.resize((target_width, target_height), resampler)
                     loaded_logos.append(logo_resized)
                 except Exception as e:
                     print(f"[UI] Error loading logo {fn}: {e}")
-        
+
+        logo_y = 12
         if loaded_logos:
             spacing = 24
             total_width = sum(l.size[0] for l in loaded_logos) + spacing * (len(loaded_logos) - 1)
             start_x = (W - total_width) // 2
-            logo_y = subtitle_y + sh + 20
-            
             cur_x = start_x
             for logo in loaded_logos:
                 if logo.mode in ('RGBA', 'LA') or (logo.mode == 'P' and 'transparency' in logo.info):
@@ -226,6 +204,24 @@ class DisplayUI:
                 else:
                     self.app._img.paste(logo, (cur_x, logo_y))
                 cur_x += logo.size[0] + spacing
+
+        # --- Title block below logos ---
+        line_gap = 6
+        accent = (0, 255, 136)
+        sub_color = (200, 220, 255)
+        title_y = logo_y + target_height + 16 if loaded_logos else 20
+
+        tw, th = self._get_text_size("GUNJAM", self._f_splash_title)
+        draw.text(((W - tw) // 2, title_y), "GUNJAM", fill=accent, font=self._f_splash_title)
+
+        y = title_y + th + line_gap
+        telecom_text = "TELECOMMUNICATION ENGINEERING DEPARTMENT"
+        sw, sh = self._get_text_size(telecom_text, self._f_title)
+        draw.text(((W - sw) // 2, y), telecom_text, fill=sub_color, font=self._f_title)
+
+        y += sh + line_gap
+        kw, kh = self._get_text_size("KMITL", self._f_title)
+        draw.text(((W - kw) // 2, y), "KMITL", fill=sub_color, font=self._f_title)
 
         # Draw Progress Bar if progress is provided
         if progress is not None:
