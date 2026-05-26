@@ -140,33 +140,38 @@ class DisplayUI:
     # ── bearing helpers ─────────────────────────────────────────────
     def record_bearing(self, angle_deg, peak_dbfs, state="SCANNING"):
         norm = float(np.clip((peak_dbfs + 90) / 30.0, 0.0, 1.0))
-        entry = (int(angle_deg) % 360, norm, state)
+        entry = (int(angle_deg) % 360, norm, state, float(peak_dbfs))
         self._bearing_log.append(entry)
-        if len(self._bearing_log) > 12:
+        if len(self._bearing_log) > 24:  # Increased history window for detailed scanning
             self._bearing_log.pop(0)
         if state == "JAMMING":
-            if self._active_jam_peak is None or norm > self._active_jam_peak[1]:
+            # Compare raw unclipped decibel peak power (peak_dbfs) to find the absolute strongest direction
+            if self._active_jam_peak is None or float(peak_dbfs) > self._active_jam_peak[3]:
                 self._active_jam_peak = entry
 
     def get_best_bearing(self):
         if not self._bearing_log:
             return None
+        # Compare raw unclipped decibels if available
+        if len(self._bearing_log[0]) == 4:
+            return max(self._bearing_log, key=lambda x: x[3])[0]
         return max(self._bearing_log, key=lambda x: x[1])[0]
 
     def keep_strongest_jamming_bearing(self):
         """When jamming ends, pin the strongest sig-strength bearing until the next JAMMING event."""
-        jams = [item for item in self._bearing_log if len(item) == 3 and item[2] == "JAMMING"]
+        jams = [item for item in self._bearing_log if len(item) == 4 and item[2] == "JAMMING"]
         strongest_jam = self._active_jam_peak
         if jams:
-            best_log = max(jams, key=lambda x: x[1])
-            if strongest_jam is None or best_log[1] > strongest_jam[1]:
+            # Sift through log using actual raw peak dBFS for absolute precision
+            best_log = max(jams, key=lambda x: x[3])
+            if strongest_jam is None or best_log[3] > strongest_jam[3]:
                 strongest_jam = best_log
         if strongest_jam is not None:
             self._persistent_jam = strongest_jam
         self._active_jam_peak = None
         self._bearing_log = [
             item for item in self._bearing_log
-            if not (len(item) == 3 and item[2] == "JAMMING")
+            if not (len(item) >= 3 and item[2] == "JAMMING")
         ]
 
     def clear_persistent_jam(self):
@@ -421,7 +426,7 @@ class DisplayUI:
         if self.view_mode == 1:  # SEARCH MODE (Radar)
             self._draw_radar(
                 draw, content_l + content_w // 2, (hdr_b + foot_t) // 2,
-                100, accent, grid, white, state,
+                100, accent, grid, white, state, metrics,
             )
             # Label
             draw.text((content_l + 10, hdr_b + 5), "GYRO COMPASS", fill=self._dim(white, 0.4), font=self._f_footer)
@@ -663,7 +668,7 @@ class DisplayUI:
         (180, "180", "S"), (225, "225", "SW"), (270, "270", "W"), (315, "315", "NW"),
     )
 
-    def _draw_radar(self, draw, cx, cy, radius, accent, grid, white, state="SCANNING"):
+    def _draw_radar(self, draw, cx, cy, radius, accent, grid, white, state="SCANNING", metrics=None):
         # theta: device heading from MPU6050 gyro integration (relative compass, not GPS/magnetometer)
         theta = self.app.current_bearing
 
@@ -780,6 +785,19 @@ class DisplayUI:
         draw.text((lx, ly), "HEADING", fill=(160, 160, 180), font=self._f_small)
         draw.text((lx, ly + 15), brg_val, fill=accent, font=self._f_score_big)
         draw.text((lx, ly + 48), dir_name, fill=accent, font=self._f_brg)
+
+        # Noise Floor readout (bottom-left) - Symmetrical layout for high situational awareness
+        if metrics is not None:
+            nf = metrics.get("noise_floor", self.app.noise_floor)
+            rise_val = metrics.get("floor_rise", 0.0)
+            
+            lx_lf, ly_lf = 10, cy + 40
+            draw.text((lx_lf, ly_lf), "NOISE FLOOR", fill=(160, 160, 180), font=self._f_small)
+            draw.text((lx_lf, ly_lf + 15), f"{nf:.1f}", fill=accent, font=self._f_score_big)
+            
+            rise_str = f"+{rise_val:.1f} dB" if rise_val >= 0 else f"{rise_val:.1f} dB"
+            rise_color = (255, 60, 70) if state == "JAMMING" else ((255, 230, 50) if state == "WATCH" else (0, 255, 140))
+            draw.text((lx_lf, ly_lf + 48), rise_str, fill=rise_color, font=self._f_brg)
 
         if self._persistent_jam is not None and state != "JAMMING":
             jam_angle = self._persistent_jam[0]
