@@ -734,10 +734,12 @@ class DisplayUI:
 
         # Draw historical bearing lines with state-restricted heights
         for item in self._bearing_log:
-            if len(item) == 3:
+            if len(item) == 4:
+                angle, strength, line_state, _ = item
+            elif len(item) == 3:
                 angle, strength, line_state = item
             else:
-                angle, strength = item
+                angle, strength = item[0], item[1]
                 line_state = "WATCH"  # Fallback
 
             if line_state == "JAMMING":
