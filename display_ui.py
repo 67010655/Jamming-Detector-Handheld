@@ -59,7 +59,7 @@ class DisplayUI:
         from luma.core.interface.serial import spi
         from luma.lcd.device import ili9488
         serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25,
-                     bus_speed_hz=24000000) # Lowered to 16MHz for jumper wire stability
+                     bus_speed_hz=24000000) # 24MHz SPI clock
         self.app.device = ili9488(serial, width=self.app.w,
                                   height=self.app.h, rotate=0)
 
@@ -424,7 +424,7 @@ class DisplayUI:
                 100, accent, grid, white, state,
             )
             # Label
-            draw.text((content_l + 10, hdr_b + 5), "DIRECTIONAL RADAR", fill=self._dim(white, 0.4), font=self._f_footer)
+            draw.text((content_l + 10, hdr_b + 5), "GYRO COMPASS", fill=self._dim(white, 0.4), font=self._f_footer)
 
         elif self.view_mode == 2:  # ANALYTICS MODE (History)
             self._draw_history(draw, content_l + 12, hdr_b + 18, rp_l - 12, foot_t - 75, accent, grid, white)
@@ -659,8 +659,8 @@ class DisplayUI:
 
     # Gyro-relative compass ring labels (0° = reference heading at boot, not magnetic north)
     _RADAR_CARDINALS = (
-        (0, "N"), (45, "NE"), (90, "E"), (135, "SE"),
-        (180, "S"), (225, "SW"), (270, "W"), (315, "NW"),
+        (0, "0", "N"), (45, "45", "NE"), (90, "90", "E"), (135, "135", "SE"),
+        (180, "180", "S"), (225, "225", "SW"), (270, "270", "W"), (315, "315", "NW"),
     )
 
     def _draw_radar(self, draw, cx, cy, radius, accent, grid, white, state="SCANNING"):
@@ -710,14 +710,22 @@ class DisplayUI:
         y_270 = cy + int(radius * np.sin(rad_270))
         draw.line((x_90, y_90, x_270, y_270), fill=grid, width=1)
         
-        # Cardinal abbreviations on the ring (rotate with gyro heading)
-        for label_angle, label_text in self._RADAR_CARDINALS:
+        # Cardinal numbers outside the ring, and abbreviations inside the ring
+        for label_angle, deg_text, label_text in self._RADAR_CARDINALS:
             rel_ang = (label_angle - theta) % 360
             rad = np.radians(rel_ang - 90)
-            lx = cx + int((radius + 13) * np.cos(rad))
-            ly = cy + int((radius + 13) * np.sin(rad))
-            tw, th = self._get_text_size(label_text, self._f_compass)
-            draw.text((lx - tw // 2, ly - th // 2), label_text, fill=white, font=self._f_compass)
+            
+            # Number outside the circle
+            lx_num = cx + int((radius + 12) * np.cos(rad))
+            ly_num = cy + int((radius + 12) * np.sin(rad))
+            tw_num, th_num = self._get_text_size(deg_text, self._f_compass)
+            draw.text((lx_num - tw_num // 2, ly_num - th_num // 2), deg_text, fill=self._dim(white, 0.6), font=self._f_compass)
+            
+            # Abbreviation inside the circle (below/underneath the number)
+            lx_abbr = cx + int((radius - 14) * np.cos(rad))
+            ly_abbr = cy + int((radius - 14) * np.sin(rad))
+            tw_abbr, th_abbr = self._get_text_size(label_text, self._f_compass)
+            draw.text((lx_abbr - tw_abbr // 2, ly_abbr - th_abbr // 2), label_text, fill=white, font=self._f_compass)
 
         # Draw historical bearing lines with state-restricted heights
         for item in self._bearing_log:
@@ -776,9 +784,9 @@ class DisplayUI:
         if self._persistent_jam is not None and state != "JAMMING":
             jam_angle = self._persistent_jam[0]
             jam_dir = self.get_cardinal_direction(jam_angle)
-            draw.text((lx, ly + 72), "LAST JAM", fill=(160, 160, 180), font=self._f_small)
+            draw.text((lx, ly + 68), "LAST JAM", fill=(160, 160, 180), font=self._f_small)
             draw.text(
-                (lx, ly + 86),
+                (lx, ly + 78),
                 f"{jam_angle:03d}° {jam_dir}",
                 fill=(255, 90, 100),
                 font=self._f_label,

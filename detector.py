@@ -219,6 +219,9 @@ class GPSJammerHandheld:
             try:
                 if self.imu:
                     self.current_bearing = self.imu.update_bearing()
+                elif self.preview:
+                    # Simulate slow compass rotation for preview testing
+                    self.current_bearing = (self.current_bearing + 0.5) % 360
 
                 if self.preview:
                     samples = self._generate_preview_samples()
