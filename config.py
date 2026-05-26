@@ -28,7 +28,7 @@ IMU_ADDRESS = 0x69      # I2C Address (default is 0x69, on some boards it is 0x6
 IMU_GYRO_AXIS = 'X'     # Axis to measure horizontal rotation: 'X', 'Y', or 'Z'
                         # - Use 'Z' if MPU6050 is mounted flat (horizontal)
                         # - Use 'X' or 'Y' if mounted vertically on a wall
-IMU_INVERT_GYRO = False # Set to True to invert rotation direction (left/right)
+IMU_INVERT_GYRO = True  # Invert gyro sign so radar ring matches physical turn (left ↔ left)
 
 LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
 LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)
