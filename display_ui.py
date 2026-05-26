@@ -788,23 +788,7 @@ class DisplayUI:
         draw.text((lx, ly + 15), brg_val, fill=accent, font=self._f_score_big)
         draw.text((lx, ly + 48), dir_name, fill=accent, font=self._f_brg)
 
-        # Noise Floor readout (bottom-left) - Symmetrical layout for high situational awareness
-        if metrics is not None:
-            nf = metrics.get("noise_floor", self.app.noise_floor)
-            rise_val = metrics.get("floor_rise", 0.0)
-            
-            # Flashing or warning title when baseline guard is actively locking the baseline
-            is_locked = getattr(self.app, 'baseline_guard_active', False)
-            title_text = "⚠️ NF LOCKED" if is_locked else "NOISE FLOOR"
-            title_color = (255, 60, 70) if is_locked else (160, 160, 180)
-            
-            lx_lf, ly_lf = 10, cy + 40
-            draw.text((lx_lf, ly_lf), title_text, fill=title_color, font=self._f_small)
-            draw.text((lx_lf, ly_lf + 15), f"{nf:.1f}", fill=accent, font=self._f_score_big)
-            
-            rise_str = f"+{rise_val:.1f} dB" if rise_val >= 0 else f"{rise_val:.1f} dB"
-            rise_color = (255, 60, 70) if state == "JAMMING" else ((255, 230, 50) if state == "WATCH" else (0, 255, 140))
-            draw.text((lx_lf, ly_lf + 48), rise_str, fill=rise_color, font=self._f_brg)
+
 
         if self._persistent_jam is not None and state != "JAMMING":
             jam_angle = self._persistent_jam[0]

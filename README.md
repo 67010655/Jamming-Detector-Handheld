@@ -46,16 +46,7 @@ Developed under **Telecommunication Engineering Department, KMITL** with support
 |                        ![Normal Mode](preview_example/mode_normal.png)                        |                             ![Search Mode](preview_example/mode_search.png)                              |               ![Analytics Mode](preview_example/mode_analytics.png)                |
 | แสดงผลคลื่นสัญญาณ FFT Real-time พร้อมค่าสถิติ Noise Floor, Peak Power, Floor Rise, และ Margin | หน้าจอเข็มทิศเรดาร์หมุนตามเข็มนาฬิกา แสดงองศาด้านนอก อักษรทิศด้านใน และบันทึกทิศทางสัญญาณรบกวนตามความแรง | หน้าจอแสดงกราฟประวัติระดับ Margin ย้อนหลัง 50 เฟรม พร้อมแสดงมินิสเปกตรัมที่ขอบล่าง |
 
----
 
-### 2. หน้าจอสแปลชแจ้งเตือนและสถานะระบบ (Splash Screens)
-
-|                                             1. BOOTING SPLASH                                              |                                       2. SHUTDOWN SPLASH                                        |                                           3. REBOOT SPLASH                                           |
-| :--------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------: |
-|                             ![Booting Splash](preview_example/splash_boot.png)                             |                     ![Shutdown Splash](preview_example/splash_shutdown.png)                     |                         ![Reboot Splash](preview_example/splash_reboot.png)                          |
-| หน้าจอเปิดเครื่องพร้อมแถบความคืบหน้า (Progress Bar) และแสดงโลโก้ความร่วมมือสนับสนุน (กสทช. · กทปส. · สจล.) | หน้าจอแจ้งเตือนการปิดระบบอย่างปลอดภัย ปิดหน้าจอลงอย่างสมบูรณ์แบบเพื่อถนอมไฟล์ระบบและการ์ดข้อมูล | หน้าจอรีโหลดแอปพลิเคชันอย่างนุ่มนวลและรวดเร็ว (Soft Restart) เพียง 1.5 วินาทีโดยไม่ต้อง Reboot บอร์ด |
-
----
 
 ## System Architecture
 
