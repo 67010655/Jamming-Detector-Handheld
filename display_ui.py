@@ -20,6 +20,8 @@ class DisplayUI:
             self._init_display()
         self._init_drawing()
         self._bearing_log = []
+        self._persistent_jam = None   # (angle, strength, 'JAMMING') — last strongest jam until next event
+        self._active_jam_peak = None  # Strongest bearing tracked during current JAMMING session
         self._history_log = [] # For Mode 2
         self._prev_smooth_y = None
         self._fps_time = time.time()
@@ -138,9 +140,13 @@ class DisplayUI:
     # ── bearing helpers ─────────────────────────────────────────────
     def record_bearing(self, angle_deg, peak_dbfs, state="SCANNING"):
         norm = float(np.clip((peak_dbfs + 90) / 30.0, 0.0, 1.0))
-        self._bearing_log.append((int(angle_deg) % 360, norm, state))
+        entry = (int(angle_deg) % 360, norm, state)
+        self._bearing_log.append(entry)
         if len(self._bearing_log) > 12:
             self._bearing_log.pop(0)
+        if state == "JAMMING":
+            if self._active_jam_peak is None or norm > self._active_jam_peak[1]:
+                self._active_jam_peak = entry
 
     def get_best_bearing(self):
         if not self._bearing_log:
@@ -148,37 +154,45 @@ class DisplayUI:
         return max(self._bearing_log, key=lambda x: x[1])[0]
 
     def keep_strongest_jamming_bearing(self):
+        """When jamming ends, pin the strongest sig-strength bearing until the next JAMMING event."""
         jams = [item for item in self._bearing_log if len(item) == 3 and item[2] == "JAMMING"]
-        if not jams:
-            return
-        strongest_jam = max(jams, key=lambda x: x[1])
-        new_log = []
-        for item in self._bearing_log:
-            if len(item) == 3 and item[2] == "JAMMING":
-                continue
-            new_log.append(item)
-        new_log.append(strongest_jam)
-        self._bearing_log = new_log
+        strongest_jam = self._active_jam_peak
+        if jams:
+            best_log = max(jams, key=lambda x: x[1])
+            if strongest_jam is None or best_log[1] > strongest_jam[1]:
+                strongest_jam = best_log
+        if strongest_jam is not None:
+            self._persistent_jam = strongest_jam
+        self._active_jam_peak = None
+        self._bearing_log = [
+            item for item in self._bearing_log
+            if not (len(item) == 3 and item[2] == "JAMMING")
+        ]
+
+    def clear_persistent_jam(self):
+        """Clear pinned jam line when a new JAMMING event starts."""
+        self._persistent_jam = None
+        self._active_jam_peak = None
 
     @staticmethod
     def get_cardinal_direction(bearing):
         bearing = bearing % 360
         if bearing >= 337.5 or bearing < 22.5:
-            return "NORTH"
+            return "N"
         elif 22.5 <= bearing < 67.5:
-            return "NORTH EAST"
+            return "NE"
         elif 67.5 <= bearing < 112.5:
-            return "EAST"
+            return "E"
         elif 112.5 <= bearing < 157.5:
-            return "SOUTH EAST"
+            return "SE"
         elif 157.5 <= bearing < 202.5:
-            return "SOUTH"
+            return "S"
         elif 202.5 <= bearing < 247.5:
-            return "SOUTH WEST"
+            return "SW"
         elif 247.5 <= bearing < 292.5:
-            return "WEST"
+            return "W"
         else:
-            return "NORTH WEST"
+            return "NW"
 
     def show_toast(self, message, duration=1.5):
         """Show a temporary pop-up message on the screen."""
@@ -405,7 +419,10 @@ class DisplayUI:
         content_w = rp_l
 
         if self.view_mode == 1:  # SEARCH MODE (Radar)
-            self._draw_radar(draw, content_l + content_w // 2, (hdr_b + foot_t) // 2, 100, accent, grid, white)
+            self._draw_radar(
+                draw, content_l + content_w // 2, (hdr_b + foot_t) // 2,
+                100, accent, grid, white, state,
+            )
             # Label
             draw.text((content_l + 10, hdr_b + 5), "DIRECTIONAL RADAR", fill=self._dim(white, 0.4), font=self._f_footer)
 
@@ -640,7 +657,14 @@ class DisplayUI:
         # Draw outline LAST so it's always visible
         draw.rectangle((l, t, r, b), outline=accent, fill=None, width=1)
 
-    def _draw_radar(self, draw, cx, cy, radius, accent, grid, white):
+    # Gyro-relative compass ring labels (0° = reference heading at boot, not magnetic north)
+    _RADAR_CARDINALS = (
+        (0, "N"), (45, "NE"), (90, "E"), (135, "SE"),
+        (180, "S"), (225, "SW"), (270, "W"), (315, "NW"),
+    )
+
+    def _draw_radar(self, draw, cx, cy, radius, accent, grid, white, state="SCANNING"):
+        # theta: device heading from MPU6050 gyro integration (relative compass, not GPS/magnetometer)
         theta = self.app.current_bearing
 
         # Draw outer bezel rings (double outline for premium look)
@@ -686,8 +710,8 @@ class DisplayUI:
         y_270 = cy + int(radius * np.sin(rad_270))
         draw.line((x_90, y_90, x_270, y_270), fill=grid, width=1)
         
-        # Draw rotating cardinal labels (Degrees) - 90 on right, 270 on left (clockwise)
-        for label_angle, label_text in [(0, "0"), (90, "90"), (180, "180"), (270, "270")]:
+        # Cardinal abbreviations on the ring (rotate with gyro heading)
+        for label_angle, label_text in self._RADAR_CARDINALS:
             rel_ang = (label_angle - theta) % 360
             rad = np.radians(rel_ang - 90)
             lx = cx + int((radius + 13) * np.cos(rad))
@@ -721,6 +745,17 @@ class DisplayUI:
             lx, ly = cx + int(line_len * np.cos(rad)), cy + int(line_len * np.sin(rad))
             draw.line((cx, cy, lx, ly), fill=line_color, width=2)
 
+        # Pinned last-jam bearing (strongest sig during last JAMMING) until next jam event
+        if self._persistent_jam is not None:
+            pj = self._persistent_jam
+            angle, strength = pj[0], pj[1]
+            rel_angle = (angle - theta) % 360
+            rad = np.radians(rel_angle - 90)
+            lx, ly = cx + int(radius * np.cos(rad)), cy + int(radius * np.sin(rad))
+            pin_color = (255, 90, 100)
+            draw.line((cx, cy, lx, ly), fill=pin_color, width=3)
+            draw.ellipse((lx - 3, ly - 3, lx + 3, ly + 3), fill=pin_color)
+
         # Draw dedicated white line representing the direction the device is currently facing
         draw.line((cx, cy, cx, cy - radius), fill=(255, 255, 255), width=2)
         # Add a tiny white triangle pointer at the tip
@@ -729,15 +764,25 @@ class DisplayUI:
         # Draw central user position dot
         draw.ellipse((cx - 4, cy - 4, cx + 4, cy + 4), fill=(10, 10, 15), outline=white, width=1)
         
-        # Draw current bearing and text direction in the bottom-right of the radar panel (UX focus)
+        # Bearing readout (bottom-right): heading + cardinal; show last jam when pinned
         brg_val = f"{int(self.app.current_bearing):03d}°"
         dir_name = self.get_cardinal_direction(self.app.current_bearing)
-        
-        # Position: Bottom-Right of the radar content area
+
         lx, ly = 330, cy + 40
-        draw.text((lx, ly), "BEARING", fill=(160, 160, 180), font=self._f_small)
-        draw.text((lx, ly + 15), brg_val, fill=accent, font=self._f_score_big) 
-        draw.text((lx, ly + 48), dir_name, fill=accent, font=self._f_brg) 
+        draw.text((lx, ly), "HEADING", fill=(160, 160, 180), font=self._f_small)
+        draw.text((lx, ly + 15), brg_val, fill=accent, font=self._f_score_big)
+        draw.text((lx, ly + 48), dir_name, fill=accent, font=self._f_brg)
+
+        if self._persistent_jam is not None and state != "JAMMING":
+            jam_angle = self._persistent_jam[0]
+            jam_dir = self.get_cardinal_direction(jam_angle)
+            draw.text((lx, ly + 72), "LAST JAM", fill=(160, 160, 180), font=self._f_small)
+            draw.text(
+                (lx, ly + 86),
+                f"{jam_angle:03d}° {jam_dir}",
+                fill=(255, 90, 100),
+                font=self._f_label,
+            )
 
     def _draw_history(self, draw, l, t, r, b, accent, grid, white):
         draw.text((l, t-15), "MARGIN HISTORY", fill=self._dim(white, 0.6), font=self._f_label)
