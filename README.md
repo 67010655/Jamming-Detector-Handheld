@@ -26,12 +26,21 @@ Developed under **Telecommunication Engineering Department, KMITL** with support
 
 ## Web Dashboard Overview
 
-<img width="849" height="652" alt="Web dashboard screenshot" src="https://github.com/user-attachments/assets/21fbd90b-5cef-49f2-b749-1e3895cb5151" />
+<img width="849" height="652" alt="Web dashboard screenshot" src="image.png" />
 
 - Glassmorphism dark / light themes with particle background  
 - Real-time spectrum, margin trend, waterfall, and state-driven accent colours  
 - Partner logos (KMITL, NBTC, BTFP) in header and footer  
 - CSV export and event history from SQLite  
+
+### 🌐 วิธีการเข้าใช้งานหน้า Web Dashboard
+
+ในการเข้าใช้งานแดชบอร์ด **กันแจม** ให้ทำการเปิดเว็บเบราว์เซอร์แล้วป้อนที่อยู่ URL ตามการเชื่อมต่อเครือข่ายดังนี้ครับ:
+
+1. **เชื่อมต่อผ่าน Wi-Fi Hotspot ของตัวเครื่อง Pi Zero 2 W (สำหรับการพกพาไปใช้ในภาคสนาม):**
+   * ที่อยู่ URL: **`http://192.168.4.1:8080`** (หรือ **`http://10.42.0.1:8080`** ขึ้นอยู่กับเครื่องมือจัดการเครือข่ายที่ติดตั้ง)
+2. **เชื่อมต่อผ่านระบบเครือข่ายร่วมกัน/อินเทอร์เน็ตทั่วไป (Wi-Fi ภายในบ้าน หรือ Router วงเดียวกัน):**
+   * ที่อยู่ URL: **`http://<IP-ของ-Raspberry-Pi>:8080`** (เช่น `http://192.168.1.150:8080` สามารถตรวจสอบ IP Address ปัจจุบันของบอร์ด Pi ได้จากเราเตอร์)
 
 ---
 
