@@ -39,12 +39,23 @@ Developed under **Telecommunication Engineering Department, KMITL** with support
 
 ระบบหน้าจอสัมผัสพกพา (Handheld TFT LCD ขนาด 3.5 นิ้ว ความละเอียด 480×320) แสดงผลข้อมูลได้คมชัดสูง ทิศทางการวัดแม่นยำ และมีความลื่นไหลเป็นเลิศ
 
-### 1. โหมดการแสดงผลหลัก (Main UI Modes)
+### 1. โหมดการแสดงผลหลัก (Main UI Modes - สำหรับนำเสนอสถานะปกติ)
 
-|                              1. NORMAL MODE (Real-time Spectrum)                              |                                  2. SEARCH MODE (Gyro Compass & Radar)                                   |                         3. ANALYTICS MODE (Margin History)                         |
-| :-------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
-|                        ![Normal Mode](preview_example/mode_normal.png)                        |                             ![Search Mode](preview_example/mode_search.png)                              |               ![Analytics Mode](preview_example/mode_analytics.png)                |
+| 1. NORMAL MODE (Real-time Spectrum) | 2. SEARCH MODE (Gyro Compass & Radar) | 3. ANALYTICS MODE (Margin History) |
+| :---: | :---: | :---: |
+| ![Normal Mode](preview_example/mode_normal.png) | ![Search Mode](preview_example/mode_search.png) | ![Analytics Mode](preview_example/mode_analytics.png) |
 | แสดงผลคลื่นสัญญาณ FFT Real-time พร้อมค่าสถิติ Noise Floor, Peak Power, Floor Rise, และ Margin | หน้าจอเข็มทิศเรดาร์หมุนตามเข็มนาฬิกา แสดงองศาด้านนอก อักษรทิศด้านใน และบันทึกทิศทางสัญญาณรบกวนตามความแรง | หน้าจอแสดงกราฟประวัติระดับ Margin ย้อนหลัง 50 เฟรม พร้อมแสดงมินิสเปกตรัมที่ขอบล่าง |
+
+---
+
+### 2. การแจ้งเตือนระบบและสเปรชสกรีน (System Alerts & Splash Showcase)
+
+| 1. BOOTING SPLASH SCREEN (หน้าจอเริ่มต้น) | 2. SMART BASELINE GUARD ACTIVE (ระบบแจ้งเตือนล็อกอัตโนมัติ) |
+| :---: | :---: |
+| ![Booting Splash](preview_example/splash_boot.png) | ![Baseline Guard Alert](preview_example/mode_search_guard.png) |
+| หน้าจอเริ่มต้นการทำงาน (Boot) แสดงข้อมูลโครงการ พร้อมแถบสถานะดาวน์โหลดและโลโก้ผู้สนับสนุนหลักร่วมกัน | ระบบเฝ้าระวังอัจฉริยะ (Guard) ล็อกระดับ Noise Floor อัตโนมัติและแสดงกล่องเตือนภัยเมื่อโดนแจมลาก baseline |
+
+---
 
 
 

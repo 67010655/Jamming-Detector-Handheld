@@ -31,6 +31,11 @@ def generate_screenshots():
     metrics["floor_rise"] = 28.5
     metrics["margin"] = 18.2
     
+    # Reset baseline guard and clear warning popups for the clean UI renders
+    app.baseline_guard_active = False
+    app.ui._toast_msg = None
+    app.ui._toast_until = 0
+    
     # Add a mock bearing log to show lines of different colors/lengths
     # SCANNING (Green, 0.33 height), WATCH (Yellow, 0.66 height), JAMMING (Red, full height)
     app.ui._bearing_log = [
@@ -57,21 +62,35 @@ def generate_screenshots():
     Image.open("preview.png").save(os.path.join(out_dir, "mode_normal.png"))
     
     # ----------------------------------------------------
-    # Render Mode 1: SEARCH MODE (Radar/Compass)
+    # Render Mode 1: SEARCH MODE (Radar/Compass - Clean for Presentation)
     # ----------------------------------------------------
     print("[PREVIEW] Rendering Mode 1: SEARCH...")
     app.ui.view_mode = 1
     # Mock some heading rotation
     app.current_bearing = 24.0
-    app.baseline_guard_active = True  # Mock active baseline guard to showcase the alert
+    app.baseline_guard_active = False  # Clean compass without popups for presentation
     app.ui.draw_ui(metrics, power)
     Image.open("preview.png").save(os.path.join(out_dir, "mode_search.png"))
+    
+    # ----------------------------------------------------
+    # Render Mode 1: SEARCH MODE (With Active Baseline Guard Alert)
+    # ----------------------------------------------------
+    print("[PREVIEW] Rendering Mode 1: SEARCH (GUARD ACTIVE)...")
+    app.ui.view_mode = 1
+    app.current_bearing = 24.0
+    app.baseline_guard_active = True  # Mock active baseline guard to showcase the warning popup
+    app.ui.show_toast("GUARD ACTIVE: BASELINE LOCKED", 9999.0)  # Explicitly trigger the warning toast
+    app.ui.draw_ui(metrics, power)
+    Image.open("preview.png").save(os.path.join(out_dir, "mode_search_guard.png"))
     
     # ----------------------------------------------------
     # Render Mode 2: ANALYTICS MODE
     # ----------------------------------------------------
     print("[PREVIEW] Rendering Mode 2: ANALYTICS...")
     app.ui.view_mode = 2
+    app.baseline_guard_active = False
+    app.ui._toast_msg = None
+    app.ui._toast_until = 0
     app.ui._history_log = [float(x) for x in np.sin(np.linspace(0, 3 * np.pi, 50)) * 15 + 10]
     app.ui.draw_ui(metrics, power)
     Image.open("preview.png").save(os.path.join(out_dir, "mode_analytics.png"))
