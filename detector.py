@@ -295,8 +295,15 @@ class GPSJammerHandheld:
 
                 if self.frame_count % 10 == 0:
                     self._debug_print(power)
-                if metrics["state"] in ["WATCH", "JAMMING"]:
-                    self.ui.record_bearing(self.current_bearing, metrics["peak_p"], metrics["state"])
+                
+                # Check for state transition from JAMMING to non-JAMMING
+                prev_state = getattr(self, '_prev_run_state', 'SCANNING')
+                if prev_state == "JAMMING" and metrics["state"] != "JAMMING":
+                    self.ui.keep_strongest_jamming_bearing()
+                self._prev_run_state = metrics["state"]
+
+                # Continuously log bearing data for all states (SCANNING, WATCH, JAMMING)
+                self.ui.record_bearing(self.current_bearing, metrics["peak_p"], metrics["state"])
 
                 self.ui.draw_ui(metrics, power)
                 self.frame_count += 1

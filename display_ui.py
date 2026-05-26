@@ -147,6 +147,39 @@ class DisplayUI:
             return None
         return max(self._bearing_log, key=lambda x: x[1])[0]
 
+    def keep_strongest_jamming_bearing(self):
+        jams = [item for item in self._bearing_log if len(item) == 3 and item[2] == "JAMMING"]
+        if not jams:
+            return
+        strongest_jam = max(jams, key=lambda x: x[1])
+        new_log = []
+        for item in self._bearing_log:
+            if len(item) == 3 and item[2] == "JAMMING":
+                continue
+            new_log.append(item)
+        new_log.append(strongest_jam)
+        self._bearing_log = new_log
+
+    @staticmethod
+    def get_cardinal_direction(bearing):
+        bearing = bearing % 360
+        if bearing >= 337.5 or bearing < 22.5:
+            return "NORTH"
+        elif 22.5 <= bearing < 67.5:
+            return "NORTH EAST"
+        elif 67.5 <= bearing < 112.5:
+            return "EAST"
+        elif 112.5 <= bearing < 157.5:
+            return "SOUTH EAST"
+        elif 157.5 <= bearing < 202.5:
+            return "SOUTH"
+        elif 202.5 <= bearing < 247.5:
+            return "SOUTH WEST"
+        elif 247.5 <= bearing < 292.5:
+            return "WEST"
+        else:
+            return "NORTH WEST"
+
     def show_toast(self, message, duration=1.5):
         """Show a temporary pop-up message on the screen."""
         self._toast_msg = message
@@ -618,51 +651,51 @@ class DisplayUI:
         for r in [radius*0.66, radius*0.33]:
             draw.ellipse((cx-r, cy-r, cx+r, cy+r), outline=grid)
 
-        # Draw tick marks every 30 degrees
+        # Draw tick marks every 30 degrees (clockwise: rel_ang - 90)
         for tick_angle in range(0, 360, 30):
             rel_ang = (tick_angle - theta) % 360
-            rad = np.radians(-rel_ang - 90)
+            rad = np.radians(rel_ang - 90)
             x_out = cx + int(radius * np.cos(rad))
             y_out = cy + int(radius * np.sin(rad))
             x_in = cx + int((radius - 6) * np.cos(rad))
             y_in = cy + int((radius - 6) * np.sin(rad))
             draw.line((x_in, y_in, x_out, y_out), fill=grid, width=1)
 
-        # Draw dynamically rotating crosshair grid lines: 0°↔180° and 90°↔270°
+        # Draw dynamically rotating crosshair grid lines: 0°↔180° and 90°↔270° (clockwise)
         # 0° ↔ 180° (North-South line)
         rel_0 = (0 - theta) % 360
-        rad_0 = np.radians(-rel_0 - 90)
+        rad_0 = np.radians(rel_0 - 90)
         x_0 = cx + int(radius * np.cos(rad_0))
         y_0 = cy + int(radius * np.sin(rad_0))
         
         rel_180 = (180 - theta) % 360
-        rad_180 = np.radians(-rel_180 - 90)
+        rad_180 = np.radians(rel_180 - 90)
         x_180 = cx + int(radius * np.cos(rad_180))
         y_180 = cy + int(radius * np.sin(rad_180))
         draw.line((x_0, y_0, x_180, y_180), fill=grid, width=1)
 
         # 90° ↔ 270° (East-West line)
         rel_90 = (90 - theta) % 360
-        rad_90 = np.radians(-rel_90 - 90)
+        rad_90 = np.radians(rel_90 - 90)
         x_90 = cx + int(radius * np.cos(rad_90))
         y_90 = cy + int(radius * np.sin(rad_90))
         
         rel_270 = (270 - theta) % 360
-        rad_270 = np.radians(-rel_270 - 90)
+        rad_270 = np.radians(rel_270 - 90)
         x_270 = cx + int(radius * np.cos(rad_270))
         y_270 = cy + int(radius * np.sin(rad_270))
         draw.line((x_90, y_90, x_270, y_270), fill=grid, width=1)
         
-        # Draw rotating cardinal labels (Degrees) - Swapped 90 and 270 per user request
+        # Draw rotating cardinal labels (Degrees) - 90 on right, 270 on left (clockwise)
         for label_angle, label_text in [(0, "0"), (90, "90"), (180, "180"), (270, "270")]:
             rel_ang = (label_angle - theta) % 360
-            rad = np.radians(-rel_ang - 90)
+            rad = np.radians(rel_ang - 90)
             lx = cx + int((radius + 13) * np.cos(rad))
             ly = cy + int((radius + 13) * np.sin(rad))
             tw, th = self._get_text_size(label_text, self._f_compass)
             draw.text((lx - tw // 2, ly - th // 2), label_text, fill=white, font=self._f_compass)
 
-        # Draw historical bearing lines with color-coded states (Yellow for WATCH, Red for JAMMING)
+        # Draw historical bearing lines with state-restricted heights
         for item in self._bearing_log:
             if len(item) == 3:
                 angle, strength, line_state = item
@@ -672,14 +705,20 @@ class DisplayUI:
 
             if line_state == "JAMMING":
                 line_color = (255, 60, 70)   # Red
+                line_len = radius            # Outer circle
             elif line_state == "WATCH":
                 line_color = (255, 230, 50)  # Yellow
+                line_len = radius * 0.66     # Middle circle
+            elif line_state == "SCANNING":
+                line_color = (0, 255, 140)   # Green
+                line_len = radius * 0.33     # Innermost circle
             else:
-                line_color = accent          # Theme color fallback
+                line_color = accent
+                line_len = radius * strength
 
             rel_angle = (angle - theta) % 360
-            rad = np.radians(-rel_angle - 90)
-            lx, ly = cx + int(radius * strength * np.cos(rad)), cy + int(radius * strength * np.sin(rad))
+            rad = np.radians(rel_angle - 90)
+            lx, ly = cx + int(line_len * np.cos(rad)), cy + int(line_len * np.sin(rad))
             draw.line((cx, cy, lx, ly), fill=line_color, width=2)
 
         # Draw dedicated white line representing the direction the device is currently facing
@@ -690,13 +729,15 @@ class DisplayUI:
         # Draw central user position dot
         draw.ellipse((cx - 4, cy - 4, cx + 4, cy + 4), fill=(10, 10, 15), outline=white, width=1)
         
-        # Draw current bearing in the bottom-right of the radar panel (UX focus)
+        # Draw current bearing and text direction in the bottom-right of the radar panel (UX focus)
         brg_val = f"{int(self.app.current_bearing):03d}°"
+        dir_name = self.get_cardinal_direction(self.app.current_bearing)
         
         # Position: Bottom-Right of the radar content area
         lx, ly = 330, cy + 40
         draw.text((lx, ly), "BEARING", fill=(160, 160, 180), font=self._f_small)
         draw.text((lx, ly + 15), brg_val, fill=accent, font=self._f_score_big) 
+        draw.text((lx, ly + 48), dir_name, fill=accent, font=self._f_brg) 
 
     def _draw_history(self, draw, l, t, r, b, accent, grid, white):
         draw.text((l, t-15), "MARGIN HISTORY", fill=self._dim(white, 0.6), font=self._f_label)

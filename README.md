@@ -1,151 +1,206 @@
-# 🛰️ GNSS L1 Jamming Detector Handheld V1.0
+# GUNJAM — GNSS L1 Jamming Detector Handheld
+
+**กันแจม** · *Jamming Detector Handheld* · Version 1.0 (2026)
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue?style=for-the-badge&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-Web%20Dashboard-black?style=for-the-badge&logo=flask&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-Offline%20DB-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
 ![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-Zero%202W-C51A4A?style=for-the-badge&logo=raspberry-pi&logoColor=white)
 
-**[TH]** ระบบตรวจจับและบันทึกสัญญาณรบกวน GNSS อัจฉริยะ ออกแบบมาเพื่อการใช้งานภาคสนามโดยเฉพาะ  
-**[EN]** Advanced GNSS Jamming Detection & Logging system, engineered for field intelligence and signal security.
+**[TH]** ระบบตรวจจับและบันทึกสัญญาณรบกวน GNSS L1 (1575.42 MHz) แบบพกพา ออกแบบสำหรับภาคสนาม พร้อมจอสัมผัสบนเครื่องและแดชบอร์ดเว็บสำหรับวิเคราะห์ข้อมูลย้อนหลัง  
+**[EN]** Field-ready GNSS jamming detection and logging on Raspberry Pi Zero 2W — handheld TFT UI, RTL-SDR front-end, and a responsive web dashboard over Wi‑Fi hotspot.
+
+Developed under **Telecommunication Engineering Department, KMITL** with support from project partners (NBTC · BTFP · KMITL).
 
 ---
 
-## 📸 Web Dashboard Overview
+## Branding
 
-<img width="849" height="652" alt="image" src="https://github.com/user-attachments/assets/21fbd90b-5cef-49f2-b749-1e3895cb5151" />
+| Surface | Display name | Notes |
+| :--- | :--- | :--- |
+| **LCD splash** | `GUNJAM` | Boot / shutdown splash with partner logos, department line, and progress bar |
+| **Web dashboard** | **กันแจม** | Header title with gradient shimmer and hover / touch scale interaction |
+| **Product** | Jamming Detector Handheld | GNSS L1 monitoring at 1575.42 MHz |
 
 ---
 
-## 🏗️ System Architecture
+## Web Dashboard Overview
 
-The software and hardware architecture is designed to handle continuous digital signal processing alongside real-time user interface rendering on a constrained edge device.
+<img width="849" height="652" alt="Web dashboard screenshot" src="https://github.com/user-attachments/assets/21fbd90b-5cef-49f2-b749-1e3895cb5151" />
+
+- Glassmorphism dark / light themes with particle background  
+- Real-time spectrum, margin trend, waterfall, and state-driven accent colours  
+- Partner logos (KMITL, NBTC, BTFP) in header and footer  
+- CSV export and event history from SQLite  
+
+---
+
+## System Architecture
+
+Software and hardware are split so heavy DSP runs on the Pi while the web UI stays lightweight for browsers on the hotspot.
 
 ### High-Level Data Flow
+
 ```mermaid
 graph TD
     SDR[RTL-SDR Dongle] -->|IQ Samples| DSP[DSP Engine - Python]
-    DSP -->|Detect State| UI[Hardware Display - ILI9488]
-    DSP -->|Log Events| DB[(SQLite Database)]
-    DB -->|Fetch History| API[Flask Web API]
-    API -->|Real-time Feed| WEB[Responsive Web Dashboard]
-    WEB -->|User Action| CSV[Smart CSV Export]
+    DSP -->|State & Metrics| UI[ILI9488 LCD + Touch]
+    DSP -->|Adaptive Logging| DB[(SQLite)]
+    DB -->|REST API| API[Flask - web_server.py]
+    API -->|Poll ~500ms| WEB[Web Dashboard - web/]
+    WEB -->|Export| CSV[Smart CSV Export]
 ```
 
 ### State Machine Logic
+
 ```mermaid
 flowchart TD
     Start([Start Program]) --> Init[Initialize Hardware & Web Server]
-    Init --> Calib[Calibration: Measure Baseline Noise Floor]
+    Init --> Splash[Splash: GUNJAM + Progress]
+    Splash --> Calib[Calibrate Noise Floor & IMU]
     Calib --> Loop{Main Loop}
-    Loop --> Read[Read IQ Samples from SDR]
-    Read --> Power[Compute PSD & Power Metrics]
-    Power --> Check{Compare with Thresholds}
-    
-    Check -- Jamming detected --> StateJ[State: JAMMING]
-    Check -- Significant rise --> StateW[State: WATCH]
-    Check -- Normal --> StateS[State: SCANNING]
-    
-    StateJ --> Notify[Update UI / LED Red / Buzzer ON]
-    StateW --> NotifyW[Update UI / LED Yellow / Buzzer OFF]
-    StateS --> NotifyS[Update UI / LED Green / Buzzer OFF]
-    
-    Notify & NotifyW & NotifyS --> Log{Heartbeat Check}
-    Log -- 1s/30s Interval passed --> DB[(Save to SQLite)]
-    Log -- Waiting interval --> Loop
+    Loop --> Read[Read IQ from SDR]
+    Read --> Power[PSD & Power Metrics]
+    Power --> Check{Thresholds}
+
+    Check -- Jamming --> StateJ[JAMMING]
+    Check -- Rise --> StateW[WATCH]
+    Check -- Normal --> StateS[SCANNING]
+
+    StateJ --> Notify[UI / LED / Buzzer]
+    StateW --> Notify
+    StateS --> Notify
+
+    Notify --> Log{Log Policy}
+    Log -- State changed --> DB[(SQLite - immediate)]
+    Log -- SCANNING heartbeat --> DB
+    Log -- WATCH/JAMMING heartbeat --> DB
     DB --> Loop
 ```
 
+**Logging policy (MicroSD-friendly):**
+
+| Condition | Interval |
+| :--- | :--- |
+| State change | Immediate |
+| `SCANNING` | Every **30 s** |
+| `WATCH` / `JAMMING` | Every **3 s** |
+| Database size | Prune when exceeding **1,000** rows |
+
 ---
 
-## 📦 Bill of Materials (BOM)
+## Bill of Materials (BOM)
 
 | Component | Description / Spec | Purpose |
 | :--- | :--- | :--- |
-| **Raspberry Pi Zero 2W** | Quad-core 64-bit ARM Cortex-A53, 512MB RAM | Core processing unit |
-| **RTL-SDR V3** | RTL2832U ADC, 500 kHz – 1766 MHz | RF Signal Receiver |
-| **ILI9488 LCD Display** | 3.5" TFT SPI 480x320 with Touch (XPT2046) | Field User Interface |
-| **MPU6050 (IMU)** | 6-DoF Accelerometer & Gyroscope (I2C address: `0x69`) | Directional tracking for Polar Radar (Search Mode) |
-| **DS3231 (RTC)** | Precise I2C Real-Time Clock (I2C address: `0x68`) | Precise timekeeping for offline database logging in the field |
-| **LX-28UPS Module** | UPS/Power Management Board | Charging & 5V Boost Converter |
-| **18650 Batteries** | 2x Lithium-ion Cells | Portable power source |
-| **Directional Antenna** | Optimized for GNSS L1 (1575.42 MHz) | Directional signal capture |
-| **Peripherals** | RGB LEDs, Active Buzzer, Mute Switch | Alert outputs and hardware mute switch control |
+| **Raspberry Pi Zero 2W** | Quad-core Cortex-A53, 512 MB RAM | Edge compute |
+| **RTL-SDR V3** | RTL2832U, 500 kHz – 1766 MHz | RF receiver |
+| **ILI9488 LCD** | 3.5" TFT SPI 480×320 + XPT2046 touch | Field UI |
+| **MPU6050** | 6-DoF IMU (I2C `0x69` with AD0) | Polar radar / heading |
+| **DS3231** | I2C RTC (`0x68`) | Offline timestamp sync |
+| **LX-28UPS** | 2×18650 UPS / 5 V boost | Portable power |
+| **GNSS L1 antenna** | ~1575.42 MHz directional | Signal capture |
+| **Peripherals** | RGB LEDs, buzzer (GPIO 18), mute (GPIO 23) | Alerts & silencing |
+
+> **Safety:** Do not apply **5 V** to MPU6050 **AD0** — I/O is not 5 V tolerant. See `HARDWARE_WIRING.md` and `agent.md` for pin maps and I2C rules.
 
 ---
 
-## 📂 File Structure
+## File Structure
 
 ```text
 .
 ├── hardware/
-│   ├── mpu6050.py          # I2C driver for MPU6050 Accelerometer/Gyroscope
-│   └── rtc_ds3231.py       # I2C driver for DS3231 Real-Time Clock
+│   ├── mpu6050.py              # IMU driver (I2C)
+│   └── rtc_ds3231.py           # RTC driver (I2C)
 ├── web/
-│   ├── index.html          # Web Dashboard UI (Glassmorphism minimalist)
-│   ├── style.css           # Dashboard Styling & Responsive Layout
-│   └── script.js           # Frontend Logic, Day/Night Theme, Polling & Render Control
-├── buzzer.py               # Audio Alert Controller (GPIO 18)
-├── config.py               # System Configurations & Pin Definitions
-├── database_manager.py     # SQLite Handler & Smart Heartbeat Filter
-├── detector.py             # Core Signal Processing, State Machine, & Soft Power Logic
-├── display_ui.py           # LCD Display Driver, Rendering Modes, & Confirmation Dialog
-├── dsp.py                  # DSP Utilities (FFT & Power Calculation)
-├── led_control.py          # Visual Status Indicators (RGB LEDs)
-├── main.py                 # Application Entry Point
-├── test_sensors.py         # Hardware Sensor Test Utility (IMU and RTC)
-├── requirements.txt        # Python Dependencies List
-└── README.md               # Project Documentation
+│   ├── index.html              # Dashboard (กันแจม branding)
+│   ├── style.css               # Glassmorphism, themes, title interactions
+│   ├── script.js               # Event-driven charts, polling, CSV
+│   └── *.png / BTFP_Logo.webp  # Partner assets (shared with LCD splash)
+├── main.py                     # Entry point
+├── detector.py                 # SDR loop, state machine, soft restart
+├── display_ui.py               # LCD modes, splash (GUNJAM), touch dialogs
+├── dsp.py                      # FFT & power metrics
+├── database_manager.py         # SQLite + pruning + CSV filter
+├── web_server.py               # Flask API & static files
+├── config.py                   # Pins & system config
+├── buzzer.py / led_control.py  # GPIO alerts
+├── calibrate_touch.py          # Touch calibration utility
+├── test_sensors.py             # IMU / RTC bench test
+├── HARDWARE_WIRING.md          # Wiring reference
+├── LED_SETUP.md                # LED GPIO guide
+├── agent.md                    # AI / developer safety rules
+├── CONTEXT.md                  # Short project context
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-## 🌟 Key Technical Highlights
-- **Field-Optimized UI:** High-visibility UI designed for outdoor use, featuring clear State Badges and critical metrics.
-- **Interactive Calibration:** On-the-fly calibration selection (**Auto NF** vs. **Fixed NF**) to ensure precision in varied RF environments.
-- **Polar Radar (Search Mode):** Visual compass utilizing IMU data (MPU6050) to map signal strength directivity, aiding in identifying jammer locations.
-- **Offline RTC Synchronization:** Utilizes the DS3231 I2C RTC sensor to automatically restore and synchronize the Raspberry Pi system time on boot, ensuring accurate logging timestamps in offline field operations.
-- **In-Process Software Restart:** Fast 2-second in-place application reload (via `os.execv`) to instantly reset MPU6050 and system I2C/SPI interfaces from the LCD without waiting for a full OS reboot.
-- **Safe Shutdown Sequence:** Prevents SD card corruption via a robust 5-second splash screen sequence and synchronous system halt fallbacks before power-off.
-- **Optimized Day/Night Web UI:** Ultra-smooth Glassmorphism minimalist web dashboard with Day/Night Theme toggling ☀️🌙. Engineered for low CPU overhead on Raspberry Pi using **Event-Driven rendering** (draws canvases only when new RF data arrives at 4Hz/2Hz) and **DOM Value Differencing** to eliminate forced layout reflows.
-- **Buzzer Mute Versatility:** Replaced unreliable touchscreen controls with support for an external physical solder-on button (GPIO 23) for robust audio silencing in the field.
-- **Adaptive Signal Analysis:** Real-time Noise Floor and Peak Power calculations coupled with Adaptive Thresholding and SNR metrics.
-- **Adaptive Heartbeat Logging:** Smart SQLite logging frequency (1s during events, 30s during idle) to optimize storage capacity, prevent write exhaustion, and reduce MicroSD I/O strain.
+## Key Features
+
+### Handheld (LCD)
+- **GUNJAM splash screen** — Partner logos on top, title block, boot progress bar, and shutdown / restart sequences  
+- **High-visibility field UI** — State badges (SCANNING / WATCH / JAMMING), spectrum, analytics, and search (polar radar) modes  
+- **Touch calibration & gain control** — On-device RF gain and noise-floor calibration (Auto NF / Fixed NF)  
+- **Polar radar (search mode)** — IMU-assisted bearing log to help locate interference  
+- **Soft restart** — ~2 s in-process reload (`os.execv`) to reset I2C/SPI without full OS reboot  
+- **Safe shutdown** — 5 s splash + synchronous halt before power-off  
+
+### Web dashboard
+- **กันแจม** title with gradient animation and **hover / touch scale** feedback  
+- **Day / night themes** — Low-overhead glassmorphism UI  
+- **Event-driven rendering** — Canvases update on new RF data (4 Hz spectrum / margin, 2 Hz waterfall); DOM value differencing reduces reflow  
+- **API polling** — `/api/status` at **500 ms**; spectrum payload downsampled for Pi-friendly bandwidth  
+
+### Signal & storage
+- Adaptive thresholds, SNR / margin metrics, and real-time noise-floor tracking  
+- SQLite event log with adaptive heartbeat and automatic pruning  
+- RTC-backed timestamps when operating offline  
 
 ---
 
-## 🚀 Installation & Deployment
+## Installation & Deployment
 
-1. **Prepare OS:** Install Raspberry Pi OS (64-bit Lite/Desktop).
-2. **Setup Code:**
+1. **OS:** Raspberry Pi OS (64-bit Lite or Desktop) on Pi Zero 2W.  
+2. **Clone & dependencies:**
    ```bash
-   git clone https://github.com/User/Jamming-Detector-Handheld.git
+   git clone https://github.com/67010655/Jamming-Detector-Handheld.git
    cd Jamming-Detector-Handheld
    pip install -r requirements.txt
    ```
-3. **Configure Hotspot:** Use `nmcli` to set up an auto-starting WiFi Hotspot (e.g., SSID: `Jamming-Detector-Handheld`).
-4. **Auto-Start:** Create and enable a systemd service (`jamming.service`) to execute `main.py` on boot.
+3. **Hardware:** Wire per `HARDWARE_WIRING.md`; enable SPI / I2C; calibrate touch with `calibrate_touch.py` if needed.  
+4. **Hotspot:** Configure auto-start Wi‑Fi AP (e.g. `nmcli`) so clients reach the dashboard.  
+5. **Service:** Enable a `systemd` unit (e.g. `jamming.service`) running `main.py` on boot.  
+
+Access the dashboard from a phone or laptop connected to the hotspot (default host depends on your AP / `web_server.py` bind address).
 
 ---
 
-## 🛣️ Roadmap
-- [x] **Compass Integration:** Add Polar Radar Mode to locate signal sources.
-- [x] **Interactive Gain Control:** Enable on-the-fly RF gain adjustment via touch interface.
-- [ ] **GPS Module Integration:** Plot jamming locations on real-time maps.
-- [ ] **Offline Map Tiles:** Enable dashboard mapping in remote/offline environments.
+## Roadmap
+
+- [x] Polar radar (search mode) with IMU bearing  
+- [x] On-the-fly RF gain control via touch UI  
+- [x] GUNJAM LCD splash & กันแจม web branding  
+- [x] Day / night web theme & performance tuning  
+- [ ] GPS module — plot jamming locations on a map  
+- [ ] Offline map tiles for remote field use  
 
 ---
 
-## 👨‍💻 Developer
-**67010655 Mr.Peerayoot Wattananualsakul**  
-*Space and Geospatial Engineering, KMITL*  
-*Building tools for the future of satellite security.*
+## Developers
+
+**67010655 Mr. Peerayoot Wattananualsakul**  
+*Telecommunication Engineering Department, KMITL*
+
+**67010281 Ms. Nattakan Sanorlam** — 3D enclosure design  
+*Telecommunication Engineering Department, KMITL*
 
 ---
 
-## 🎨 3D Designer
-**67010281 Ms.Nattakan Sanorlam**  
-*Space and Geospatial Engineering, KMITL*  
-*Designing the future of satellite security.*
+## License
 
----
-© 2026 Jamming Detector Project. Built with ❤️ and Python.
+© 2026 **King Mongkut's Institute of Technology Ladkrabang (KMITL)** — see [LICENSE](LICENSE) (MIT).
+
+Built with Python on Raspberry Pi for GNSS signal security in the field.
