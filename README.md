@@ -216,7 +216,7 @@ Access the dashboard from a phone or laptop connected to the hotspot (default ho
 
 ## Developers
 
-**67010655 Mr. Peerayoot Wattananualsakul**  
+**67010655 Mr. Peerayoot Wattananualsakul** — Developer  
 _Telecommunication Engineering Department, KMITL_
 
 **67010281 Ms. Nattakan Sanorlam** — 3D enclosure design  
