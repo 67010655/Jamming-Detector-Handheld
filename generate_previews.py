@@ -63,6 +63,7 @@ def generate_screenshots():
     app.ui.view_mode = 1
     # Mock some heading rotation
     app.current_bearing = 24.0
+    app.baseline_guard_active = True  # Mock active baseline guard to showcase the alert
     app.ui.draw_ui(metrics, power)
     Image.open("preview.png").save(os.path.join(out_dir, "mode_search.png"))
     

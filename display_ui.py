@@ -793,8 +793,13 @@ class DisplayUI:
             nf = metrics.get("noise_floor", self.app.noise_floor)
             rise_val = metrics.get("floor_rise", 0.0)
             
+            # Flashing or warning title when baseline guard is actively locking the baseline
+            is_locked = getattr(self.app, 'baseline_guard_active', False)
+            title_text = "⚠️ NF LOCKED" if is_locked else "NOISE FLOOR"
+            title_color = (255, 60, 70) if is_locked else (160, 160, 180)
+            
             lx_lf, ly_lf = 10, cy + 40
-            draw.text((lx_lf, ly_lf), "NOISE FLOOR", fill=(160, 160, 180), font=self._f_small)
+            draw.text((lx_lf, ly_lf), title_text, fill=title_color, font=self._f_small)
             draw.text((lx_lf, ly_lf + 15), f"{nf:.1f}", fill=accent, font=self._f_score_big)
             
             rise_str = f"+{rise_val:.1f} dB" if rise_val >= 0 else f"{rise_val:.1f} dB"

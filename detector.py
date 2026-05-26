@@ -43,6 +43,8 @@ class GPSJammerHandheld:
 
         self.noise_floor = None
         self.fixed_nf = False  # If True, noise floor doesn't update dynamically
+        self.calibrated_base_nf = -89.9  # Chamber baseline default
+        self.baseline_guard_active = False  # Auto-locking baseline guard
         self.jam_hits = 0
         self.clear_hits = 0
         self.jammer_active = False
@@ -85,7 +87,9 @@ class GPSJammerHandheld:
             self.buzzer = BuzzerController(enabled=True)
             time.sleep(0.8)
         else:
-            self.noise_floor = -90.0
+            self.noise_floor = -89.9
+            self.calibrated_base_nf = -89.9
+            self.baseline_guard_active = False
             self.led = LEDController(enabled=False)
             self.buzzer = BuzzerController(enabled=False)
             print("[INFO] Preview mode: synthetic spectrum is enabled.")
@@ -126,6 +130,7 @@ class GPSJammerHandheld:
             warmup.append(float(np.percentile(power, 20)))
 
         self.noise_floor = float(np.median(warmup))
+        self.calibrated_base_nf = self.noise_floor
         nf_min = min(warmup)
         nf_max = max(warmup)
         print(f"[READY] Base NF: {self.noise_floor:.2f} dB")
@@ -140,6 +145,9 @@ class GPSJammerHandheld:
         database_manager.log_event("STARTUP", 0, self.noise_floor, 0.0, self.noise_floor, 0)
 
     def _detect_jamming(self, power):
+        if self.fixed_nf:
+            self.noise_floor = -89.9
+            
         avg_p = float(np.mean(power))
         peak_p = float(np.max(power))
         baseline_p = float(np.percentile(power, 55))
@@ -169,16 +177,35 @@ class GPSJammerHandheld:
         else:
             state = "SCANNING"
 
+        # Smart self-learning guard: if the current floor is extremely high compared to the calibrated base,
+        # we freeze dynamic update to prevent the jammer from dragging up the baseline and blinding us.
+        if not self.fixed_nf:
+            guard_threshold = self.calibrated_base_nf + 8.0
+            if current_floor > guard_threshold:
+                if not getattr(self, 'baseline_guard_active', False):
+                    self.baseline_guard_active = True
+                    self.ui.show_toast("GUARD ACTIVE: BASELINE LOCKED", 2.0)
+            else:
+                if getattr(self, 'baseline_guard_active', False) and current_floor < (self.calibrated_base_nf + 5.0):
+                    self.baseline_guard_active = False
+                    self.ui.show_toast("GUARD INACTIVE: BASELINE UNLOCKED", 1.5)
+
+        # Apply state override when baseline guard is active to trigger alarms immediately
+        if getattr(self, 'baseline_guard_active', False):
+            self.jammer_active = True
+            state = "JAMMING"
+
         # Update noise floor carefully based on state to prevent jammer from dragging the baseline
         if not self.fixed_nf:
-            if state == "SCANNING":
-                self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_idle)
-            elif state == "WATCH":
-                self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_alert)
-            # In JAMMING state, we do not update noise_floor at all to preserve the baseline
+            if not getattr(self, 'baseline_guard_active', False):
+                if state == "SCANNING":
+                    self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_idle)
+                elif state == "WATCH":
+                    self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_alert)
+            # In JAMMING or locked guard state, we do not update noise_floor at all to preserve the baseline
         else:
-            # Fixed mode: we only calibrate once and never update during runtime
-            pass
+            # Fixed mode: optimal chamber baseline forced
+            self.noise_floor = -89.9
         
         self.current_state = state
         self.led.set_state(state)
