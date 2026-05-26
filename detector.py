@@ -251,7 +251,7 @@ class GPSJammerHandheld:
                                         self.adjust_gain(-2.0)
                                     else:
                                         angle = int(line)
-                                        self.ui.record_bearing(angle, metrics["peak_p"])
+                                        self.ui.record_bearing(angle, metrics["peak_p"], self.current_state)
                                 except Exception:
                                     pass
                         else:
@@ -273,7 +273,7 @@ class GPSJammerHandheld:
                                         self.adjust_gain(-2.0)
                                     else:
                                         angle = int(line)
-                                        self.ui.record_bearing(angle, metrics["peak_p"])
+                                        self.ui.record_bearing(angle, metrics["peak_p"], self.current_state)
                                 except Exception:
                                     pass
                     except Exception:
@@ -296,7 +296,7 @@ class GPSJammerHandheld:
                 if self.frame_count % 10 == 0:
                     self._debug_print(power)
                 if metrics["state"] in ["WATCH", "JAMMING"]:
-                    self.ui.record_bearing(self.current_bearing, metrics["peak_p"])
+                    self.ui.record_bearing(self.current_bearing, metrics["peak_p"], metrics["state"])
 
                 self.ui.draw_ui(metrics, power)
                 self.frame_count += 1

@@ -136,9 +136,9 @@ class DisplayUI:
                         np.clip(y_s, ys.min(), ys.max()).astype(int)))
 
     # ── bearing helpers ─────────────────────────────────────────────
-    def record_bearing(self, angle_deg, peak_dbfs):
+    def record_bearing(self, angle_deg, peak_dbfs, state="SCANNING"):
         norm = float(np.clip((peak_dbfs + 90) / 30.0, 0.0, 1.0))
-        self._bearing_log.append((int(angle_deg) % 360, norm))
+        self._bearing_log.append((int(angle_deg) % 360, norm, state))
         if len(self._bearing_log) > 12:
             self._bearing_log.pop(0)
 
@@ -608,22 +608,87 @@ class DisplayUI:
         draw.rectangle((l, t, r, b), outline=accent, fill=None, width=1)
 
     def _draw_radar(self, draw, cx, cy, radius, accent, grid, white):
-        for r in [radius, radius*0.66, radius*0.33]:
+        theta = self.app.current_bearing
+
+        # Draw outer bezel rings (double outline for premium look)
+        draw.ellipse((cx-radius, cy-radius, cx+radius, cy+radius), outline=grid, width=1)
+        draw.ellipse((cx-(radius-4), cy-(radius-4), cx+(radius-4), cy+(radius-4)), outline=grid, width=1)
+
+        # Concentric inner rings
+        for r in [radius*0.66, radius*0.33]:
             draw.ellipse((cx-r, cy-r, cx+r, cy+r), outline=grid)
-        draw.line((cx-radius, cy, cx+radius, cy), fill=grid)
-        draw.line((cx, cy-radius, cx, cy+radius), fill=grid)
+
+        # Draw tick marks every 30 degrees
+        for tick_angle in range(0, 360, 30):
+            rel_ang = (tick_angle - theta) % 360
+            rad = np.radians(-rel_ang - 90)
+            x_out = cx + int(radius * np.cos(rad))
+            y_out = cy + int(radius * np.sin(rad))
+            x_in = cx + int((radius - 6) * np.cos(rad))
+            y_in = cy + int((radius - 6) * np.sin(rad))
+            draw.line((x_in, y_in, x_out, y_out), fill=grid, width=1)
+
+        # Draw dynamically rotating crosshair grid lines: 0°↔180° and 90°↔270°
+        # 0° ↔ 180° (North-South line)
+        rel_0 = (0 - theta) % 360
+        rad_0 = np.radians(-rel_0 - 90)
+        x_0 = cx + int(radius * np.cos(rad_0))
+        y_0 = cy + int(radius * np.sin(rad_0))
         
-        # Draw cardinal labels (Degrees) - Swapped 90 and 270 per user request
-        draw.text((cx-10, cy-radius-15), "0", fill=white, font=self._f_compass)
-        draw.text((cx+radius+5, cy-5), "270", fill=white, font=self._f_compass)
-        draw.text((cx-15, cy+radius+5), "180", fill=white, font=self._f_compass)
-        draw.text((cx-radius-25, cy-5), "90", fill=white, font=self._f_compass)
+        rel_180 = (180 - theta) % 360
+        rad_180 = np.radians(-rel_180 - 90)
+        x_180 = cx + int(radius * np.cos(rad_180))
+        y_180 = cy + int(radius * np.sin(rad_180))
+        draw.line((x_0, y_0, x_180, y_180), fill=grid, width=1)
+
+        # 90° ↔ 270° (East-West line)
+        rel_90 = (90 - theta) % 360
+        rad_90 = np.radians(-rel_90 - 90)
+        x_90 = cx + int(radius * np.cos(rad_90))
+        y_90 = cy + int(radius * np.sin(rad_90))
         
-        for angle, strength in self._bearing_log:
-            # Match counter-clockwise labels: 0=top, 90=left, 180=bot, 270=right
-            rad = np.radians(-angle - 90)
+        rel_270 = (270 - theta) % 360
+        rad_270 = np.radians(-rel_270 - 90)
+        x_270 = cx + int(radius * np.cos(rad_270))
+        y_270 = cy + int(radius * np.sin(rad_270))
+        draw.line((x_90, y_90, x_270, y_270), fill=grid, width=1)
+        
+        # Draw rotating cardinal labels (Degrees) - Swapped 90 and 270 per user request
+        for label_angle, label_text in [(0, "0"), (90, "90"), (180, "180"), (270, "270")]:
+            rel_ang = (label_angle - theta) % 360
+            rad = np.radians(-rel_ang - 90)
+            lx = cx + int((radius + 13) * np.cos(rad))
+            ly = cy + int((radius + 13) * np.sin(rad))
+            tw, th = self._get_text_size(label_text, self._f_compass)
+            draw.text((lx - tw // 2, ly - th // 2), label_text, fill=white, font=self._f_compass)
+
+        # Draw historical bearing lines with color-coded states (Yellow for WATCH, Red for JAMMING)
+        for item in self._bearing_log:
+            if len(item) == 3:
+                angle, strength, line_state = item
+            else:
+                angle, strength = item
+                line_state = "WATCH"  # Fallback
+
+            if line_state == "JAMMING":
+                line_color = (255, 60, 70)   # Red
+            elif line_state == "WATCH":
+                line_color = (255, 230, 50)  # Yellow
+            else:
+                line_color = accent          # Theme color fallback
+
+            rel_angle = (angle - theta) % 360
+            rad = np.radians(-rel_angle - 90)
             lx, ly = cx + int(radius * strength * np.cos(rad)), cy + int(radius * strength * np.sin(rad))
-            draw.line((cx, cy, lx, ly), fill=accent, width=2)
+            draw.line((cx, cy, lx, ly), fill=line_color, width=2)
+
+        # Draw dedicated white line representing the direction the device is currently facing
+        draw.line((cx, cy, cx, cy - radius), fill=(255, 255, 255), width=2)
+        # Add a tiny white triangle pointer at the tip
+        draw.polygon([(cx - 4, cy - radius), (cx + 4, cy - radius), (cx, cy - radius + 6)], fill=(255, 255, 255))
+        
+        # Draw central user position dot
+        draw.ellipse((cx - 4, cy - 4, cx + 4, cy + 4), fill=(10, 10, 15), outline=white, width=1)
         
         # Draw current bearing in the bottom-right of the radar panel (UX focus)
         brg_val = f"{int(self.app.current_bearing):03d}°"
