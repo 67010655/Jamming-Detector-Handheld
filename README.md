@@ -43,7 +43,7 @@ Developed under **Telecommunication Engineering Department, KMITL** with support
 
 | 1. NORMAL MODE (Real-time Spectrum) | 2. SEARCH MODE (Gyro Compass & Radar) | 3. ANALYTICS MODE (Margin History) |
 | :---: | :---: | :---: |
-| ![Normal Mode](preview_example/mode_normal.png) | ![Search Mode](preview_example/mode_search.png) | ![Analytics Mode](preview_example/mode_analytics.png) |
+| ![Normal Mode](preview_example/mode_normal_clean.png) | ![Search Mode](preview_example/mode_search_clean.png) | ![Analytics Mode](preview_example/mode_analytics_clean.png) |
 | แสดงผลคลื่นสัญญาณ FFT Real-time พร้อมค่าสถิติ Noise Floor, Peak Power, Floor Rise, และ Margin | หน้าจอเข็มทิศเรดาร์หมุนตามเข็มนาฬิกา แสดงองศาด้านนอก อักษรทิศด้านใน และบันทึกทิศทางสัญญาณรบกวนตามความแรง | หน้าจอแสดงกราฟประวัติระดับ Margin ย้อนหลัง 50 เฟรม พร้อมแสดงมินิสเปกตรัมที่ขอบล่าง |
 
 ---

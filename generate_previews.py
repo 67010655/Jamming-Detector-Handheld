@@ -60,6 +60,7 @@ def generate_screenshots():
     app.ui.draw_ui(metrics, power)
     # Save output to preview_example
     Image.open("preview.png").save(os.path.join(out_dir, "mode_normal.png"))
+    Image.open("preview.png").save(os.path.join(out_dir, "mode_normal_clean.png"))
     
     # ----------------------------------------------------
     # Render Mode 1: SEARCH MODE (Radar/Compass - Clean for Presentation)
@@ -71,6 +72,7 @@ def generate_screenshots():
     app.baseline_guard_active = False  # Clean compass without popups for presentation
     app.ui.draw_ui(metrics, power)
     Image.open("preview.png").save(os.path.join(out_dir, "mode_search.png"))
+    Image.open("preview.png").save(os.path.join(out_dir, "mode_search_clean.png"))
     
     # ----------------------------------------------------
     # Render Mode 1: SEARCH MODE (With Active Baseline Guard Alert)
@@ -94,6 +96,7 @@ def generate_screenshots():
     app.ui._history_log = [float(x) for x in np.sin(np.linspace(0, 3 * np.pi, 50)) * 15 + 10]
     app.ui.draw_ui(metrics, power)
     Image.open("preview.png").save(os.path.join(out_dir, "mode_analytics.png"))
+    Image.open("preview.png").save(os.path.join(out_dir, "mode_analytics_clean.png"))
     
     # ----------------------------------------------------
     # Render Splash: BOOTING
