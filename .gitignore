@@ -115,3 +115,5 @@ non-virtualenv/
 preview.png
 touch_calibration.json
 *.log
+jamming_events.db
+*.db-journal

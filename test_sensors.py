@@ -1,5 +1,4 @@
 from hardware.mpu6050 import MPU6050
-from hardware.rtc_ds3231 import DS3231
 import time
 import sys
 
