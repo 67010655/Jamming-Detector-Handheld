@@ -1,530 +1,344 @@
-# GUNJAM — Senior Code Review
-**Reviewer:** Claude (Anthropic)  
-**Date:** 27 May 2026  
-**Scope:** Full source review — `main.py`, `detector.py`, `config.py`, `dsp.py`, `database_manager.py`, `display_ui.py`, `web_server.py`, `buzzer.py`, `led_control.py`, `calibrate_touch.py`, `test_sensors.py`, `generate_previews.py`, `hardware/mpu6050.py`, `hardware/rtc_ds3231.py`, `web/index.html`, `web/script.js`, `web/style.css`
+# Code Review — GUNJAM Handheld GNSS Jamming Detector
+
+**ผู้ review:** Senior Software Engineer  
+**วันที่:** 27 พฤษภาคม 2569  
+**สโคป:** ทุกไฟล์ใน codebase — `main.py`, `detector.py`, `config.py`, `dsp.py`, `database_manager.py`, `display_ui.py`, `web_server.py`, `buzzer.py`, `led_control.py`, `calibrate_touch.py`, `test_sensors.py`, `generate_previews.py`, `hardware/mpu6050.py`, `hardware/rtc_ds3231.py`, `web/index.html`, `web/script.js`
 
 ---
 
-## 1. ภาพรวมสถาปัตยกรรม (Architecture Overview)
+## 1. ภาพรวมสถาปัตยกรรม
 
-โปรเจกต์มีโครงสร้างที่ **อ่านออกและเข้าใจได้เร็ว** — แยก concern ออกเป็นโมดูลต่าง ๆ ได้ดีในระดับหนึ่ง:
+ระบบแบ่งเป็น 3 ชั้นหลักที่เห็นได้ชัด:
 
-```
-main.py  ──►  detector.py (God Class)
-                 ├── dsp.py
-                 ├── display_ui.py  ◄──── touch thread (daemon)
-                 ├── web_server.py  ◄──── Flask thread (daemon)
-                 ├── database_manager.py
-                 ├── buzzer.py      ◄──── buzzer thread (daemon)
-                 ├── led_control.py
-                 └── hardware/
-                        ├── mpu6050.py
-                        └── rtc_ds3231.py
-```
+- **Signal Processing Layer** — `dsp.py` + `detector.py` (main loop)
+- **Presentation Layer** — `display_ui.py` (LCD) + `web_server.py` + `web/`
+- **Hardware Abstraction Layer** — `hardware/mpu6050.py`, `hardware/rtc_ds3231.py`, `buzzer.py`, `led_control.py`
 
-**จุดแข็ง:** module ย่อยแต่ละตัว (buzzer, led, dsp) ทำหน้าที่ชัดเจน  
-**จุดอ่อนหลัก:** `GPSJammerHandheld` ใน `detector.py` เป็น **God Class** ที่รู้เรื่องทุกอย่าง — เก็บ state ของ SDR, ของ IMU, ของ UI, ของ database, ของ web server ไว้หมด มีหน้าที่มากเกินไป ถ้าโปรเจกต์โตขึ้นจะแก้ยาก
+**ภาพรวมที่ดี:** การแยก DSP utilities ออกไปใน `dsp.py` สะอาด, web server ทำงานบน daemon thread แยกจาก main loop, buzzer/LED ใช้ threading + queue อย่างถูกต้อง
 
-อีกปัญหาหนึ่งคือ **ไม่มี unit test เลยแม้แต่ไฟล์เดียว** (test_sensors.py เป็น manual sensor test ไม่ใช่ automated test) — สำหรับโปรเจกต์ที่ใช้ตรวจจับสัญญาณแจมในโลกจริง ความมั่นใจว่าโค้ด logic ถูกต้องควรมากกว่านี้
+**ปัญหาหลักด้านสถาปัตยกรรม:** `GPSJammerHandheld` ใน `detector.py` เป็น God Class — รับผิดชอบ SDR I/O, DSP, state machine, database logging, keyboard handling, shutdown sequence และ process management ในคลาสเดียว ไม่มี separation of concerns ที่ชัดเจน เมื่อโปรเจกต์ขยายต่อจะ maintain ยาก
+
+ปัญหาสำคัญอีกอย่าง: `DisplayUI` ถือ reference ถึง `app` object แบบ bidirectional — `app.ui` ชี้ไปที่ `DisplayUI`, และ `DisplayUI.app` ชี้กลับมาที่ `app` สร้าง tight coupling ที่ทำให้ทดสอบแยกไม่ได้เลย นอกจากนี้ `DisplayUI` ยังเขียน attribute `_img` และ `_draw` ทับลงบน `app` object โดยตรง (`self.app._img`, `self.app._draw`) ซึ่งผิดหลัก OOP อย่างมาก — state ของ display ควรอยู่ใน `DisplayUI` เอง ไม่ใช่ inject กลับไปที่ parent
 
 ---
 
-## 2. คุณภาพโค้ด (Code Quality)
+## 2. คุณภาพโค้ด
 
-### 2.1 ปัญหา Thread Safety — อันตรายที่สุด
+### 2.1 ความไม่สม่ำเสมอในการเข้าถึง config
 
-นี่คือปัญหาที่ร้ายแรงที่สุดในโค้ดทั้งหมด ระบบนี้มี **อย่างน้อย 4 threads** ทำงานพร้อมกัน:
-- Main loop (อ่าน SDR, detect, วาด UI)
-- Touch worker thread (`_touch_worker` ใน `display_ui.py`)
-- Flask/werkzeug thread (`web_server.py`)
-- Buzzer worker thread (`buzzer.py`)
-
-**ปัญหาที่ 1: `_touch_zones` ถูก write จาก main thread และ read จาก touch thread พร้อมกัน โดยไม่มี lock**
+`detector.py` ผสม pattern การเรียก config อย่างไม่สม่ำเสมอ:
 
 ```python
-# display_ui.py — main thread เขียน dict นี้ทุก frame
-self._touch_zones[label] = (bx, foot_t, bx + btn_w, H)
+# บรรทัด 26: เรียกตรงๆ
+self.sample_rate_hz = config.SAMPLE_RATE
 
-# display_ui.py — touch thread อ่าน dict นี้พร้อมกัน
-for label, (x1, y1, x2, y2) in self._touch_zones.items():
+# บรรทัด 40: ใช้ getattr กับ fallback
+self.hit_frames_required = getattr(config, 'HIT_FRAMES', 3)
 ```
-Dict iteration ใน Python ไม่ thread-safe ถ้า dict ถูก modify ระหว่าง iterate จะ raise `RuntimeError: dictionary changed size during iteration` ที่แก้ยากมากเพราะเกิดแบบ race condition
 
-**ปัญหาที่ 2: `ServerState` ใน `web_server.py` ไม่มี lock เลย**
+ค่า `HIT_FRAMES = 3` และ `CLEAR_FRAMES = 10` มีอยู่ใน `config.py` บรรทัด 27-28 เรียบร้อยแล้ว แต่ใช้ `getattr()` กับ fallback ราวกับกลัวว่า key จะไม่มี ควรเลือก pattern เดียว ถ้า config พัง ให้พังเร็วๆ ตั้งแต่ start ดีกว่า silent fallback ที่ debug ยาก
+
+นอกจากนี้ `detector.py` ยังประกาศ `self.sample_count = 8192` บรรทัด 23 ซ้ำกับ `config.SAMPLE_COUNT = 8192` ทั้งที่บรรทัดถัดไป (26) ก็เรียก `config.SAMPLE_RATE` โดยตรงอยู่แล้ว ควรใช้ `config.SAMPLE_COUNT` แทน magic number
+
+### 2.2 โค้ดซ้ำ: Keyboard Input Handler
+
+`detector.py` บรรทัด 263–308 เป็น if/else สำหรับ Windows vs Unix โดยมีบล็อก `if line == 'v': ... elif line == 'm': ...` เหมือนกันทุกตัวอักษร ซ้ำกัน ~25 บรรทัด ควร extract เป็น method เดียว:
 
 ```python
-class ServerState:
-    metrics = {}          # class-level! ไม่ใช่ instance-level
-    power_spectrum = []
-    uptime = 0
+def _handle_keyboard_input(self, line):
+    if line == 'v':
+        self.ui.toggle_view_mode()
+    elif line == 'm':
+        self.toggle_mute()
+    # ...
 ```
-- `metrics` และ `power_spectrum` ถูก assign ใหม่จาก main thread ทุก 100ms
-- Flask thread อ่านค่าพวกนี้เพื่อ serialize JSON พร้อมกัน
-- ยิ่งไปกว่านั้น เป็น **class attribute** ไม่ใช่ instance attribute — ถ้ามีหลาย instance จะ share state กัน (แม้ตอนนี้จะมีแค่ตัวเดียว)
 
-**ปัญหาที่ 3: `request_calibration`, `shutdown_requested`, `reboot_requested` ถูก set จาก touch thread และ read จาก main thread โดยไม่มี lock หรือ `threading.Event`**
+แล้วให้ Windows/Unix branch เรียก `self._handle_keyboard_input(line)` แทน
 
-**วิธีแก้:** ใช้ `threading.Lock()` หรือ `threading.Event()` สำหรับ flags และ `threading.RLock()` guard รอบ `_touch_zones`
+### 2.3 Comment ภาษาไทยโดดๆ ใน codebase ที่เขียน English
 
-### 2.2 `reboot_requested` ไม่ได้ initialize ใน `__init__`
-
+`detector.py` บรรทัด 551:
 ```python
-# detector.py — ไม่มีบรรทัดนี้ใน __init__!
-# self.reboot_requested = False  ← หายไป
-
-# แต่ใน run() เช็คผ่าน getattr แบบนี้
-if getattr(self, 'reboot_requested', False):
+# อันนี้เพิ่มมาไว้ทดสอบโหมดพรีวิวโดยไม่ต้องใช้ฮาร์ดแวร์จริง
+def _generate_preview_samples(self):
 ```
-เหตุผลที่ใช้ `getattr` defensive coding แบบนี้ คือปิดบังว่า attribute ถูกลืมใส่ใน `__init__` แทนที่จะแก้ให้ถูกต้อง ควรใส่ใน `__init__` ตรง ๆ
+Comment ภาษาไทยตัวเดียวในไฟล์ที่เหลือทั้งหมดเป็น English ดูแปลกตา ควรเลือก convention เดียว (แนะนำ English เพื่อ maintainability ระยะยาว)
 
-### 2.3 Magic Numbers กระจายอยู่ทั่วไป
+### 2.4 Hard-code ขนาดหน้าจอใน _touch_worker
 
-`-89.9` ปรากฏใน **4 ที่** ที่ต่างกัน:
-- `detector.py` line 47 (`calibrated_base_nf`)
-- `detector.py` line 90 (preview mode)
-- `detector.py` line 149 (`fixed_nf` branch)
-- `detector.py` line 206 (fixed mode force)
-
-ค่านี้ควรอยู่ใน `config.py` เป็น `DEFAULT_NOISE_FLOOR = -89.9` ที่เดียว
-
-ค่า hardcode อื่น ๆ ที่ควรอยู่ใน config:
-- `8.0` และ `5.0` (baseline guard thresholds ใน `_detect_jamming`)
-- `480` และ `320` (screen dimensions — ปรากฏใน `detector.py`, `calibrate_touch.py`, `display_ui.py`)
-- `24000000` (SPI clock speed)
-- `1575.42e6` (center frequency — อยู่ใน config แต่ detector.py hardcode ซ้ำใน `__init__`)
-
-### 2.4 Late Imports กระจัดกระจาย
-
+`display_ui.py` บรรทัด 891-892:
 ```python
-# detector.py — import อยู่ใน while loop ทุก iteration!
-while self.running:
-    try:
-        if not self.preview:
-            try:
-                import sys          # ← ควรอยู่ข้างบนสุดของไฟล์
-                if sys.platform == "win32":
-                    import msvcrt   # ← ไม่มีปัญหาเรื่อง speed (cached) แต่อ่านยากมาก
+sx = (x_raw - x_min) * 480.0 / dx
+sy = (y_raw - y_min) * 320.0 / dy
 ```
+ตัวเลข `480.0` และ `320.0` ควรใช้ `self.app.w` และ `self.app.h` แทน ซึ่งถูกนิยามไว้แล้วใน `detector.py` บรรทัด 21-22
 
-`import sys` อยู่ข้างบนสุดของ `detector.py` อยู่แล้ว (line 1) แล้วยัง import ซ้ำข้างในลูปอีก
+### 2.5 Placeholder ในโค้ด Production
 
+`detector.py` บรรทัด 424-426:
 ```python
-# safe_power_off และ safe_reboot — import os, import subprocess, import sys
-# ทั้งหมดนี้ควรอยู่ด้านบนไฟล์ตามมาตรฐาน PEP 8
+database_manager.log_event(
+    "MANUAL_SNAP",
+    99,
+    -50.0, # Dummy peak or use real metrics  ← placeholder
 ```
+Comment นี้บอกชัดว่าไม่ได้ใช้ข้อมูลจริง ขัดกับกฎใน `agent.md` ที่ระบุ "ห้ามใช้ Placeholder" `manual_capture()` ถูกเรียกจาก main loop ซึ่งมี `metrics` object อยู่แล้ว ควรเก็บ `self.last_metrics` ไว้แล้วส่งค่าจริงแทน
 
-### 2.5 `database_manager.py` — import ซ้ำและ signature ไม่ตรง
+### 2.6 getattr() กับ field ที่มีอยู่แล้วใน \_\_init\_\_
 
+`detector.py` บรรทัด 188, 195, 201, 202:
 ```python
-import time  # line 4
-...
-import time  # line 84 — ซ้ำ! ลืมตรวจสอบ
+if not getattr(self, 'baseline_guard_active', False):
 ```
+`baseline_guard_active` ถูก initialize ใน `__init__` บรรทัด 49 อยู่แล้ว การใช้ `getattr()` กับ fallback ที่นี่ไม่จำเป็น และทำให้โค้ดอ่านยากโดยไม่มีเหตุผล ใช้ `self.baseline_guard_active` ตรงๆ ได้เลย
 
-Test call ด้านล่างไฟล์ signature ไม่ตรงกับ function จริง:
+### 2.7 generate\_previews.py: เขียนแล้วอ่านกลับมาโดยไม่จำเป็น
+
+`generate_previews.py` บรรทัด 62:
 ```python
-# line 141 — เรียกแค่ 4 args
-log_event("TEST", 50, -20.5, 5.2)
-
-# แต่ function จริงต้องการ 7 args
-def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing_deg=0):
+app.ui.draw_ui(metrics, power)
+Image.open("preview.png").save(os.path.join(out_dir, "mode_normal_clean.png"))
 ```
-ถ้ารัน test block นี้จะ crash ทันที
-
-### 2.6 Bare `except` ปิดบัง Error จริง
-
+`draw_ui()` ใน preview mode save ลง `preview.png` ก่อน แล้วโค้ดนี้เปิดไฟล์นั้นขึ้นมาอีกครั้งเพื่อ save ใหม่ — เสีย disk I/O สองรอบ ควรบันทึกโดยตรงจาก `app._img`:
 ```python
-# display_ui.py line 833
-except: pass  # ← อะไรก็ได้ pass หมด
-
-# display_ui.py line 906
-except: time.sleep(1)  # ← touch thread ตายเงียบ ๆ
-
-# calibrate_touch.py line 42
-except Exception:
-    pass  # ← ถ้า bus.close() fail ไม่รู้เลย
+app.ui.draw_ui(metrics, power)
+app._img.save(os.path.join(out_dir, "mode_normal_clean.png"))
 ```
-
-Bare `except:` จะจับแม้กระทั่ง `SystemExit`, `KeyboardInterrupt`, `MemoryError` ซึ่งไม่ควรถูก catch อย่างน้อยควรใช้ `except Exception:` และ log ด้วย
-
-### 2.7 `display_ui.py` — coupling ที่ผิดปกติ
-
-`DisplayUI._get_text_size` เข้าถึง `self.app._draw` แทนที่จะรับ `draw` parameter ที่ถูกส่งมาอยู่แล้ว:
-```python
-def _get_text_size(self, text, font):
-    draw = self.app._draw  # ← ดึงจาก app — tight coupling
-```
-ทั้ง ๆ ที่ method นี้ถูกเรียกจากทุกที่ที่มี `draw` object อยู่แล้ว
-
-### 2.8 `generate_previews.py` — ปลอม state แล้วไม่ restore
-
-```python
-# บังคับ state แล้ว detect ซ้ำ — ทำให้ noise floor เปลี่ยน
-app.jammer_active = True
-metrics = app._detect_jamming(power)  # ← side effect: เปลี่ยน noise_floor!
-metrics["state"] = "JAMMING"          # ← override อีกที แต่ side effect ยังอยู่
-```
-`_detect_jamming` มี side effect ด้านใน (update `noise_floor`, `jammer_active`, `current_state`) แต่ generate_previews.py ไม่รู้เรื่องนี้
 
 ---
 
-## 3. ความน่าเชื่อถือ / Reliability
+## 3. Reliability / Error Handling
 
-### 3.1 Database — Path สัมพัทธ์ที่ไม่น่าไว้ใจ
+### 3.1 SQLite ไม่ได้เปิด WAL Mode — อันตรายมาก
 
+`database_manager.py` ไม่เคย set `PRAGMA journal_mode=WAL` เลย default mode ของ SQLite คือ DELETE (rollback journal) ซึ่งมีปัญหาใหญ่: main loop และ web server thread อ่าน/เขียน database พร้อมกัน ใน DELETE mode การเขียนจะ lock ทั้ง database ทำให้ `get_history()` จาก web request อาจ block หรือ throw `OperationalError: database is locked` ได้ บน Pi Zero ที่ใช้ SD card ช้าปัญหานี้ยิ่งเห็นชัด
+
+แก้ง่ายมาก เพิ่มใน `init_db()` หลัง connect:
 ```python
-DB_NAME = "jamming_events.db"  # relative path!
+cursor.execute("PRAGMA journal_mode=WAL")
+cursor.execute("PRAGMA synchronous=NORMAL")
 ```
-ถ้า `systemd` รัน service จาก directory อื่น (เช่น `/`) ไฟล์ DB จะถูกสร้างผิดที่ และข้อมูลก่อนหน้าจะหาไม่เจอ ควรใช้ path เต็ม:
+
+### 3.2 Calibration ขณะมี Jammer แต่ไม่แจ้ง User บน LCD
+
+`detector.py` `_calibrate()` บรรทัด 143-145:
 ```python
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jamming_events.db")
+if (nf_max - nf_min) > 5.0:
+    print("[WARN]  Wide NF range detected - possible jammer during calibration")
+    print("[WARN]  Recommend restarting without jammer nearby")
 ```
+Warning พิมพ์ลง terminal เฉยๆ แต่ไม่แสดงบน LCD ซึ่ง operator ในสนามไม่ได้เห็น ถ้า calibrate ขณะมี jammer ค่า `self.noise_floor` จะสูงกว่าความจริง ทำให้ detector blind ทันที ควรอย่างน้อย `self.ui.show_toast("WARN: NOISY CALIB", 3.0)` ด้วย
 
-### 3.2 Timestamp Format ไม่ใช่ ISO 8601
+### 3.3 \_calibrate() เรียกบน Main Loop Thread — Block นานถึง ~3 วินาที
 
+`detector.py` บรรทัด 311-316 เรียก `self._calibrate()` ตรงในลูป:
 ```python
-local_time = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-# ผลลัพธ์: "27/05/2026 14:30:00"
-```
-- ไม่ sort ตามลำดับเวลาเมื่อเรียงแบบ string
-- `get_filtered_history` ต้องใช้ `time.strptime` parse กลับ — เสี่ยง crash ถ้า format เปลี่ยน
-- Excel/CSV ไม่ parse format นี้โดยอัตโนมัติ
-- ควรใช้ ISO 8601: `'%Y-%m-%dT%H:%M:%S'`
-
-### 3.3 `_calibrate()` ถูก call ระหว่าง main loop โดยไม่ lock SDR
-
-```python
-# detector.py run() — main loop
-if getattr(self, 'request_calibration', False):
+if self.request_calibration:
     self.ui.draw_ui(metrics, power)
-    self._calibrate()  # ← อ่าน 30 samples จาก SDR
-    ...
+    self._calibrate()  # อ่าน SDR 30 รอบ!
 ```
-`_calibrate` เรียก `self.sdr.read_samples()` โดยตรง ถ้ามี race condition จาก thread อื่น (เช่น Flask thread เรียก endpoint ที่ trigger calibration) จะมีปัญหา
+`_calibrate()` วน 30 รอบอ่าน SDR ซึ่งใช้เวลา ~3 วินาที ระหว่างนี้ main loop หยุดทั้งหมด — touch input ไม่ตอบสนอง, web server ไม่ได้รับ metrics ใหม่ ควรทำใน background thread หรืออย่างน้อย yield ให้ UI refresh ระหว่าง warmup samples
 
-### 3.4 `safe_power_off` ลอง command หลายตัวแล้วไม่รู้ว่าตัวไหนสำเร็จ
+### 3.4 Exception Swallowing ใน Main Loop ไม่มี SDR Recovery
 
+`detector.py` บรรทัด 374-378:
 ```python
-for cmd in try_cmds:
-    res = subprocess.run(cmd, timeout=8, capture_output=True, text=True)
-    # ← ไม่ break เมื่อ poweroff สำเร็จ! รัน sudo poweroff แล้วยัง run ต่ออีก 3 ตัว
+except Exception as exc:
+    import traceback
+    print(f"[ERROR] Runtime loop: {exc}")
+    traceback.print_exc()
+    time.sleep(0.2)
 ```
-ถ้า `sudo poweroff` ทำงานสำเร็จ ระบบกำลัง shutdown แต่โค้ดยังวน loop ต่อไปอีก 3 commands — อาจก่อให้เกิด side effect แปลก ๆ
+ถ้า `self.sdr.read_samples()` throw exception เพราะ USB disconnect ระบบจะวน loop ต่อไปเรื่อยๆ โดยพิมพ์ error ซ้ำทุก 0.2 วินาที ควรมี consecutive error counter และถ้า error เกิน N ครั้งติดกัน ให้ attempt SDR re-init หรือ trigger `self.reboot_requested = True`
 
-### 3.5 `_touch_worker` ไม่มี stop mechanism ที่ชัดเจน
+### 3.5 DS3231 (RTC) — Dead Code ที่ไม่มีใคร Import
 
+`hardware/rtc_ds3231.py` มีโค้ดครบ แต่ตรวจสอบทุกไฟล์แล้วไม่มี `import DS3231` ที่ไหนเลย `test_sensors.py` บรรทัด 12 comment ว่า "RTC is handled by Kernel now" หมายความว่าไฟล์นี้เป็น dead code ควร document ในไฟล์นั้นเองว่า "ไม่ใช้งานในเวอร์ชันปัจจุบัน" หรือลบออกเพื่อไม่ให้คน maintain งงว่า import ที่ไหน
+
+### 3.6 MPU6050 Frozen Detection: Edge Case ที่ Raw = 0
+
+`hardware/mpu6050.py` บรรทัด 110:
 ```python
-def _touch_worker(self):
-    self._load_touch_calibration()
-    while True:  # ← วนตลอด ไม่มี self._running flag
-        try:
-            ...
-        except: time.sleep(1)
+if raw_z == self.last_raw_z and raw_z != 0:
+    self.frozen_count += 1
 ```
-Thread นี้หยุดได้แค่ตาย process แม้จะ `daemon=True` แต่ถ้า cleanup ต้องการหยุด touch thread ก่อนก็ทำไม่ได้
+เงื่อนไข `raw_z != 0` หมายความว่าถ้า sensor ค้างอยู่ที่ค่า 0 จะไม่ detect ว่า frozen ในทางปฏิบัติ offset drift ทำให้ค่า 0 แท้ๆ หายากมาก แต่ควรมี comment อธิบายเจตนาไว้
 
-### 3.6 `MPU6050.calibrate()` ไม่มี timeout
+### 3.7 Buzzer Worker: Queue Draining มี TOCTOU Race เล็กน้อย
 
+`buzzer.py` บรรทัด 74-79:
 ```python
-for _ in range(samples):
-    val = self.read_raw_data(addr)
-    if val is not None:
-        sum_z += val
-        valid_count += 1
-    time.sleep(0.01)
+while not self._queue.empty():
+    try:
+        self._queue.get_nowait()
+        self._queue.task_done()
+    except queue.Empty:
+        break
 ```
-ถ้า I2C อยู่ในสภาพที่ return `None` ตลอด จะรอจน valid_count = 0 และ print "Calibration FAILED" — แต่ไม่ raise exception ทำให้ main loop ดำเนินต่อโดยใช้ offset = 0 ซึ่งอาจทำให้ bearing เลื่อนไปเรื่อย ๆ
+มี TOCTOU race ระหว่าง `.empty()` check กับ `get_nowait()` — สามารถเกิดได้ในทางทฤษฎีแม้ในทางปฏิบัติจะไม่ crash เพราะมีแค่ consumer เดียว ควรลบ `.empty()` check ออกแล้วใช้ `get_nowait()` + catch `Empty` อย่างเดียว:
+```python
+while True:
+    try:
+        self._queue.get_nowait()
+        self._queue.task_done()
+    except queue.Empty:
+        break
+```
 
 ---
 
 ## 4. Performance
 
-### 4.1 Database — เปิด/ปิด Connection ทุก call
+### 4.1 Database: เปิด-ปิด Connection ทุก Query
 
-```python
-def log_event(...):
-    conn = sqlite3.connect(DB_NAME)  # เปิด connection ใหม่
-    ...
-    conn.close()  # ปิด
-```
-บน Raspberry Pi Zero 2W ที่ SD card ช้า การ open/close SQLite connection ทุกครั้งที่ log (ทุก 1-30 วินาที) มีค่าใช้จ่ายที่วัดได้ ควรใช้ connection pool อย่างง่าย ๆ หรือ WAL mode:
-```python
-conn = sqlite3.connect(DB_NAME)
-conn.execute("PRAGMA journal_mode=WAL")
-```
+`database_manager.py` ทุก function (`log_event`, `get_history`, `get_filtered_history`, `clear_db`) ทำ `sqlite3.connect()` และ `conn.close()` ทุกครั้ง บน Pi Zero ที่ใช้ SD card filesystem open overhead นี้สะสมได้ โดยเฉพาะเมื่อ `get_history` ถูกเรียกจาก web server ทุก 5 วินาที
 
-### 4.2 Buzzer สร้าง `PWM` object ใหม่ทุกครั้งที่ buzz
+วิธีแก้ที่เหมาะสมสำหรับ embedded: ใช้ module-level connection พร้อม `check_same_thread=False` (ปลอดภัยเมื่อใช้ WAL mode) เพื่อลด open/close overhead
 
-```python
-def _buzz(self, duration_s, frequency_hz=1200, duty_cycle=50):
-    self.pwm = self.gpio.PWM(self.buzzer_pin, frequency_hz)  # ← สร้างใหม่ทุกครั้ง
-    self.pwm.start(duty_cycle)
-    time.sleep(duration_s)
-    ...
-    self.pwm.stop()
-```
-`RPi.GPIO.PWM` ควร create ครั้งเดียวแล้วเรียก `ChangeDutyCycle` / `ChangeFrequency` ตามต้องการ การสร้างใหม่ทุกครั้งมี overhead และอาจทำให้ GPIO glitch
+### 4.2 get\_filtered\_history: Python Loop แทนที่ควรเป็น SQL
 
-### 4.3 Particle System บน Web Dashboard — O(n²)
+`database_manager.py` บรรทัด 84-115: ดึงแถวมาทั้งหมด 5,000 แถว แล้ว parse timestamp ใน Python loop เพื่อ filter SCANNING ทุก 30 วินาที การ parse timestamp ใน Python ทุก call เปลืองทั้ง CPU และ memory ควร filter ใน SQL ด้วย subquery หรือ GROUP BY + MIN/MAX
 
+### 4.3 Particle System ใน Web Dashboard ทำงาน 60 FPS ตลอดเวลา
+
+`web/script.js` บรรทัด 567-621: `animateParticles()` ใช้ `requestAnimationFrame` วนทุก frame ตลอดชีวิต และมีการคำนวณ distance ระหว่าง particle ทุกคู่ O(n²) โดย n=65 ทุก frame — 2,080 sqrt calls ต่อ frame แม้ main dashboard ใช้ event-driven rendering อย่างชาญฉลาด แต่ particle system กลับ run 60 FPS เต็ม ควร pause เมื่อ tab ไม่ active:
 ```javascript
-// script.js line 581-595
-for (let i = 0; i < particles.length; i++) {
-    for (let j = i + 1; j < particles.length; j++) {
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        // ...
-    }
-}
-```
-65 particles = 65×64/2 = **2,080 distance calculations ทุก animation frame (~60fps)** = ~124,800 ops/sec บนมือถือหรือ browser ที่เปิดบน Pi Zero อาจทำให้ UI กระตุก ควรลด `PARTICLE_COUNT` หรือใช้ spatial hashing
-
-### 4.4 Waterfall ใช้ `fillRect` ทีละ cell
-
-```javascript
-// script.js — 40 bins × 60 rows = 2,400 fillRect calls ต่อ render
-for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-        ctx.fillStyle = wfColor(spectrum[c]);
-        ctx.fillRect(c * colW, y, ...);
-    }
-}
-```
-`fillStyle` assignment ทุก iteration แพงมาก ควรใช้ `ImageData` / `putImageData` แทน ซึ่งเร็วกว่า 10-50x
-
-### 4.5 Flask Development Server ใน Production
-
-```python
-# web_server.py
-thread = threading.Thread(
-    target=app.run,
-    kwargs={"host": "0.0.0.0", "port": port, "debug": False, "use_reloader": False},
-    daemon=True
-)
-```
-Flask dev server (`app.run`) **ไม่ได้ออกแบบมาสำหรับ production** — single-threaded, ไม่มี request queuing, ไม่มี keepalive ที่ดี ควรใช้ `waitress` หรือ `gunicorn` แทน:
-```python
-# pip install waitress
-from waitress import serve
-serve(app, host="0.0.0.0", port=8080)
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) requestAnimationFrame(animateParticles);
+});
 ```
 
-### 4.6 Spectrum FFT บน Pi Zero 2W
+### 4.4 Radar Draw: np.radians() เรียกซ้ำใน Render Loop ทุก Frame
 
-`np.fft.fft(8192 samples)` ทุก frame ที่ 10 FPS = 10 FFTs/sec บน Pi Zero 2W (ARM Cortex-A53) ไม่มี hardware FFT acceleration numpy ใช้ FFTPACK ซึ่งช้ากว่า FFTW การลอง `scipy.fft` หรือ `pyfftw` อาจช่วยได้มากถ้า CPU เป็น bottleneck
+`display_ui.py` `_draw_radar()`: เรียก `np.radians()` หลายสิบครั้งต่อ frame ภายใน for loop (tick marks 12 จุด, crosshairs 4 จุด, cardinal labels 8 จุด, bearing log lines สูงสุด 24 เส้น) ที่ FPS 10 บน Pi Zero Zero ส่วนนี้กินเวลา CPU พอสมควร สามารถ precompute lookup table `sin[angle] / cos[angle]` สำหรับ 0-359 ที่ init ได้
 
 ---
 
 ## 5. Security
 
-### 5.1 Web Dashboard ไม่มี Authentication เลย
+### 5.1 Web Dashboard ไม่มี Authentication โดย Default
 
-```python
-@app.route('/api/clear', methods=['POST'])
-def clear_history():
-    success = database_manager.clear_db()
-    return jsonify({"success": success})
-```
-ใครก็ตามที่อยู่บน network เดียวกัน (หรือถ้า Pi ต่อ internet) สามารถ:
-- ดู live RF spectrum: `GET /api/status`
-- Export ข้อมูลทั้งหมด: `GET /api/export`
-- **ลบ database ทั้งหมด: `POST /api/clear`** ← ไม่ดีมาก
-
-ควรเพิ่ม API key หรือ basic auth อย่างน้อย และ rate limit `/api/clear`
-
-### 5.2 XSS ใน Log Table
-
-```javascript
-// script.js line 444-453
-html += `<tr>
-    <td>${time}</td>
-    <td><span class="state-pill" data-state="${row.state}">${row.state}</span></td>
-    ...
-</tr>`;
-tbody.innerHTML = html;
-```
-`row.state` มาจาก database โดยตรง ถ้า database ถูก inject ค่าแปลก ๆ (เช่น `<script>alert(1)</script>`) จะ execute ได้ ควรใช้ `textContent` หรือ escape HTML ก่อน:
-```javascript
-function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-```
-
-### 5.3 `sudo poweroff` ต้องการ passwordless sudo
-
-```python
-try_cmds = [
-    ["sudo", "poweroff"],
-    ["sudo", "systemctl", "poweroff"],
-    ...
-]
-```
-Pi ต้องมี `/etc/sudoers` ที่อนุญาต user รัน poweroff โดยไม่ต้องใส่ password นี่คือ security tradeoff ที่ควร document ไว้ชัด ๆ และ limit ให้ specific commands เท่านั้น ไม่ใช่ `ALL=(ALL) NOPASSWD: ALL`
-
-### 5.4 Touch Calibration ไม่ validate input
-
-```python
-# calibrate_touch.py — บันทึก JSON โดยตรงโดยไม่ validate range
-calib_data = {
-    "X_MIN": int(round(x_min)),
-    "X_MAX": int(round(x_max)),
-    ...
-}
-with open(calib_file, "w", encoding="utf-8") as f:
-    json.dump(calib_data, f, indent=4)
-```
-ถ้า calibration data เสียหาย (เช่น X_MIN = X_MAX = 0) จะทำให้ touch พัง หรือหาร 0 ใน `_touch_worker` ซึ่งมีการป้องกันอยู่บ้างแต่ไม่ครบ
-
----
-
-## 6. สิ่งที่ทำได้ดี (Commendations)
-
-**Adaptive Noise Floor Algorithm** (`_detect_jamming`) ออกแบบมาดีมาก — มี baseline guard ที่ป้องกัน jammer ดึง baseline ขึ้น, มี hit/clear frame debounce, มี WATCH state เป็น buffer ก่อน JAMMING ตรรกะพวกนี้แสดงให้เห็นว่าเข้าใจ domain จริง ๆ
-
-**MPU6050 — Frozen Sensor Recovery** โค้ดตรวจจับ sensor stuck และ reinit อัตโนมัติ เป็นการป้องกัน hardware fault ที่ดีมากสำหรับ embedded system:
-```python
-if raw_z == self.last_raw_z and raw_z != 0:
-    self.frozen_count += 1
-    if self.frozen_count > 40:
-        self._init_sensor()
-```
-
-**Gyro Deadzone + Dynamic Drift Compensation** ใน `update_bearing`:
-```python
-if abs(gyro_rate) < 2.0:
-    self.gyro_z_offset = (self.gyro_z_offset * 0.99) + (raw_z * 0.01)
-```
-เป็น adaptive calibration แบบง่ายที่ใช้ได้จริงในสนาม
-
-**Touch Calibration Tool** (`calibrate_touch.py`) เป็น standalone utility ที่สมบูรณ์ — 4-point calibration, median filtering, axis swap/invert detection — professional-grade
-
-**Preview Mode** สำหรับ UI development โดยไม่ต้องใช้ hardware จริง ช่วยให้ทดสอบ UI ได้บน PC — ความคิดดีมาก
-
-**Database Pruning** ป้องกัน SD card wear เกินไป:
-```python
-DELETE FROM events WHERE state != 'STARTUP' AND id NOT IN (
-    SELECT id FROM events WHERE state != 'STARTUP' ORDER BY id DESC LIMIT 1000
-)
-```
-
-**Web Dashboard CSS** ออกแบบดีมาก — design tokens ชัดเจน, dark/light theme ครบ, responsive breakpoints ครบทุกขนาด, animation smooth ไม่รกตา
-
-**`_spi_lock` ใน `display_ui.py`** ใช้ lock ป้องกัน SPI bus conflict ระหว่าง display และ touch controller ถูกต้อง
-
-**`generate_previews.py`** ช่วย generate screenshot ทุก view mode เป็น documentation ที่มีชีวิต
-
-**Schema Migration** ใน `database_manager.init_db()` ตรวจสอบ column ที่หายไปแล้ว ALTER TABLE ให้ compatibility — ดีมากสำหรับ deployed device ที่ update ได้ยาก
-
----
-
-## 7. สิ่งที่ควรแก้ไขด่วน (Priority Fixes)
-
-### 🔴 Priority 1 — Critical (แก้ก่อนใช้งาน production)
-
-**[P1-1] Thread Safety: ใส่ Lock รอบ `_touch_zones` และ state flags**
-```python
-# detector.py __init__
-self._state_lock = threading.Lock()
-self.request_calibration = False
-self.shutdown_requested = False
-self.reboot_requested = False  # ← เพิ่ม initialize ที่หายไป!
-
-# display_ui.py
-self._zones_lock = threading.RLock()
-
-# ทุกที่ที่ read/write _touch_zones ให้ใช้ with self._zones_lock:
-```
-
-**[P1-2] Thread Safety: `ServerState` ต้องมี Lock และเป็น instance attribute**
-```python
-class ServerState:
-    def __init__(self):
-        self._lock = threading.Lock()
-        self.metrics = {}
-        self.power_spectrum = []
-        self.uptime = 0
-
-    def update(self, metrics, power, uptime, bearing=0, gain=7.7):
-        with self._lock:
-            self.metrics = metrics
-            ...
-
-    def snapshot(self):
-        with self._lock:
-            return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
-```
-
-**[P1-3] Database: ใช้ absolute path สำหรับ DB_NAME**
-```python
-DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jamming_events.db")
-```
-
-**[P1-4] Database: แก้ timestamp เป็น ISO 8601**
-```python
-local_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-```
-(ต้อง update `get_filtered_history` ให้ใช้ format ใหม่ด้วย)
-
----
-
-### 🟠 Priority 2 — High (แก้ก่อน submit หรือ deploy จริง)
-
-**[P2-1] เพิ่ม API Authentication** อย่างน้อย environment variable-based token:
+`web_server.py` บรรทัด 23:
 ```python
 API_TOKEN = os.environ.get('GUNJAM_API_TOKEN', '')
-# ถ้า token ตั้งไว้ ให้เช็คทุก request ที่ไม่ใช่ static file
 ```
-
-**[P2-2] แก้ XSS ใน log table** ให้ escape HTML ก่อน inject ลง innerHTML
-
-**[P2-3] เอา magic number `-89.9` เข้า config.py** เป็น `DEFAULT_NOISE_FLOOR_DB`
-
-**[P2-4] แก้ `log_event` test call** ที่ signature ไม่ตรง ที่ท้าย `database_manager.py`
-
-**[P2-5] แก้ `safe_power_off` ให้ break หลังจาก poweroff สำเร็จ**
+บรรทัด 69-71:
 ```python
-for cmd in try_cmds:
-    res = subprocess.run(cmd, ...)
-    if res.returncode == 0:
-        break  # ← เพิ่มตรงนี้
+def check_auth():
+    if not API_TOKEN:
+        return  # ← skip auth ทั้งหมด
 ```
+ถ้าไม่ set environment variable `GUNJAM_API_TOKEN` (ซึ่งไม่มีใน README หรือ startup script ที่ไหนเลย) ทุก endpoint รวมถึง `POST /api/clear` จะ public หมด ใครที่เชื่อมต่อกับ Wi-Fi Hotspot ของอุปกรณ์สามารถลบ database ทิ้งได้ทันที ควรอย่างน้อย warn อย่างชัดเจนขณะ startup:
+```python
+if not API_TOKEN:
+    print("[WEB] WARNING: No API token set. Dashboard is OPEN to all connections.")
+```
+หรือ generate default token ใส่ใน startup log
+
+### 5.2 `POST /api/clear` ไม่มี Destructive Action Guard เมื่อมี Token
+
+`check_auth()` protect `/api/*` ทุก path ด้วย token เดียวกัน ไม่ได้แยก read-only กับ write endpoint ออกจากกัน ถ้า token หลุดออกไป ทุก operation รวมถึงการล้างข้อมูลสามารถทำได้ ควรพิจารณา require `{"confirm": true}` ใน POST body สำหรับ destructive operations
+
+### 5.3 Web Dashboard โหลด Google Fonts จาก CDN
+
+`web/index.html` บรรทัด 9-13 โหลด Inter, JetBrains Mono, Prompt จาก `fonts.googleapis.com` ซึ่งต้องการ internet connectivity อุปกรณ์นี้สร้าง Wi-Fi Hotspot ของตัวเอง ไม่มี internet → fonts ไม่โหลด → browser ใช้ fallback font ซึ่ง layout อาจเพี้ยน ควร self-host fonts ไว้ใน `web/fonts/`
+
+### 5.4 ไม่มี HTTPS
+
+ทุก traffic ระหว่าง browser กับ dashboard เป็น plaintext HTTP ใน field operation ที่ใช้ open Wi-Fi Hotspot ถ้ามีคนดักฟัง passive scan จะเห็น API token ใน header ได้เลย สำหรับ prototype ที่ใช้ในพื้นที่จำกัดอาจยอมรับได้ แต่ควร document ไว้ใน README อย่างชัดเจน
 
 ---
 
-### 🟡 Priority 3 — Medium (ปรับปรุงคุณภาพ)
+## 6. สิ่งที่ทำได้ดี
 
-**[P3-1] เปลี่ยน Flask dev server เป็น `waitress`**
-```bash
-pip install waitress
-```
-```python
-from waitress import serve
-serve(app, host="0.0.0.0", port=8080, threads=2)
-```
+**DSP Pipeline สะอาดและถูกต้อง:** `dsp.py` เล็กกระทัดรัด ฟังก์ชันทุกตัวทำสิ่งเดียว ชัดเจน การใช้ Hanning window + FFT + fftshift + dB conversion ทำถูกต้อง การทำ max-pooling ระหว่าง downsample ใน `scale_points()` เพื่อ preserve jammer bands เป็น engineering decision ที่ดีมาก ไม่ใช่แค่ average ซึ่งจะทำให้สัญญาณ narrow-band จางหายได้
 
-**[P3-2] เปลี่ยน `RPi.GPIO.PWM` ใน `buzzer.py` ให้ create ครั้งเดียว**
+**Adaptive Noise Floor + Baseline Guard:** Algorithm ใน `_detect_jamming()` ที่ใช้ alpha ต่างกันระหว่าง SCANNING กับ WATCH state และ freeze noise floor เมื่อ floor rise เกิน threshold เพื่อกัน jammer จาก "dragging up" baseline เป็น design ที่ฉลาด เห็นได้ชัดว่า developer เข้าใจ adversarial RF environment จริงๆ ไม่ใช่แค่เขียนตาม tutorial
 
-**[P3-3] ย้าย import ทั้งหมดขึ้นไปด้านบนไฟล์** ตาม PEP 8
+**Hardware Graceful Degradation:** `BuzzerController` และ `LEDController` ทั้งคู่ gracefully degrade เมื่อ GPIO ไม่พร้อมใช้ (`self.enabled = False`) ทำให้ preview mode และ development บน Windows/Linux ทำงานได้โดยไม่ต้องมี hardware จริง
 
-**[P3-4] ลบ duplicate `import time`** ใน `database_manager.py`
+**Touch Calibration Tool (`calibrate_touch.py`):** ครบถ้วน professional มากสำหรับ embedded — มี median filtering, axis swap detection, linear extrapolation, JSON persistence และ visual feedback บน LCD ระหว่าง process ทุกขั้นตอน ดีกว่าโปรเจกต์ส่วนใหญ่ที่ hardcode calibration ไว้เลย
 
-**[P3-5] เพิ่ม `self.running` flag ให้ `_touch_worker`** เพื่อ stop gracefully ตอน cleanup
+**Web Dashboard Event-Driven Rendering:** การที่ `drawSpectrum()`, `drawMarginTrend()`, `drawWaterfall()` เรียกผ่าน `requestAnimationFrame()` เฉพาะเมื่อมีข้อมูลใหม่มา และไม่ใช้ `setInterval` ที่ 60 FPS บวกกับ DOM value differencing (`domCache`) ที่ป้องกัน unnecessary DOM write ทำให้ browser บน device client ประหยัด CPU อย่างมาก
 
-**[P3-6] Waterfall: เปลี่ยนไปใช้ `ImageData`** แทน 2,400 fillRect calls
+**IMU Frozen Sensor Recovery (`hardware/mpu6050.py`):** `frozen_count > 40` แล้ว attempt `_init_sensor()` เป็น production-grade resilience สำหรับ I2C bus ที่ไม่เสถียร ป้องกัน bearing หยุดนิ่งโดยไม่มีใครรู้
 
-**[P3-7] ลด Particle count หรือ ปิด Particle บน mobile** สำหรับ performance
+**`os.execv()` สำหรับ Restart:** การ replace process image แทนที่จะ `subprocess` spawn หรือ reboot ทั้งเครื่องเป็น technique ที่เหมาะมากสำหรับ Pi Zero ที่ boot ช้า ทำให้ restart เร็วกว่า 10x และ clear I2C state ของ MPU6050 ได้
+
+**`ServerState` Thread Safety ใน `web_server.py`:** ใช้ `threading.Lock` ครอบทุก read/write บน shared state ระหว่าง main loop และ waitress threads ถูกต้องตามหลัก concurrent programming ไม่มี data race
+
+**`agent.md` — Outstanding Documentation:** Hardware constraints, I²C voltage warnings, SPI pin rules, database I/O limits ถูก document ครบและชัดเจน เป็น practice ที่ควรทำในทุกโปรเจกต์ embedded และเป็นประโยชน์อย่างยิ่งสำหรับ AI-assisted development
 
 ---
 
-## สรุปภาพรวม
+## 7. สิ่งที่ควรแก้ไข เรียงตามความสำคัญ
 
-| หมวด | คะแนน | หมายเหตุ |
-|------|--------|----------|
-| สถาปัตยกรรม | 6/10 | God Class แต่ module แยกดี |
-| คุณภาพโค้ด | 6/10 | Magic numbers, late imports, duplicate code |
-| Reliability | 5/10 | **Thread safety เป็นปัญหาหลัก** |
-| Performance | 7/10 | ดีในส่วน Python, JS ยังพัฒนาได้ |
-| Security | 4/10 | ไม่มี auth, XSS potential |
-| Domain Logic | 9/10 | RF detection algorithm ดีมาก |
-| UI/UX | 8/10 | Dashboard สวยงาม, ใช้งานได้จริง |
+### 🔴 Critical — แก้ทันที
 
-**โปรเจกต์นี้มีพื้นฐาน domain knowledge ดีมาก** — อัลกอริทึมตรวจจับสัญญาณ, adaptive baseline, hardware recovery พวกนี้แสดงว่าเข้าใจปัญหาจริง สิ่งที่ต้องปรับหลักคือ **thread safety** ซึ่งถ้าปล่อยไว้จะทำให้เกิด crash แบบ intermittent ที่ reproduce ยากมากในสนาม แก้ตาม P1 ก่อนแล้วค่อยทำ P2-P3 ตามลำดับ
+**[C1] เปิด SQLite WAL Mode ใน `database_manager.init_db()`**  
+เพิ่ม 2 บรรทัดหลัง `conn = sqlite3.connect(DB_NAME)`:
+```python
+cursor.execute("PRAGMA journal_mode=WAL")
+cursor.execute("PRAGMA synchronous=NORMAL")
+```
+ป้องกัน `OperationalError: database is locked` เมื่อ web server thread อ่านในขณะ main loop thread เขียน ความเสี่ยงสูงมากบน Pi Zero ที่ SD card ช้า แก้ครั้งเดียวป้องกันได้ทั้งหมด
+
+**[C2] Warning Calibration ต้องแสดงบน LCD ไม่ใช่แค่ Terminal**  
+`detector.py` บรรทัด 143: เพิ่ม `self.ui.show_toast("WARN: NOISY CALIB!", 4.0)` เมื่อ NF range > 5 dB operator ในสนามไม่ได้เห็น terminal
+
+**[C3] แก้ Dummy Peak ใน `manual_capture()`**  
+`detector.py` บรรทัด 424: เพิ่ม `self.last_metrics: dict = {}` ใน `__init__` และ update มันใน `run()` หลัง `_detect_jamming()` แล้ว `manual_capture()` ใช้ `self.last_metrics.get('peak_p', -50.0)` แทน hardcode
+
+---
+
+### 🟡 Important — แก้ใน sprint ถัดไป
+
+**[I1] เพิ่ม Consecutive Error Counter ใน `run()` loop**  
+เมื่อ `sdr.read_samples()` fail ต่อเนื่อง > 10 ครั้ง ให้ set `self.reboot_requested = True` แทนที่จะวน loop สร้าง error ซ้ำๆ ป้องกัน CPU spike และ log spam บน SD card
+
+**[I2] Extract `_handle_keyboard_input()` method**  
+`detector.py` บรรทัด 263-308: ตัด duplicate keyboard dispatch block ~25 บรรทัด ออก แล้วให้ทั้ง Windows และ Unix branch เรียก method เดียวกัน
+
+**[I3] ใช้ `config.SAMPLE_COUNT` แทน magic number**  
+`detector.py` บรรทัด 23: `self.sample_count = 8192` → `self.sample_count = config.SAMPLE_COUNT`
+
+**[I4] Self-host Google Fonts**  
+`web/index.html` บรรทัด 9-13: download Inter + JetBrains Mono ใส่ใน `web/fonts/` แล้วแก้ CSS เป็น `@font-face` local ป้องกัน layout พัง และทำให้ dashboard ใช้งานได้ offline
+
+**[I5] ลบ `getattr()` ที่ไม่จำเป็นใน `_detect_jamming()`**  
+`detector.py` บรรทัด 188, 195, 201, 202: เปลี่ยน `getattr(self, 'baseline_guard_active', False)` → `self.baseline_guard_active` ทุกที่
+
+**[I6] Document Dead Code ใน `hardware/rtc_ds3231.py`**  
+เพิ่ม docstring หรือ comment ที่ top ของไฟล์ว่า "ปัจจุบัน RTC ถูก handle โดย Linux kernel driver — module นี้ไม่ได้ใช้งาน reserve ไว้สำหรับ fallback กรณี hwclock ไม่พร้อม"
+
+**[I7] แก้ `_touch_worker` ใช้ `self.app.w / self.app.h` แทน hardcode**  
+`display_ui.py` บรรทัด 891-892: `* 480.0` → `* float(self.app.w)`, `* 320.0` → `* float(self.app.h)`
+
+---
+
+### 🟢 Nice to Have — Backlog
+
+**[N1] แก้ `generate_previews.py`: บันทึก Image object ตรงๆ**  
+แทน `Image.open("preview.png").save(...)` ให้ใช้ `app._img.save(...)` ลด disk I/O ฟุ่มเฟือย
+
+**[N2] Throttle Particle Animation เมื่อ Tab ไม่ Active**  
+`web/script.js`: เพิ่ม `visibilitychange` listener pause `animateParticles()` เมื่อ user switch tab
+
+**[N3] แทนที่ Python timestamp filter ด้วย SQL ใน `get_filtered_history()`**  
+ลด memory footprint และ CPU time สำหรับ CSV export บน Pi
+
+**[N4] แก้ Comment ภาษาไทยโดดๆ ใน `detector.py` บรรทัด 551 เป็น English**  
+ให้ codebase มี language convention เดียวกัน
+
+**[N5] Precompute sin/cos table สำหรับ Radar rendering**  
+`display_ui.py` `_draw_radar()`: cache lookup table ที่ init แทน `np.radians()` ทุก frame
+
+---
+
+## สรุป
+
+GUNJAM เป็นโปรเจกต์ embedded ที่มีคุณภาพสูงกว่า average prototype อย่างชัดเจน — DSP algorithm ถูกต้องและ production-ready, hardware abstraction ทำดี, web dashboard มี performance optimization ที่จริงจัง และ `agent.md` แสดงให้เห็นว่า developer เข้าใจ hardware constraints อย่างลึกซึ้ง
+
+จุดเสี่ยงที่ใหญ่ที่สุดตอนนี้คือ **SQLite WAL mode ที่ขาดหายไป [C1]** ซึ่งอาจทำให้ database lock ใน field ได้จริง และ **security ของ `/api/clear` [C2 ร่วมกับ 5.1]** ที่ควรปิดก่อน deploy ให้ใครใช้ ทั้งสองอย่างแก้ได้ใน 10 นาที
+
+ส่วน God Class ใน `detector.py` เป็น technical debt ที่ยอมรับได้สำหรับ embedded project ขนาดนี้ แต่ถ้าจะต่อยอดเป็น product เต็มรูปแบบ ควรวางแผน refactor ออกเป็น `SignalProcessor`, `StateManager`, `DataLogger` แยกกันในอนาคต
