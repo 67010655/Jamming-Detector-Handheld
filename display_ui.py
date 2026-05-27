@@ -379,6 +379,10 @@ class DisplayUI:
         draw.text((8, 3), "GNSS JAMMING DETECTOR", fill=white, font=self._f_title)
         # Subtitle row
         sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | UP Time: {up_str}"
+        if getattr(self.app, 'fixed_nf', False):
+            sub += " | [GUARD FIXED]"
+        elif getattr(self.app, 'baseline_guard_active', False):
+            sub += " | [GUARD LOCKED]"
         draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle_small)
 
         # State badge (right side of header) - Extra large for field visibility

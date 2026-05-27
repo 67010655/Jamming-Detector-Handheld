@@ -184,11 +184,9 @@ class GPSJammerHandheld:
             if current_floor > guard_threshold:
                 if not getattr(self, 'baseline_guard_active', False):
                     self.baseline_guard_active = True
-                    self.ui.show_toast("GUARD ACTIVE: BASELINE LOCKED", 2.0)
             else:
                 if getattr(self, 'baseline_guard_active', False) and current_floor < (self.calibrated_base_nf + 5.0):
                     self.baseline_guard_active = False
-                    self.ui.show_toast("GUARD INACTIVE: BASELINE UNLOCKED", 1.5)
 
         # Apply state override when baseline guard is active to trigger alarms immediately
         if getattr(self, 'baseline_guard_active', False):
