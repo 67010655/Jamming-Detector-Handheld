@@ -29,6 +29,8 @@ class DisplayUI:
         self._fps_display = 0
         self.view_mode = 0   # 0: Normal, 1: Search, 2: Analytics
         self._touch_zones = {}
+        self._zones_lock = threading.RLock()
+        self._touch_running = True
         self._touch_ok = False
         self._spi_lock = threading.Lock()
         self._last_pressed = None
@@ -478,7 +480,7 @@ class DisplayUI:
         btn_count = len(btns)
         btn_w = W // btn_count
         btn_h = H - foot_t
-        self._touch_zones = {}
+        _new_zones = {}
 
         for i, label in enumerate(btns):
             bx = i * btn_w
@@ -494,7 +496,7 @@ class DisplayUI:
                 ic = (0, 0, 0) if is_pressed else white
 
             draw.rectangle((bx + 2, foot_t + 3, bx + btn_w - 2, H - 3), fill=bg_c, outline=outline_c)
-            self._touch_zones[label] = (bx, foot_t, bx + btn_w, H)
+            _new_zones[label] = (bx, foot_t, bx + btn_w, H)
 
             # Draw button content (icons for PWR/GAIN, text for others)
             cx = bx + btn_w // 2
@@ -557,7 +559,7 @@ class DisplayUI:
             draw.rectangle((s_x1, btn_y_top, s_x2, btn_y_bot), fill=(180, 30, 30), outline=(255, 100, 100))
             sw, sh = self._get_text_size("SHUTDOWN", self._f_subtitle_small)
             draw.text(((s_x1 + s_x2 - sw)//2, (btn_y_top + btn_y_bot - sh)//2), "SHUTDOWN", fill=white, font=self._f_subtitle_small)
-            self._touch_zones["PWR_SHUT"] = (s_x1, btn_y_top, s_x2, btn_y_bot)
+            _new_zones["PWR_SHUT"] = (s_x1, btn_y_top, s_x2, btn_y_bot)
 
             # RESTART button (middle)
             r_x1 = cx - 45
@@ -565,7 +567,7 @@ class DisplayUI:
             draw.rectangle((r_x1, btn_y_top, r_x2, btn_y_bot), fill=(30, 80, 180), outline=(100, 150, 255))
             rw, rh = self._get_text_size("RESTART", self._f_subtitle_small)
             draw.text(((r_x1 + r_x2 - rw)//2, (btn_y_top + btn_y_bot - rh)//2), "RESTART", fill=white, font=self._f_subtitle_small)
-            self._touch_zones["PWR_REBOOT"] = (r_x1, btn_y_top, r_x2, btn_y_bot)
+            _new_zones["PWR_REBOOT"] = (r_x1, btn_y_top, r_x2, btn_y_bot)
 
             # CANCEL button (right)
             c_x1 = cx + 55
@@ -573,7 +575,7 @@ class DisplayUI:
             draw.rectangle((c_x1, btn_y_top, c_x2, btn_y_bot), fill=(40, 50, 60), outline=(150, 160, 170))
             cw, ch = self._get_text_size("CANCEL", self._f_subtitle_small)
             draw.text(((c_x1 + c_x2 - cw)//2, (btn_y_top + btn_y_bot - ch)//2), "CANCEL", fill=white, font=self._f_subtitle_small)
-            self._touch_zones["PWR_CANCEL"] = (c_x1, btn_y_top, c_x2, btn_y_bot)
+            _new_zones["PWR_CANCEL"] = (c_x1, btn_y_top, c_x2, btn_y_bot)
 
         # ═══ CALIB CHOICE DIALOG ═══
         if self._calib_confirm and now < self._calib_confirm_until:
@@ -596,7 +598,7 @@ class DisplayUI:
             txt1 = "1. AUTO NF (Dynamic)"
             tw1, th1 = self._get_text_size(txt1, self._f_btn)
             draw.text((ax1 + (ax2-ax1-tw1)//2, ay1 + (ay2-ay1-th1)//2), txt1, fill=white, font=self._f_btn)
-            self._touch_zones["CAL_AUTO"] = (ax1, ay1, ax2, ay2)
+            _new_zones["CAL_AUTO"] = (ax1, ay1, ax2, ay2)
 
             # FIXED button
             fx1, fy1 = cx - dlg_w//2 + 15, cy + btn_h_c
@@ -605,15 +607,11 @@ class DisplayUI:
             txt2 = "2. FIXED NF (Static)"
             tw2, th2 = self._get_text_size(txt2, self._f_btn)
             draw.text((fx1 + (fx2-fx1-tw2)//2, fy1 + (fy2-fy1-th2)//2), txt2, fill=white, font=self._f_btn)
-            self._touch_zones["CAL_FIXED"] = (fx1, fy1, fx2, fy2)
-        # ═══ CLEANUP UNUSED ZONES ═══
-        if not self._pwr_confirm or now >= self._pwr_confirm_until:
-            self._touch_zones.pop("PWR_SHUT", None)
-            self._touch_zones.pop("PWR_REBOOT", None)
-            self._touch_zones.pop("PWR_CANCEL", None)
-        if not self._calib_confirm or now >= self._calib_confirm_until:
-            self._touch_zones.pop("CAL_AUTO", None)
-            self._touch_zones.pop("CAL_FIXED", None)
+            _new_zones["CAL_FIXED"] = (fx1, fy1, fx2, fy2)
+
+        # ═══ ATOMIC ZONE UPDATE ═══
+        with self._zones_lock:
+            self._touch_zones = _new_zones
 
         # Output
         if self.preview:
@@ -830,7 +828,8 @@ class DisplayUI:
             GPIO.setup(self._T_CS_MANUAL, GPIO.OUT, initial=GPIO.HIGH)
             self._touch_ok = True
             threading.Thread(target=self._touch_worker, daemon=True).start()
-        except: pass
+        except Exception as e:
+            print(f"[TOUCH] Init failed: {e}")
 
     def _read_xpt2046(self, cmd):
         with self._spi_lock:
@@ -868,7 +867,7 @@ class DisplayUI:
 
     def _touch_worker(self):
         self._load_touch_calibration()
-        while True:
+        while self._touch_running:
             try:
                 x_raw, y_raw = self._read_xpt2046(0x94), self._read_xpt2046(0xD4)
                 if 50 < x_raw < 4050 and 50 < y_raw < 4050:
@@ -903,16 +902,19 @@ class DisplayUI:
                     self._handle_click(sx, sy)
                     time.sleep(0.3)
                 time.sleep(0.05)
-            except: time.sleep(1)
+            except Exception:
+                time.sleep(1)
 
     def _handle_click(self, x, y):
         now = time.time()
         self.app.buzzer.play_click()
+        with self._zones_lock:
+            zones = dict(self._touch_zones)
 
         # If PWR dialog is showing, only respond to buttons
         if self._pwr_confirm and now < self._pwr_confirm_until:
             for label in ["PWR_SHUT", "PWR_REBOOT", "PWR_CANCEL"]:
-                zone = self._touch_zones.get(label)
+                zone = zones.get(label)
                 if zone:
                     x1, y1, x2, y2 = zone
                     if x1 <= x <= x2 and y1 <= y <= y2:
@@ -931,7 +933,7 @@ class DisplayUI:
         # If CALIB dialog is showing
         if self._calib_confirm and now < self._calib_confirm_until:
             for label in ["CAL_AUTO", "CAL_FIXED"]:
-                zone = self._touch_zones.get(label)
+                zone = zones.get(label)
                 if zone:
                     x1, y1, x2, y2 = zone
                     if x1 <= x <= x2 and y1 <= y <= y2:
@@ -947,7 +949,7 @@ class DisplayUI:
             self._calib_confirm = False
             return
 
-        for label, (x1, y1, x2, y2) in self._touch_zones.items():
+        for label, (x1, y1, x2, y2) in zones.items():
             if x1 <= x <= x2 and y1 <= y <= y2:
                 self._last_pressed, self._pressed_until = label, now + 0.2
                 if label == "MODE":

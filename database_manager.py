@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime
 
-DB_NAME = "jamming_events.db"
+DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jamming_events.db")
 
 def init_db():
     """Initializes the database and creates the events table if it doesn't exist."""
@@ -43,7 +43,7 @@ def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         # Use local time with d/m/Y format
-        local_time = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+        local_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor.execute('''
             INSERT INTO events (timestamp, uptime_sec, state, score, peak_p, floor_rise, noise_floor, bearing_deg)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -81,8 +81,6 @@ def get_history(limit=50):
         print(f"[DATABASE] Error fetching history: {e}")
         return []
 
-import time
-
 def get_filtered_history(limit=5000):
     """Fetches history and applies heartbeat filtering for CSV (15s for Scanning, 1s for Events)."""
     try:
@@ -105,7 +103,7 @@ def get_filtered_history(limit=5000):
             elif state == 'SCANNING':
                 # Only keep SCANNING every 30 seconds
                 try:
-                    curr_ts = time.mktime(time.strptime(row['timestamp'], '%d/%m/%Y %H:%M:%S'))
+                    curr_ts = time.mktime(time.strptime(row['timestamp'], '%Y-%m-%d %H:%M:%S'))
                     if curr_ts - last_scanning_time >= 30:
                         filtered.append(dict(row))
                         last_scanning_time = curr_ts
@@ -138,5 +136,5 @@ def clear_db():
 if __name__ == "__main__":
     # Test initialization
     init_db()
-    log_event("TEST", 50, -20.5, 5.2)
+    log_event("TEST", 50, -20.5, 5.2, -89.9, 0, bearing_deg=0)
     print(get_history(1))

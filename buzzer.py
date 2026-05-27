@@ -25,6 +25,8 @@ class BuzzerController:
                 self.gpio.setwarnings(False)
                 self.gpio.setup(self.buzzer_pin, GPIO.OUT)
                 self.gpio.output(self.buzzer_pin, GPIO.LOW)
+                self.pwm = self.gpio.PWM(self.buzzer_pin, 1200)
+                self.pwm.start(0)
                 print(f"[BUZZER] GPIO initialized on pin {self.buzzer_pin}")
             except Exception as exc:
                 print(f"[BUZZER] Warning: GPIO unavailable: {exc}")
@@ -56,20 +58,14 @@ class BuzzerController:
             return
 
         try:
-            self.pwm = self.gpio.PWM(self.buzzer_pin, frequency_hz)
-            self.pwm.start(duty_cycle)
+            self.pwm.ChangeFrequency(frequency_hz)
+            self.pwm.ChangeDutyCycle(duty_cycle)
             time.sleep(duration_s)
         except Exception as exc:
             print(f"[BUZZER] Error during buzz: {exc}")
         finally:
-            if self.pwm is not None:
-                try:
-                    self.pwm.stop()
-                except Exception:
-                    pass
-                self.pwm = None
             try:
-                self.gpio.output(self.buzzer_pin, self.gpio.LOW)
+                self.pwm.ChangeDutyCycle(0)
             except Exception:
                 pass
 
@@ -110,9 +106,11 @@ class BuzzerController:
         """Clean up GPIO resources used by the buzzer."""
         self._running = False
         self._queue.put(None)  # Wake up thread to exit
-        
+
         if self.enabled and self.gpio is not None:
             try:
+                if self.pwm is not None:
+                    self.pwm.stop()
                 self.gpio.output(self.buzzer_pin, self.gpio.LOW)
                 self.gpio.cleanup()
                 print("[BUZZER] GPIO cleanup complete")

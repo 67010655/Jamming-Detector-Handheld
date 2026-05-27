@@ -1,4 +1,6 @@
 import sys
+import os
+import subprocess
 import time
 import numpy as np
 
@@ -43,7 +45,7 @@ class GPSJammerHandheld:
 
         self.noise_floor = None
         self.fixed_nf = False  # If True, noise floor doesn't update dynamically
-        self.calibrated_base_nf = -89.9  # Chamber baseline default
+        self.calibrated_base_nf = config.DEFAULT_NOISE_FLOOR_DB  # Chamber baseline default
         self.baseline_guard_active = False  # Auto-locking baseline guard
         self.jam_hits = 0
         self.clear_hits = 0
@@ -51,6 +53,7 @@ class GPSJammerHandheld:
         self.current_state = "SCANNING"
         self.request_calibration = False
         self.shutdown_requested = False
+        self.reboot_requested = False
 
         self.device = None
         self.sdr = None
@@ -87,8 +90,8 @@ class GPSJammerHandheld:
             self.buzzer = BuzzerController(enabled=True)
             time.sleep(0.8)
         else:
-            self.noise_floor = -89.9
-            self.calibrated_base_nf = -89.9
+            self.noise_floor = config.DEFAULT_NOISE_FLOOR_DB
+            self.calibrated_base_nf = config.DEFAULT_NOISE_FLOOR_DB
             self.baseline_guard_active = False
             self.led = LEDController(enabled=False)
             self.buzzer = BuzzerController(enabled=False)
@@ -146,7 +149,7 @@ class GPSJammerHandheld:
 
     def _detect_jamming(self, power):
         if self.fixed_nf:
-            self.noise_floor = -89.9
+            self.noise_floor = config.DEFAULT_NOISE_FLOOR_DB
             
         avg_p = float(np.mean(power))
         peak_p = float(np.max(power))
@@ -203,7 +206,7 @@ class GPSJammerHandheld:
             # In JAMMING or locked guard state, we do not update noise_floor at all to preserve the baseline
         else:
             # Fixed mode: optimal chamber baseline forced
-            self.noise_floor = -89.9
+            self.noise_floor = config.DEFAULT_NOISE_FLOOR_DB
         
         self.current_state = state
         self.led.set_state(state)
@@ -259,7 +262,6 @@ class GPSJammerHandheld:
                 metrics = self._detect_jamming(power)
                 if not self.preview:
                     try:
-                        import sys
                         if sys.platform == "win32":
                             import msvcrt
                             if msvcrt.kbhit():
@@ -306,18 +308,18 @@ class GPSJammerHandheld:
                                     pass
                     except Exception:
                         pass
-                if getattr(self, 'request_calibration', False):
+                if self.request_calibration:
                     # Force a draw first so the "CALIBRATING..." toast is visible
                     self.ui.draw_ui(metrics, power)
                     self._calibrate()
                     self.request_calibration = False
                     self.ui.show_toast("CALIBRATION DONE!", 1.5)
 
-                if getattr(self, 'shutdown_requested', False):
+                if self.shutdown_requested:
                     self.safe_power_off()
                     break
 
-                if getattr(self, 'reboot_requested', False):
+                if self.reboot_requested:
                     self.safe_reboot()
                     break
 
@@ -443,9 +445,6 @@ class GPSJammerHandheld:
 
         # Attempt to power off the system. Try multiple safe methods and
         # then force-exit the process if none succeed so we don't hang.
-        import os
-        import subprocess
-
         if sys.platform != "win32" and not self.preview:
             tried = []
             try_cmds = [
@@ -470,6 +469,8 @@ class GPSJammerHandheld:
                                 lf.write(f"STDOUT:\n{res.stdout}\n")
                             if res.stderr:
                                 lf.write(f"STDERR:\n{res.stderr}\n")
+                            if res.returncode == 0:
+                                break
                         except Exception as e:
                             lf.write(f"Exception: {e}\n")
 
@@ -498,10 +499,7 @@ class GPSJammerHandheld:
         
         # Stop background threads and release SDR/LED/Buzzer hardware resources cleanly
         self.shutdown()
-        
-        import os
-        import sys
-        
+
         if not self.preview:
             try:
                 print("[SYSTEM] Replacing process image now...")

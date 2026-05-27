@@ -20,6 +20,8 @@ WARN_FLOOR = 8.0
 WARN_PEAK = 24.0
 
 DC_BINS = 10
+
+DEFAULT_NOISE_FLOOR_DB = -89.9  # Chamber baseline / fallback when no calibration data
 HIT_FRAMES = 3
 CLEAR_FRAMES = 10
 

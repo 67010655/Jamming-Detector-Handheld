@@ -275,7 +275,7 @@ function wfColor(dbfs) {
     else if (t < 0.65) c = lerpColor([0, 180, 120],  [220, 200, 0],  (t - 0.4) / 0.25);
     else if (t < 0.85) c = lerpColor([220, 200, 0],  [240, 80, 20],  (t - 0.65) / 0.2);
     else                c = lerpColor([240, 80, 20],  [255, 255, 255],(t - 0.85) / 0.15);
-    return `rgb(${c[0]},${c[1]},${c[2]})`;
+    return c; // returns [r, g, b] array for ImageData use
 }
 
 function drawWaterfall() {
@@ -284,21 +284,37 @@ function drawWaterfall() {
     const w = waterfallCanvas.width, h = waterfallCanvas.height;
     if (w === 0 || h === 0) return;
 
-    ctx.clearRect(0, 0, w, h);
-    const rowH = Math.max(1, h / WATERFALL_ROWS);
+    // Use ImageData for pixel-level rendering — 10-50x faster than fillRect per cell
+    const imgData = ctx.createImageData(w, h);
+    const pixels = imgData.data;
     const rows = waterfallData.length;
+    const rowH = h / WATERFALL_ROWS;
 
     for (let r = 0; r < rows; r++) {
         const spectrum = waterfallData[r];
         const cols = spectrum.length;
-        const colW = w / cols;
-        const y = r * rowH;
-        
+        const yStart = Math.round(r * rowH);
+        const yEnd = Math.round((r + 1) * rowH);
+
         for (let c = 0; c < cols; c++) {
-            ctx.fillStyle = wfColor(spectrum[c]);
-            ctx.fillRect(c * colW, y, Math.ceil(colW), Math.ceil(rowH));
+            const rgb = wfColor(spectrum[c]);
+            const xStart = Math.round(c * w / cols);
+            const xEnd = Math.round((c + 1) * w / cols);
+
+            // Fill the rectangle directly in the pixel buffer
+            for (let py = yStart; py < yEnd && py < h; py++) {
+                for (let px = xStart; px < xEnd && px < w; px++) {
+                    const idx = (py * w + px) * 4;
+                    pixels[idx]     = rgb[0];
+                    pixels[idx + 1] = rgb[1];
+                    pixels[idx + 2] = rgb[2];
+                    pixels[idx + 3] = 255;
+                }
+            }
         }
     }
+
+    ctx.putImageData(imgData, 0, 0);
 }
 
 // ═══ SESSION STATS ═══
@@ -426,6 +442,10 @@ async function fetchHistory() {
     } catch (e) { console.error('History fetch error:', e); }
 }
 
+function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function renderLogs() {
     const tbody = $id('log-body');
     if (!tbody) return;
@@ -434,7 +454,10 @@ function renderLogs() {
     let html = '';
     filtered.forEach(row => {
         const ts = row.timestamp || '';
-        const time = ts.includes(' ') ? ts.split(' ')[1] : ts;
+        const time = escHtml(ts.includes(' ') ? ts.split(' ')[1] : ts);
+        const state = escHtml(row.state || '');
+        const score = escHtml(row.score ?? '—');
+        const bearing = escHtml(row.bearing_deg || 0);
         const nf = typeof row.noise_floor === 'number' ? row.noise_floor.toFixed(1) : '—';
         const peak = typeof row.peak_p === 'number' ? row.peak_p.toFixed(1) : '—';
         const rise = typeof row.floor_rise === 'number' ? ((row.floor_rise >= 0 ? '+' : '') + row.floor_rise.toFixed(1)) : '—';
@@ -443,9 +466,9 @@ function renderLogs() {
             : '—';
         html += `<tr>
             <td>${time}</td>
-            <td><span class="state-pill" data-state="${row.state}">${row.state}</span></td>
-            <td>${row.score}</td>
-            <td>${row.bearing_deg || 0}°</td>
+            <td><span class="state-pill" data-state="${state}">${state}</span></td>
+            <td>${score}</td>
+            <td>${bearing}°</td>
             <td>${peak}</td>
             <td>${rise}</td>
             <td>${nf}</td>

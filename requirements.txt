@@ -4,6 +4,7 @@ pyrtlsdr
 luma.core
 luma.lcd
 flask
+waitress
 RPi.GPIO
 spidev
 
