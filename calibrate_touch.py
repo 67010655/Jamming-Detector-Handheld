@@ -13,9 +13,14 @@ except ImportError:
     GPIO = None
 
 from PIL import Image, ImageDraw, ImageFont
+import config
+
+# XPT2046 touch-controller SPI command bytes (single-ended, 12-bit)
+_XPT2046_CMD_X = 0xD4   # channel 5 — X position (datasheet convention)
+_XPT2046_CMD_Y = 0x94   # channel 1 — Y position (datasheet convention)
 
 # Screen Dimensions
-W, H = 480, 320
+W, H = config.WIDTH, config.HEIGHT
 
 class TouchCalibrator:
     def __init__(self):
@@ -33,7 +38,7 @@ class TouchCalibrator:
             from luma.core.interface.serial import spi
             from luma.lcd.device import ili9488
             # Same SPI setup as display_ui.py
-            serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25, bus_speed_hz=24000000)
+            serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25, bus_speed_hz=config.SPI_CLOCK_HZ)
             self.device = ili9488(serial, width=W, height=H, rotate=0)
             self._img = Image.new("RGB", (W, H), "black")
             self._draw = ImageDraw.Draw(self._img)
@@ -88,8 +93,8 @@ class TouchCalibrator:
         xs, ys = [], []
         start = time.time()
         while len(xs) < samples_count:
-            x_raw = self._read_xpt2046(0x94)
-            y_raw = self._read_xpt2046(0xD4)
+            x_raw = self._read_xpt2046(_XPT2046_CMD_Y)
+            y_raw = self._read_xpt2046(_XPT2046_CMD_X)
             
             # XPT2046 active range checks
             if 50 < x_raw < 4050 and 50 < y_raw < 4050:

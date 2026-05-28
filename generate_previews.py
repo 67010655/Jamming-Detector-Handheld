@@ -22,8 +22,12 @@ def generate_screenshots():
     power = compute_power(samples, app._window)
     power = remove_dc_spike(power)
     
-    # Force state to JAMMING for dramatic preview rendering
+    # Snapshot mutable state so _detect_jamming cannot leak side-effects between renders
+    _snap = (app.noise_floor, app.jammer_active, app.current_state, app.jam_hits, app.clear_hits)
     metrics = app._detect_jamming(power)
+    app.noise_floor, app.jammer_active, app.current_state, app.jam_hits, app.clear_hits = _snap
+
+    # Force state to JAMMING for dramatic preview rendering
     app.jammer_active = True
     app.current_state = "JAMMING"
     metrics["state"] = "JAMMING"

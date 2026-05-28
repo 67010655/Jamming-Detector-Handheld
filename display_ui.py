@@ -9,6 +9,11 @@ except ImportError:
     GPIO = None
 from PIL import Image, ImageDraw, ImageFont
 from dsp import scale_points
+import config
+
+# XPT2046 touch-controller SPI command bytes (single-ended, 12-bit)
+_XPT2046_CMD_X = 0xD4   # channel 5 — X position (datasheet convention)
+_XPT2046_CMD_Y = 0x94   # channel 1 — Y position (datasheet convention)
 
 
 class DisplayUI:
@@ -61,7 +66,7 @@ class DisplayUI:
         from luma.core.interface.serial import spi
         from luma.lcd.device import ili9488
         serial = spi(port=0, device=0, gpio_DC=24, gpio_RST=25,
-                     bus_speed_hz=24000000) # 24MHz SPI clock
+                     bus_speed_hz=config.SPI_CLOCK_HZ)
         self.app.device = ili9488(serial, width=self.app.w,
                                   height=self.app.h, rotate=0)
 
@@ -869,7 +874,7 @@ class DisplayUI:
         self._load_touch_calibration()
         while self._touch_running:
             try:
-                x_raw, y_raw = self._read_xpt2046(0x94), self._read_xpt2046(0xD4)
+                x_raw, y_raw = self._read_xpt2046(_XPT2046_CMD_Y), self._read_xpt2046(_XPT2046_CMD_X)
                 if 50 < x_raw < 4050 and 50 < y_raw < 4050:
                     params = self._calib_params
                     x_min, x_max = params["X_MIN"], params["X_MAX"]
@@ -888,16 +893,16 @@ class DisplayUI:
                     dx = x_max - x_min if x_max != x_min else 1
                     dy = y_max - y_min if y_max != y_min else 1
 
-                    sx = (x_raw - x_min) * 480.0 / dx
-                    sy = (y_raw - y_min) * 320.0 / dy
+                    sx = (x_raw - x_min) * float(config.WIDTH) / dx
+                    sy = (y_raw - y_min) * float(config.HEIGHT) / dy
 
                     if invert_x:
-                        sx = 479.0 - sx
+                        sx = float(config.WIDTH - 1) - sx
                     if invert_y:
-                        sy = 319.0 - sy
+                        sy = float(config.HEIGHT - 1) - sy
 
-                    sx = int(np.clip(sx, 0, 479))
-                    sy = int(np.clip(sy, 0, 319))
+                    sx = int(np.clip(sx, 0, config.WIDTH - 1))
+                    sy = int(np.clip(sy, 0, config.HEIGHT - 1))
 
                     self._handle_click(sx, sy)
                     time.sleep(0.3)

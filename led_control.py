@@ -95,4 +95,4 @@ class LEDController:
         for state in states:
             self.set_state(state)
             time.sleep(0.5)
-        self.set_state("SCANNING")
+        self.set_state("SCANNING")

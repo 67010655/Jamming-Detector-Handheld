@@ -121,6 +121,7 @@ flowchart TD
 | **RTL-SDR V3**           | RTL2832U, 500 kHz – 1766 MHz               | RF receiver            |
 | **ILI9488 LCD**          | 3.5" TFT SPI 480×320 + XPT2046 touch       | Field UI               |
 | **MPU6050**              | 6-DoF IMU (I2C `0x69` with AD0)            | Polar radar / heading  |
+| **MPU9250**              | 9-DoF IMU: 3-axis gyro + accel + magnetometer (I2C) | True compass heading (planned) |
 | **DS3231**               | I2C RTC (`0x68`)                           | Offline timestamp sync |
 | **LX-28UPS**             | 2×18650 UPS / 5 V boost                    | Portable power         |
 | **GNSS L1 antenna**      | ~1575.42 MHz directional                   | Signal capture         |
@@ -215,8 +216,6 @@ Access the dashboard from a phone or laptop connected to the hotspot (default ho
 - [x] On-the-fly RF gain control via touch UI
 - [x] GUNJAM LCD splash & กันแจม web branding
 - [x] Day / night web theme & performance tuning
-- [ ] GPS module — plot jamming locations on a map
-- [ ] Offline map tiles for remote field use
 
 ---
 
