@@ -47,7 +47,7 @@ class DisplayUI:
 
     # ── text size helper ────────────────────────────────────────────
     def _get_text_size(self, text, font):
-        draw = self.app._draw
+        draw = self._draw
         if hasattr(draw, "textbbox"):
             l, t, r, b = draw.textbbox((0, 0), text, font=font)
             return r - l, b - t
@@ -66,8 +66,8 @@ class DisplayUI:
                                   height=self.app.h, rotate=0)
 
     def _init_drawing(self):
-        self.app._img = Image.new("RGB", (self.app.w, self.app.h), "black")
-        self.app._draw = ImageDraw.Draw(self.app._img)
+        self._img = Image.new("RGB", (self.app.w, self.app.h), "black")
+        self._draw = ImageDraw.Draw(self._img)
         self._load_fonts()
 
     # ── fonts ───────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ class DisplayUI:
     # ════════════════════════════════════════════════════════════════
     def draw_splash(self, message="BOOTING...", progress=None):
         import os
-        draw = self.app._draw
+        draw = self._draw
         W, H = self.app.w, self.app.h
         
         # Background
@@ -254,9 +254,9 @@ class DisplayUI:
             for logo in loaded_logos:
                 if logo.mode in ('RGBA', 'LA') or (logo.mode == 'P' and 'transparency' in logo.info):
                     mask = logo.convert('RGBA')
-                    self.app._img.paste(logo, (cur_x, logo_y), mask)
+                    self._img.paste(logo, (cur_x, logo_y), mask)
                 else:
-                    self.app._img.paste(logo, (cur_x, logo_y))
+                    self._img.paste(logo, (cur_x, logo_y))
                 cur_x += logo.size[0] + spacing
 
         # --- Title block below logos (proportional vertical rhythm) ---
@@ -308,16 +308,16 @@ class DisplayUI:
             draw.text(((W - mw) // 2, 210), message, fill=msg_color, font=self._f_state_big)
         
         if self.preview:
-            self.app._img.save("preview.png")
+            self._img.save("preview.png")
         else:
             with self._spi_lock:
-                self.app.device.display(self.app._img)
+                self.app.device.display(self._img)
 
     # ════════════════════════════════════════════════════════════════
     #                   MAIN DRAW ENTRY POINT
     # ════════════════════════════════════════════════════════════════
     def draw_ui(self, metrics, power):
-        draw = self.app._draw
+        draw = self._draw
         W, H = self.app.w, self.app.h  # 480 × 320
 
         # FPS
@@ -615,10 +615,10 @@ class DisplayUI:
 
         # Output
         if self.preview:
-            self.app._img.save("preview.png")
+            self._img.save("preview.png")
         else:
             with self._spi_lock:
-                self.app.device.display(self.app._img)
+                self.app.device.display(self._img)
 
     def _draw_spectrum(self, draw, l, t, r, b, metrics, power, accent, grid, nf, peak, small=False):
         # Draw background and grid first
@@ -841,7 +841,7 @@ class DisplayUI:
     def _load_touch_calibration(self):
         import os
         import json
-        self._calib_path = "touch_calibration.json"
+        self._calib_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "touch_calibration.json")
         
         # Default calibration parameters for XPT2046
         self._calib_params = {
@@ -920,9 +920,9 @@ class DisplayUI:
                     if x1 <= x <= x2 and y1 <= y <= y2:
                         self._pwr_confirm = False
                         if label == "PWR_SHUT":
-                            self.app.shutdown_requested = True
+                            self.app.shutdown_requested.set()
                         elif label == "PWR_REBOOT":
-                            self.app.reboot_requested = True
+                            self.app.reboot_requested.set()
                         else:
                             self.show_toast("CANCELLED", 1.0)
                         return
@@ -944,7 +944,7 @@ class DisplayUI:
                         else:
                             self.app.fixed_nf = True
                             self.show_toast("CALIB: FIXED MODE", 1.5)
-                        self.app.request_calibration = True
+                        self.app.request_calibration.set()
                         return
             self._calib_confirm = False
             return

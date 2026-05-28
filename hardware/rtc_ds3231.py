@@ -62,6 +62,9 @@ class DS3231:
         """
         Sets the RTC time. Year should be last 2 digits (e.g. 24 for 2024)
         """
+        if self.bus is None:
+            print("[RTC] set_datetime() skipped — no I2C bus available")
+            return
         data = [
             self.int_to_bcd(second),
             self.int_to_bcd(minute),

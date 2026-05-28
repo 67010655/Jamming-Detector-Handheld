@@ -90,11 +90,16 @@ class MPU6050:
         
         if valid_count > 10:
             self.gyro_z_offset = sum_z / valid_count
+            self._init_success = True
             print(f"Calibration done. Offset: {self.gyro_z_offset:.2f} (from {valid_count} samples)")
         else:
-            print("[IMU] Calibration FAILED. Check wiring.")
+            self._init_success = False
+            print("[IMU] Calibration FAILED — too few valid I2C reads. Check wiring. Bearing integration disabled.")
 
     def update_bearing(self):
+        if not self._init_success:
+            return self.bearing  # Calibration failed — skip integration to avoid drift
+
         current_time = time.time()
         dt = current_time - self.last_time
         self.last_time = current_time

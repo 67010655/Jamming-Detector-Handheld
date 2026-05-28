@@ -533,8 +533,11 @@ window.addEventListener('resize', () => {
 const particleCanvas = document.getElementById('particleCanvas');
 const pCtx = particleCanvas ? particleCanvas.getContext('2d') : null;
 let particles = [];
-const PARTICLE_COUNT = 65;
+// Reduce particle count on mobile/touch devices for extreme smoothness
+const isMobile = typeof navigator !== 'undefined' && (navigator.maxTouchPoints > 0 || /Mobi|Android/i.test(navigator.userAgent));
+const PARTICLE_COUNT = isMobile ? 25 : 65;
 const CONNECTION_DIST = 160;
+const CONNECTION_DIST_SQ = CONNECTION_DIST * CONNECTION_DIST;
 
 function resizeParticles() {
     if (!particleCanvas) return;
@@ -600,12 +603,18 @@ function animateParticles() {
         pCtx.fillStyle = `rgba(${r},${g},${b},${glow})`;
         pCtx.fill();
 
-        // Draw connections to nearby particles
+        // Draw connections to nearby particles with high-performance early-outs
         for (let j = i + 1; j < particles.length; j++) {
             const q = particles[j];
-            const dx = p.x - q.x, dy = p.y - q.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < CONNECTION_DIST) {
+            const dx = p.x - q.x;
+            if (Math.abs(dx) >= CONNECTION_DIST) continue;
+
+            const dy = p.y - q.y;
+            if (Math.abs(dy) >= CONNECTION_DIST) continue;
+
+            const distSq = dx * dx + dy * dy;
+            if (distSq < CONNECTION_DIST_SQ) {
+                const dist = Math.sqrt(distSq);
                 const lineAlpha = (1 - dist / CONNECTION_DIST) * 0.2;
                 pCtx.beginPath();
                 pCtx.moveTo(p.x, p.y);

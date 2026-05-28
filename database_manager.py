@@ -5,9 +5,16 @@ from datetime import datetime
 
 DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jamming_events.db")
 
+def _get_connection():
+    """Open a SQLite connection with WAL mode for concurrent read/write safety."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
+
 def init_db():
     """Initializes the database and creates the events table if it doesn't exist."""
-    conn = sqlite3.connect(DB_NAME)
+    conn = _get_connection()
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS events (
@@ -40,9 +47,9 @@ def init_db():
 def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing_deg=0):
     """Records a detection event into the database and prunes old records."""
     try:
-        conn = sqlite3.connect(DB_NAME)
+        conn = _get_connection()
         cursor = conn.cursor()
-        # Use local time with d/m/Y format
+        # Use local time with ISO 8601 format
         local_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor.execute('''
             INSERT INTO events (timestamp, uptime_sec, state, score, peak_p, floor_rise, noise_floor, bearing_deg)
@@ -65,7 +72,7 @@ def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing
 def get_history(limit=50):
     """Fetches the most recent events from the database (all states)."""
     try:
-        conn = sqlite3.connect(DB_NAME)
+        conn = _get_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM events ORDER BY id DESC LIMIT ?', (limit,))
@@ -84,7 +91,7 @@ def get_history(limit=50):
 def get_filtered_history(limit=5000):
     """Fetches history and applies heartbeat filtering for CSV (15s for Scanning, 1s for Events)."""
     try:
-        conn = sqlite3.connect(DB_NAME)
+        conn = _get_connection()
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         # Fetch all candidate rows (oldest first for chronological filtering)
@@ -120,7 +127,7 @@ def get_filtered_history(limit=5000):
 def clear_db():
     """Deletes all records from the events table."""
     try:
-        conn = sqlite3.connect(DB_NAME)
+        conn = _get_connection()
         cursor = conn.cursor()
         cursor.execute('DELETE FROM events')
         # Reset AUTOINCREMENT counter

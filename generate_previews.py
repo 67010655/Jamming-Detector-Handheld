@@ -23,8 +23,9 @@ def generate_screenshots():
     power = remove_dc_spike(power)
     
     # Force state to JAMMING for dramatic preview rendering
-    app.jammer_active = True
     metrics = app._detect_jamming(power)
+    app.jammer_active = True
+    app.current_state = "JAMMING"
     metrics["state"] = "JAMMING"
     metrics["score"] = 92
     metrics["peak_p"] = -35.2

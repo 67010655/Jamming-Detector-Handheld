@@ -25,6 +25,13 @@ DEFAULT_NOISE_FLOOR_DB = -89.9  # Chamber baseline / fallback when no calibratio
 HIT_FRAMES = 3
 CLEAR_FRAMES = 10
 
+# ── Baseline Guard Thresholds ──────────────────────────────────────────
+GUARD_HIGH_THRESHOLD = 8.0     # dB above calibrated_base_nf → lock baseline
+GUARD_RELEASE_THRESHOLD = 5.0  # dB above calibrated_base_nf → release lock
+
+# ── Hardware Comms ─────────────────────────────────────────────────────
+SPI_CLOCK_HZ = 24_000_000      # ILI9488 SPI bus speed (24 MHz)
+
 # ── IMU (MPU6050) Orientation Setup ──────────────────────────────────
 IMU_ADDRESS = 0x69      # I2C Address (default is 0x69, on some boards it is 0x68)
 IMU_GYRO_AXIS = 'X'     # Axis to measure horizontal rotation: 'X', 'Y', or 'Z'

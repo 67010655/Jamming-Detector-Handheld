@@ -72,7 +72,7 @@ def check_auth():
         return
     if not request.path.startswith('/api/'):
         return
-    token = request.headers.get('X-API-Token') or request.args.get('token', '')
+    token = request.headers.get('X-API-Token', '')
     if token != API_TOKEN:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -132,9 +132,20 @@ def export_csv():
 
     return Response(generate(), mimetype='text/csv', headers={"Content-disposition": "attachment; filename=jamming_history.csv"})
 
+_last_clear_time = 0
+_CLEAR_RATE_LIMIT_S = 60  # Minimum seconds between database clears
+
 @app.route('/api/clear', methods=['POST'])
 def clear_history():
+    global _last_clear_time
+    now = time.time()
+    if now - _last_clear_time < _CLEAR_RATE_LIMIT_S:
+        remaining = int(_CLEAR_RATE_LIMIT_S - (now - _last_clear_time))
+        return jsonify({"success": False, "error": f"Rate limited. Try again in {remaining}s."}), 429
     success = database_manager.clear_db()
+    if success:
+        _last_clear_time = now
+        print(f"[WEB] Database cleared by {request.remote_addr} at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     return jsonify({"success": success})
 
 def start_server(port=8080):

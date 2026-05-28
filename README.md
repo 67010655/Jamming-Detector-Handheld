@@ -200,6 +200,10 @@ flowchart TD
 3. **Hardware:** Wire per `HARDWARE_WIRING.md`; enable SPI / I2C; calibrate touch with `calibrate_touch.py` if needed.
 4. **Hotspot:** Configure auto-start Wi‑Fi AP (e.g. `nmcli`) so clients reach the dashboard.
 5. **Service:** Enable a `systemd` unit (e.g. `jamming.service`) running `main.py` on boot.
+6. **Sudo Privileges for Shutdown/Reboot:** To allow the touch screen's shutdown/reboot controls to function without prompting for a password, add a passwordless sudo rule. Run `sudo visudo /etc/sudoers.d/gunjam` and add the following line (replace `pi` with your user name):
+   ```text
+   pi ALL=(ALL) NOPASSWD: /sbin/poweroff, /usr/bin/systemctl poweroff, /sbin/shutdown, /sbin/reboot, /usr/bin/systemctl reboot
+   ```
 
 Access the dashboard from a phone or laptop connected to the hotspot (default host depends on your AP / `web_server.py` bind address).
 

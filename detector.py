@@ -2,6 +2,7 @@ import sys
 import os
 import subprocess
 import time
+import threading
 import numpy as np
 
 import config
@@ -17,12 +18,17 @@ class GPSJammerHandheld:
     def __init__(self, preview=False):
         self.preview = preview
         self.running = False
-        self.w = 480
-        self.h = 320
+        self.w = config.WIDTH
+        self.h = config.HEIGHT
+
+        self.device = None
+        self.sdr = None
+        self.imu = None
+        self.current_bearing = 0.0
 
         self.sample_count = 8192
         self._window = np.hanning(self.sample_count).astype(np.float32)
-        self.center_freq_hz = 1575.42e6
+        self.center_freq_hz = config.CENTER_FREQ
         self.sample_rate_hz = config.SAMPLE_RATE
         self.gain_db = config.GAIN
 
@@ -51,14 +57,9 @@ class GPSJammerHandheld:
         self.clear_hits = 0
         self.jammer_active = False
         self.current_state = "SCANNING"
-        self.request_calibration = False
-        self.shutdown_requested = False
-        self.reboot_requested = False
-
-        self.device = None
-        self.sdr = None
-        self.imu = None
-        self.current_bearing = 0.0
+        self.request_calibration = threading.Event()  # Set from touch thread
+        self.shutdown_requested = threading.Event()    # Set from touch thread
+        self.reboot_requested = threading.Event()      # Set from touch thread
 
         # Initialize UI first to show splash screens with dynamic progress
         self.ui = DisplayUI(self, preview=self.preview)
@@ -183,22 +184,22 @@ class GPSJammerHandheld:
         # Smart self-learning guard: if the current floor is extremely high compared to the calibrated base,
         # we freeze dynamic update to prevent the jammer from dragging up the baseline and blinding us.
         if not self.fixed_nf:
-            guard_threshold = self.calibrated_base_nf + 8.0
+            guard_threshold = self.calibrated_base_nf + config.GUARD_HIGH_THRESHOLD
             if current_floor > guard_threshold:
-                if not getattr(self, 'baseline_guard_active', False):
+                if not self.baseline_guard_active:
                     self.baseline_guard_active = True
             else:
-                if getattr(self, 'baseline_guard_active', False) and current_floor < (self.calibrated_base_nf + 5.0):
+                if self.baseline_guard_active and current_floor < (self.calibrated_base_nf + config.GUARD_RELEASE_THRESHOLD):
                     self.baseline_guard_active = False
 
         # Apply state override when baseline guard is active to trigger alarms immediately
-        if getattr(self, 'baseline_guard_active', False):
+        if self.baseline_guard_active:
             self.jammer_active = True
             state = "JAMMING"
 
         # Update noise floor carefully based on state to prevent jammer from dragging the baseline
         if not self.fixed_nf:
-            if not getattr(self, 'baseline_guard_active', False):
+            if not self.baseline_guard_active:
                 if state == "SCANNING":
                     self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_idle)
                 elif state == "WATCH":
@@ -237,6 +238,29 @@ class GPSJammerHandheld:
             "margin": margin
         }
     
+    def _dispatch_command(self, line, metrics):
+        line = line.strip().lower()
+        if not line:
+            return
+        if line == 'v':
+            self.ui.toggle_view_mode()
+        elif line == 'm':
+            self.toggle_mute()
+        elif line == 'c':
+            self.recalibrate()
+        elif line == 's':
+            self.manual_capture()
+        elif line == 'g':
+            self.adjust_gain(2.0)
+        elif line == 'h':
+            self.adjust_gain(-2.0)
+        else:
+            try:
+                angle = int(line)
+                self.ui.record_bearing(angle, metrics["peak_p"], self.current_state)
+            except ValueError:
+                pass
+    
     def run(self):
         print("[ACTIVE] Monitoring GPS L1...")
         self.running = True
@@ -266,60 +290,32 @@ class GPSJammerHandheld:
                             import msvcrt
                             if msvcrt.kbhit():
                                 try:
-                                    line = sys.stdin.readline().strip().lower()
-                                    if line == 'v':
-                                        self.ui.toggle_view_mode()
-                                    elif line == 'm':
-                                        self.toggle_mute()
-                                    elif line == 'c':
-                                        self.recalibrate()
-                                    elif line == 's':
-                                        self.manual_capture()
-                                    elif line == 'g':
-                                        self.adjust_gain(2.0)
-                                    elif line == 'h':
-                                        self.adjust_gain(-2.0)
-                                    else:
-                                        angle = int(line)
-                                        self.ui.record_bearing(angle, metrics["peak_p"], self.current_state)
+                                    line = sys.stdin.readline()
+                                    self._dispatch_command(line, metrics)
                                 except Exception:
                                     pass
                         else:
                             import select
                             if select.select([sys.stdin], [], [], 0)[0]:
                                 try:
-                                    line = input().strip().lower()
-                                    if line == 'v':
-                                        self.ui.toggle_view_mode()
-                                    elif line == 'm':
-                                        self.toggle_mute()
-                                    elif line == 'c':
-                                        self.recalibrate()
-                                    elif line == 's':
-                                        self.manual_capture()
-                                    elif line == 'g':
-                                        self.adjust_gain(2.0)
-                                    elif line == 'h':
-                                        self.adjust_gain(-2.0)
-                                    else:
-                                        angle = int(line)
-                                        self.ui.record_bearing(angle, metrics["peak_p"], self.current_state)
+                                    line = sys.stdin.readline()
+                                    self._dispatch_command(line, metrics)
                                 except Exception:
                                     pass
                     except Exception:
                         pass
-                if self.request_calibration:
+                if self.request_calibration.is_set():
                     # Force a draw first so the "CALIBRATING..." toast is visible
                     self.ui.draw_ui(metrics, power)
                     self._calibrate()
-                    self.request_calibration = False
+                    self.request_calibration.clear()
                     self.ui.show_toast("CALIBRATION DONE!", 1.5)
 
-                if self.shutdown_requested:
+                if self.shutdown_requested.is_set():
                     self.safe_power_off()
                     break
 
-                if self.reboot_requested:
+                if self.reboot_requested.is_set():
                     self.safe_reboot()
                     break
 
