@@ -144,6 +144,13 @@ body {
     transition: all 0.3s var(--ease);
 }
 .theme-toggle:hover { background: var(--bg-hover); color: var(--accent); border-color: var(--accent); }
+.theme-toggle:focus-visible,
+.filter-tab:focus-visible,
+.btn:focus-visible,
+.github-link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
 .theme-toggle svg { width: 18px; height: 18px; }
 [data-theme="dark"] .icon-sun { display: block; }
 [data-theme="dark"] .icon-moon { display: none; }
@@ -323,6 +330,7 @@ tr:nth-child(even) td { background: var(--table-row-alt); }
 .scanline-overlay {
     position: fixed; inset: 0; z-index: 9999;
     pointer-events: none;
+    opacity: 0.55;
     background: repeating-linear-gradient(
         0deg,
         transparent,
@@ -474,6 +482,22 @@ tr:nth-child(even) td { background: var(--table-row-alt); }
 @keyframes ring-pulse {
     0%, 100% { opacity: 0; transform: scale(0.95); }
     50% { opacity: 0.15; transform: scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+    }
+
+    .particle-bg,
+    .scanline-overlay {
+        display: none;
+    }
 }
 
 /* ═══ FOOTER ═══ */

@@ -26,16 +26,16 @@ class GPSJammerHandheld:
         self.imu = None
         self.current_bearing = 0.0
 
-        self.sample_count = 8192
+        self.sample_count = config.SAMPLE_COUNT
         self._window = np.hanning(self.sample_count).astype(np.float32)
         self.center_freq_hz = config.CENTER_FREQ
         self.sample_rate_hz = config.SAMPLE_RATE
         self.gain_db = config.GAIN
 
-        self.target_fps = 10
+        self.target_fps = config.FPS
 
-        self.alpha_idle = 0.97
-        self.alpha_alert = 0.998
+        self.alpha_idle = config.ALPHA_IDLE
+        self.alpha_alert = config.ALPHA_ALERT
 
         self.floor_rise_threshold_db = config.FLOOR_RISE_THRESHOLD
         self.peak_threshold_db = config.PEAK_THRESHOLD

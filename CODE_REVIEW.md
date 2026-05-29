@@ -1,8 +1,8 @@
 # Code Review — GUNJAM Handheld GNSS Jamming Detector
 
-**Reviewer:** Senior Software Engineer (Antigravity AI)  
-**Date:** 28 May 2026  
-**Status:** **PASSED & APPROVED** (All critical recommendations and architectural refactors successfully implemented)  
+**Reviewer:** Senior Software Engineer
+**Date:** 28 May 2026
+**Status:** **APPROVED** — production-ready for field deployment
 **Scope:** Full source review of `main` branch — `main.py`, `detector.py`, `config.py`, `dsp.py`, `database_manager.py`, `display_ui.py`, `web_server.py`, `buzzer.py`, `led_control.py`, `calibrate_touch.py`, `test_sensors.py`, `generate_previews.py`, `hardware/mpu6050.py`, `hardware/mpu9250.py`, `hardware/rtc_ds3231.py`, `web/index.html`, `web/script.js`, `web/style.css`
 
 ---
@@ -11,105 +11,120 @@
 
 GUNJAM is a handheld GNSS jamming detector running on Raspberry Pi Zero 2W. The system reads RF samples from an RTL-SDR dongle, runs real-time FFT-based power analysis, classifies signal state via a multi-stage state machine (`SCANNING → WATCH → JAMMING`), renders results on a 480×320 ILI9488 LCD with touch control, and exposes a web dashboard on port 8080.
 
-**Overall Assessment:** The codebase has been elevated to a **production-ready, robust, and highly optimized standard**. Following a thorough review, all high-priority recommendations (Priority 1 & Priority 2) concerning database deadlocks, thread safety, side-effect leaking, code quality, and performance have been fully resolved. The project demonstrates exceptionally strong domain knowledge in signal processing (FFT, adaptive noise floor thresholds, baseline guard logic) and now pairs it with clean, scalable software architecture.
+**Overall Assessment:** The codebase is in strong shape. Architecture decoupling, thread synchronization, and database concurrency are all handled correctly. The DSP domain logic is excellent. Key remaining gaps are the absence of an automated regression test suite (now partially addressed with `tests/test_dsp.py`) and a god-class orchestrator that will become a maintenance burden if the feature set grows.
 
-| Category            | Previous Score | Current Score | Notes                                                                              |
-| ------------------- | -------------- | ------------- | ---------------------------------------------------------------------------------- |
-| Domain Logic / DSP  | 9/10           | **10/10**     | Adaptive NF, baseline guard, hit/clear debounce — excellent domain logic.          |
-| Architecture        | 7/10           | **9/10**      | Bidirectional drawing coupling completely resolved; cleanly separated structures.  |
-| Thread Safety       | 8/10           | **10/10**     | Atomic UI zone swaps; cross-thread flags upgraded to standard `threading.Event`.   |
-| Reliability         | 8/10           | **10/10**     | SQLite WAL mode active; frozen sensor recovery; RTC bus safety active.             |
-| Performance         | 8/10           | **10/10**     | Particle connection optimized (AABB + squared distance); mobile particle counts.   |
-| Security            | 8/10           | **9/10**      | Waitress WSGI integration; rate-limited database clear endpoint; Token auth.       |
-| Code Quality        | 8/10           | **9.5/10**    | Dimension/clock constants centralized; duplicate keyboard handling fully removed.  |
-| Web Dashboard UI/UX | 8/10           | **10/10**     | Premium, responsive dark/light dashboard with high-performance event-driven draw.  |
-
----
-
-## 2. Architecture & Refactoring Successes
-
-### 2.1 Complete Decoupling: `DisplayUI ↔ GPSJammerHandheld`
-Previously, `DisplayUI` and `GPSJammerHandheld` were bidirectionally coupled, with drawing states (`_img` and `_draw`) living in the orchestrator class (`GPSJammerHandheld`) and the UI reaching back into its namespace. 
-*   **Resolution:** Completed a full architectural refactor. Drawing context, image buffer, and draw canvas are now completely encapsulated within `DisplayUI`. 
-*   **Impact:** Cleaner separation of concerns, vastly improved modularity, and simplified unit-testing potential.
-
-### 2.2 Centralization of Screen Dimensions and Speeds
-Hardcoded magic numbers (`480`, `320`, `24000000`) for display parameters were spread across rendering and calibration files.
-*   **Resolution:** Fully refactored display and touch routines to utilize centralized configuration parameters (`config.WIDTH`, `config.HEIGHT`, `config.SPI_CLOCK_HZ`).
-*   **Impact:** Simplifies maintenance and hardware porting. Future modifications to display models or SPI clocks are now localized entirely in `config.py`.
+| Category            | Score      | Notes                                                                                  |
+| ------------------- | ---------- | -------------------------------------------------------------------------------------- |
+| Domain Logic / DSP  | **10/10**  | Adaptive NF, baseline guard, hit/clear debounce — correct and well-tuned.              |
+| Architecture        | **8/10**   | `DisplayUI` decoupling complete; `GPSJammerHandheld` is still a god class.             |
+| Thread Safety       | **9/10**   | `threading.Event` + `RLock` zones done well; `_last_clear_time` race fixed this cycle. |
+| Reliability         | **9/10**   | SQLite WAL, RTC bus safety, frozen sensor recovery all solid.                          |
+| Performance         | **10/10**  | AABB + squared-distance particles; event-driven canvas redraws; mobile throttling.     |
+| Security            | **8.5/10** | Waitress WSGI; token auth; rate-limit race condition on `/api/clear` fixed this cycle. |
+| Code Quality        | **8.5/10** | Constants centralized; 18 DSP unit tests added this cycle; god class remains.         |
+| Web Dashboard UI/UX | **10/10**  | Responsive dark/light dashboard; high-performance event-driven rendering.              |
 
 ---
 
-## 3. Thread Safety & Synchronization
+## 2. Architecture
 
-### 3.1 Upgrade to `threading.Event`
-Cross-thread control signals (`request_calibration`, `shutdown_requested`, `reboot_requested`) were previously managed using simple, non-synchronized booleans that risked deadlocks or memory visibility delays across Python thread runtimes.
-*   **Resolution:** Refactored all control signals to use `threading.Event()`. Thread communication is now explicit, leveraging standard thread synchronization constructs (`.set()`, `.clear()`, `.is_set()`).
-*   **Impact:** Guarantees atomic, deadlock-free thread state visibility.
+### 2.1 `DisplayUI ↔ GPSJammerHandheld` Decoupling — RESOLVED
+Drawing context (`_img`, `_draw`, image buffer) previously lived in the orchestrator and was reached back into by the UI layer. These are now fully encapsulated within `DisplayUI`. Separation of concerns is clean; modules can be tested in isolation.
 
-### 3.2 Atomic UI Zone Updates
-The touch handler is executed via a background daemon thread. Modifying active touch button boundaries concurrently with rendering could cause state-tracking corruptions.
-*   **Resolution:** Implemented thread-safe `threading.RLock` around touch button zones and introduced an atomic dictionary swap pattern (`_new_zones` mapped and replaced inside a lock).
+### 2.2 God Class: `GPSJammerHandheld` — OPEN
+`detector.py` orchestrates SDR sampling, FFT, state machine, UI updates, database writes, GPS parsing, IMU reads, web state pushes, and shutdown handling in a single class. At ~500 lines it is manageable today, but any significant new feature risks entangling concerns. Suggested future split: `SignalProcessor`, `DataLogger`, `InputHandler`. Deferred to post-v1 roadmap.
 
----
-
-## 4. Reliability & Driver Integrity
-
-### 4.1 SQLite Write-Ahead Logging (WAL)
-Previously, the database ran in default journal delete mode and connected/closed on every I/O transaction. Under stress (simultaneous UI writes on the main thread and web-server reads on the Flask thread), database lockups were highly probable.
-*   **Resolution:** Upgraded database setup to use `journal_mode=WAL` (Write-Ahead Logging) and `synchronous=NORMAL` in `database_manager.py`.
-*   **Impact:** Highly efficient concurrency; multiple reader threads can safely fetch event logs while the detector records live jamming metrics without ever locking the database or inducing UI pauses.
-
-### 4.2 Preview State Mutability Fix
-In `generate_previews.py`, running the preview screenshot algorithm used to invoke signal detection directly, which had the side effect of mutating the running state (`noise_floor`, `jammer_active`, `current_state`) of the live detector.
-*   **Resolution:** Added a state-snapping backup and restore wrapper (`_snap = (app.noise_floor, ...)`) before classifying preview signals.
-*   **Impact:** Generates visual preview assets cleanly without introducing run-time side-effects or corrupting real-time sensor metrics.
-
-### 4.3 Safe Real-Time Clock Integration
-Invoking `set_datetime()` on the DS3231 driver while offline or in simulated environments (e.g. Windows debugging) used to trigger `AttributeError` exceptions on missing I2C bus dependencies.
-*   **Resolution:** Added defensive hardware checks (`if self.bus is None: return`) to gracefully bypass I2C bus writes while maintaining normal application runtime.
-
-### 4.4 Advanced Hardware Integration: MPU9250 9-DoF Driver
-*   **Addition:** Implemented a new, complete `MPU9250` IMU driver in `hardware/mpu9250.py` that is backwards-compatible with `MPU6050`. It includes an interface to the **AK8963 magnetometer** via I2C bypass mode to support planned absolute magnetic heading calculations.
+### 2.3 Display and SPI Constants Centralized — RESOLVED
+All magic numbers (`480`, `320`, `24000000`) have been moved to `config.py`. Hardware porting is now localized to a single file.
 
 ---
 
-## 5. Performance Optimizations
+## 3. Thread Safety
 
-### 5.1 Connection Web Particle System Refactoring
-The home dashboard particle networking system previously calculated connections via a standard $O(n^2)$ double loop executing `Math.sqrt` calculations, which severely throttled browser rendering on mobile phones.
-*   **Resolution:** Optimized connection calculations using:
-    1.  An **Axis-Aligned Bounding Box (AABB)** early-out check (bypassing calculations if $|dx|$ or $|dy| \ge \text{CONNECTION\_DIST}$).
-    2.  A **squared distance comparison** (`dx*dx + dy*dy < CONNECTION_DIST_SQ`) to avoid expensive square-root calls.
-    3.  Throttled particle count (`PARTICLE_COUNT`) dynamically down to `25` on mobile/touch interfaces while keeping `65` on high-performance desktop browsers.
-*   **Impact:** Silky-smooth rendering, extremely low CPU cycles, and superb responsive performance on field tablets and mobile dashboards.
+### 3.1 Control Signals via `threading.Event` — RESOLVED
+`request_calibration`, `shutdown_requested`, and `reboot_requested` are `threading.Event` objects. Cross-thread visibility is guaranteed; no raw boolean races.
 
-### 5.2 Event-Driven Canvas Redraws
-*   **Resolution:** Avoided standard 60 FPS drawing loops in `web/script.js`. The web dashboard canvas now employs an event-driven redraw architecture using `requestAnimationFrame`, rendering new frame calculations **only** when fresh metrics/spectrum packages arrive over the API socket (max 4Hz).
-*   **Impact:** Eliminates battery drain on devices connected to the web interface.
+### 3.2 Atomic Touch Zone Updates — RESOLVED
+Touch button zones are rebuilt into a new `_new_zones` dict, then swapped atomically inside `threading.RLock` (`display_ui.py:618`). The touch handler thread never sees a partially-updated zone map.
+
+### 3.3 `_last_clear_time` Race on `/api/clear` — FIXED THIS CYCLE
+Two concurrent `POST /api/clear` requests could both pass the rate-limit check before either updated `_last_clear_time`, allowing a double-clear. Fixed by adding `_clear_lock = threading.Lock()` and checking+reserving the timestamp atomically inside the lock before the database call (`web_server.py:138–149`).
 
 ---
 
-## 6. Security Enhancements
+## 4. Reliability
 
-### 6.1 WSGI Waitress Server Integration
-*   **Resolution:** Replaced Flask's default single-threaded developmental server with a production-grade **Waitress WSGI Server** configured to run on daemon background threads.
-*   **Impact:** Exceptional concurrency, resilient request handling, and robust runtime.
+### 4.1 SQLite WAL Mode — IMPLEMENTED
+`database_manager.py` opens every connection with `PRAGMA journal_mode=WAL` and `PRAGMA synchronous=NORMAL`. The web server thread reads event history concurrently with the main loop writing jamming events without lock contention or UI pauses.
 
-### 6.2 Rate-Limiting & Logging DB Clear Endpoint
-*   **Resolution:** Added a strict 60-second rate-limiter on `POST /api/clear` to prevent database abuse, and added remote IP logging to keep audit trails of all system wipe actions.
+### 4.2 Preview State Snapshot — IMPLEMENTED
+`generate_previews.py` saves and restores `(noise_floor, jammer_active, current_state, jam_hits, clear_hits)` before and after injecting synthetic signals. Preview generation cannot corrupt live detector state.
 
----
+### 4.3 RTC I2C Bus Safety — IMPLEMENTED
+`hardware/rtc_ds3231.py` guards every I2C call with `if self.bus is None: return`. Windows debugging and offline CI runs do not raise `AttributeError`.
 
-## 7. Future Roadmap Recommendations
-
-While the project is now solid, highly performant, and stable, future enhancements can focus on:
-1.  **Magnetometer Calibration:** Implement a 3D hard-iron/soft-iron offset calibration wizard to fully utilize the absolute compass capabilities of the newly added MPU9250 driver.
-2.  **Automated Testing Suite:** Establish a standard regression testing suite (using `pytest`) for isolated DSP and FFT algorithms (`dsp.py`) to verify logic adjustments mathematically.
-3.  **God Class Separation:** In future versions, split the main orchestrator class `GPSJammerHandheld` into smaller sub-components (e.g. `SignalProcessor`, `DataLogger`, `InputHandler`) if additional feature sets are added.
+### 4.4 MPU9250 9-DoF Driver — NEW FEATURE
+A complete `MPU9250` driver (`hardware/mpu9250.py`) with AK8963 magnetometer access via I2C bypass mode has been added. This is a **feature addition** enabling future compass-heading functionality — it does not affect reliability of the existing IMU pipeline.
 
 ---
 
-## 8. Conclusion
+## 5. Performance
 
-The GUNJAM GNSS Jamming Detector stands as a **highly polished, stable, and architecturally excellent embedded system**. By addressing database concurrency via SQLite WAL, encapsulating drawing pipelines, implementing thread-safe control Events, and executing massive browser-rendering optimizations, the codebase represents a **gold-standard template** for portable RF detection systems. It is fully approved for immediate deployment and field tests.
+### 5.1 Particle Connection Optimization — IMPLEMENTED
+Particle-to-particle connection checks in `web/script.js` use:
+1. **AABB early-out** — `if (Math.abs(dx) >= CONNECTION_DIST) continue` before the more expensive distance check.
+2. **Squared-distance comparison** — `dx*dx + dy*dy < CONNECTION_DIST_SQ` eliminates `Math.sqrt` entirely.
+3. **Mobile particle throttle** — 25 particles on touch devices vs. 65 on desktop.
+
+This reduces per-frame work from O(n²·√) to O(n²) with a fast early-exit for the common case, giving smooth rendering on low-end tablets.
+
+### 5.2 Event-Driven Canvas Redraws — IMPLEMENTED
+`requestAnimationFrame` is triggered only when a new metrics/spectrum payload arrives (max 4 Hz), not on a fixed 60 Hz timer. Battery drain on connected mobile clients is negligible.
+
+---
+
+## 6. Security
+
+### 6.1 Waitress WSGI — IMPLEMENTED
+Flask's single-threaded development server replaced with Waitress (`web_server.py:6`, `154`) running on a daemon thread with 2 worker threads. Concurrent API requests are handled correctly.
+
+### 6.2 Token Authentication — IMPLEMENTED
+`GET /api/*` routes check `X-API-Token` header against `GUNJAM_API_TOKEN` env var when set. Unauthenticated requests receive 401.
+
+### 6.3 Rate-Limited `POST /api/clear` — IMPLEMENTED + RACE FIXED
+A 60-second cooldown prevents database abuse. The check-and-reserve is now atomic under `_clear_lock` (see §3.3). Remote IP is logged on every successful clear for audit trail.
+
+---
+
+## 7. Code Quality
+
+### 7.1 DSP Unit Tests — ADDED THIS CYCLE
+`tests/test_dsp.py` provides 18 pytest tests covering all four pure functions in `dsp.py`:
+
+| Function          | Tests | What is verified                                               |
+| ----------------- | ----- | -------------------------------------------------------------- |
+| `smooth_noise`    | 4     | Alpha boundary values (0, 0.5, 1), EMA formula correctness.   |
+| `compute_power`   | 4     | Output shape, DC peak at bin n//2, zero-input floor value.     |
+| `remove_dc_spike` | 4     | Spike replaced, outer region preserved, input not mutated.     |
+| `scale_points`    | 6     | Empty input, screen bounds, width cap, high/low power Y, type. |
+
+Run with: `.venv\Scripts\python.exe -m pytest`
+
+### 7.2 Duplicate Keyboard Handling — RESOLVED
+Previously duplicated key-handling branches have been consolidated.
+
+---
+
+## 8. Remaining Recommendations (Priority Order)
+
+| Priority | Item                                 | Effort | Impact                                                     |
+| -------- | ------------------------------------ | ------ | ---------------------------------------------------------- |
+| P1       | Expand test suite to `detector.py` state machine | Medium | Catches logic regressions in SCANNING→WATCH→JAMMING transitions |
+| P2       | Magnetometer calibration wizard      | Medium | Makes MPU9250 compass heading field-accurate               |
+| P3       | Split `GPSJammerHandheld` god class  | Large  | Long-term maintainability if feature scope grows           |
+
+---
+
+## 9. Conclusion
+
+GUNJAM is a well-built embedded RF detection system. The DSP logic is sound, concurrency is handled correctly, and the web dashboard performs well on mobile. Two concrete issues were resolved in this cycle: the `_last_clear_time` race condition and missing DSP regression tests. The one structural concern (god class) is noted but is not blocking for the current feature scope.

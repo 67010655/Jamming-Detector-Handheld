@@ -503,7 +503,7 @@ class DisplayUI:
             draw.rectangle((bx + 2, foot_t + 3, bx + btn_w - 2, H - 3), fill=bg_c, outline=outline_c)
             _new_zones[label] = (bx, foot_t, bx + btn_w, H)
 
-            # Draw button content (icons for PWR/GAIN, text for others)
+            # Draw button content: icons stay fast to scan, labels reduce field mistakes.
             cx = bx + btn_w // 2
             cy = foot_t + btn_h // 2
             r = 12
@@ -512,16 +512,25 @@ class DisplayUI:
                 # Standard Power Icon (Gap at Top)
                 pr = 10
                 gap = 60
-                draw.arc((cx - pr, cy - pr, cx + pr, cy + pr), 270 + gap//2, 270 - gap//2 + 360, fill=ic, width=3)
-                draw.line((cx, cy - pr - 2, cx, cy + 1), fill=ic, width=3)
+                icon_y = cy - 5
+                draw.arc((cx - pr, icon_y - pr, cx + pr, icon_y + pr), 270 + gap//2, 270 - gap//2 + 360, fill=ic, width=3)
+                draw.line((cx, icon_y - pr - 2, cx, icon_y + 1), fill=ic, width=3)
+                tw, th = self._get_text_size("PWR", self._f_footer_bold)
+                draw.text((cx - tw // 2, H - th - 8), "PWR", fill=ic, font=self._f_footer_bold)
             elif label == "GAIN-":
                 # Down triangle
-                draw.polygon([(cx - 8, cy - 4), (cx + 8, cy - 4), (cx, cy + 8)], fill=ic)
-                draw.line((cx - 10, cy - 10, cx + 10, cy - 10), fill=ic, width=2)
+                icon_y = cy - 5
+                draw.polygon([(cx - 8, icon_y - 4), (cx + 8, icon_y - 4), (cx, icon_y + 8)], fill=ic)
+                draw.line((cx - 10, icon_y - 10, cx + 10, icon_y - 10), fill=ic, width=2)
+                tw, th = self._get_text_size("GAIN-", self._f_footer_bold)
+                draw.text((cx - tw // 2, H - th - 8), "GAIN-", fill=ic, font=self._f_footer_bold)
             elif label == "GAIN+":
                 # Up triangle
-                draw.polygon([(cx - 8, cy + 4), (cx + 8, cy + 4), (cx, cy - 8)], fill=ic)
-                draw.line((cx - 10, cy + 10, cx + 10, cy + 10), fill=ic, width=2)
+                icon_y = cy - 5
+                draw.polygon([(cx - 8, icon_y + 4), (cx + 8, icon_y + 4), (cx, icon_y - 8)], fill=ic)
+                draw.line((cx - 10, icon_y + 10, cx + 10, icon_y + 10), fill=ic, width=2)
+                tw, th = self._get_text_size("GAIN+", self._f_footer_bold)
+                draw.text((cx - tw // 2, H - th - 8), "GAIN+", fill=ic, font=self._f_footer_bold)
             else:
                 # Text label for MODE, CALIB
                 tw, th = self._get_text_size(label, self._f_btn)
