@@ -21,6 +21,8 @@ web_dir = os.path.join(current_dir, 'web')
 
 app = Flask(__name__, static_folder=web_dir)
 
+# Field deployment runs on a trusted Pi hotspot/LAN. Access control is handled
+# at the network/operator level, so API token auth is intentionally omitted.
 class ServerState:
     def __init__(self):
         self._lock = threading.Lock()
@@ -167,10 +169,10 @@ def clear_history():
         if now - _last_clear_time < _CLEAR_RATE_LIMIT_S:
             remaining = int(_CLEAR_RATE_LIMIT_S - (now - _last_clear_time))
             return jsonify({"success": False, "error": f"Rate limited. Try again in {remaining}s."}), 429
-        _last_clear_time = now  # reserve slot atomically before DB call
-    success = database_manager.clear_db()
-    if success:
-        print(f"[WEB] Database cleared by {request.remote_addr} at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+        success = database_manager.clear_db()
+        if success:
+            _last_clear_time = now
+            print(f"[WEB] Database cleared by {request.remote_addr} at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     return jsonify({"success": success})
 
 def start_server(port=8080):

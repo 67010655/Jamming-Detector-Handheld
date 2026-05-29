@@ -61,7 +61,7 @@ function toggleTheme() {
     spectrumBgKey = '';
     drawSpectrum(spectrumDisplayData || lastSpectrumData);
     drawMarginTrend();
-    drawWaterfall();
+    drawWaterfallFull();
 }
 
 function loadTheme() {
@@ -373,7 +373,7 @@ function wfColor(dbfs) {
     return c;
 }
 
-function drawWaterfall() {
+function drawWaterfallRow() {
     if (!waterfallCanvas || waterfallData.length === 0) return;
     const ctx = waterfallCanvas.getContext('2d');
     const w = waterfallCanvas.width, h = waterfallCanvas.height;
@@ -395,6 +395,34 @@ function drawWaterfall() {
         ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
         ctx.fillRect(xStart, y, Math.max(1, xEnd - xStart), rowH);
     }
+}
+
+function drawWaterfallFull() {
+    if (!waterfallCanvas) return;
+    const ctx = waterfallCanvas.getContext('2d');
+    const w = waterfallCanvas.width, h = waterfallCanvas.height;
+    if (w === 0 || h === 0) return;
+
+    const cc = canvasColors();
+    ctx.fillStyle = cc.bg;
+    ctx.fillRect(0, 0, w, h);
+    if (waterfallData.length === 0) return;
+
+    const visible = waterfallData.slice(-WATERFALL_ROWS);
+    const rowH = Math.max(2, Math.ceil(h / WATERFALL_ROWS));
+    const firstY = Math.max(0, h - visible.length * rowH);
+
+    visible.forEach((spectrum, r) => {
+        const cols = spectrum.length;
+        const y = firstY + r * rowH;
+        for (let c = 0; c < cols; c++) {
+            const rgb = wfColor(spectrum[c]);
+            const xStart = Math.round(c * w / cols);
+            const xEnd = Math.round((c + 1) * w / cols);
+            ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+            ctx.fillRect(xStart, y, Math.max(1, xEnd - xStart), rowH);
+        }
+    });
 }
 
 // ═══ SESSION STATS ═══
@@ -500,7 +528,7 @@ async function fetchStatus() {
         requestAnimationFrame(() => {
             drawMarginTrend();
             if (waterfallChanged) {
-                drawWaterfall();
+                drawWaterfallRow();
             }
         });
         
@@ -622,6 +650,9 @@ function resizeAll() {
     resizeCanvas(spectrumCanvas);
     resizeCanvas(marginCanvas);
     resizeCanvas(waterfallCanvas);
+    drawSpectrum(spectrumDisplayData || lastSpectrumData);
+    drawMarginTrend();
+    drawWaterfallFull();
 }
 
 // ═══ INIT ═══

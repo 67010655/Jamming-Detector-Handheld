@@ -102,7 +102,11 @@ class GPSJammerHandheld:
         self.last_log_time = 0
         self.log_interval = 1.0 # Seconds between logs for the same persistent event
         
-        web_server.start_server(port=8080)
+        try:
+            web_server.start_server(port=8080)
+        except Exception:
+            self.shutdown()
+            raise
         
         self.buzzer.play_startup()
         
