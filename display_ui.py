@@ -387,6 +387,11 @@ class DisplayUI:
         # Subtitle row
         sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | UP Time: {up_str}"
         draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle_small)
+        tw, th = self._get_text_size(sub, self._f_subtitle_small)
+        if getattr(self.app, 'fixed_nf', False):
+            draw.text((8 + tw + 6, 20), "| GRD", fill=(255, 200, 80), font=self._f_subtitle_small)
+        elif getattr(self.app, 'baseline_guard_active', False):
+            draw.text((8 + tw + 6, 20), "| GRD", fill=(255, 150, 50), font=self._f_subtitle_small)
 
         # State badge (right side of header) - Extra large for field visibility
         sw, sh = self._get_text_size(state, self._f_status)
@@ -425,11 +430,6 @@ class DisplayUI:
 
         # FPS in right panel footer
         draw.text((rp_l + 6, foot_t - 22), f"FPS {fps_val}", fill=dim, font=self._f_small)
-        # Baseline guard indicator (compact, replaces noisy subtitle text)
-        if getattr(self.app, 'fixed_nf', False):
-            draw.text((rp_l + 6, foot_t - 34), "GRD", fill=(255, 200, 80), font=self._f_small)
-        elif getattr(self.app, 'baseline_guard_active', False):
-            draw.text((rp_l + 6, foot_t - 34), "GRD", fill=(255, 150, 50), font=self._f_small)
 
         # ═══ MAIN CONTENT AREA ═══
         content_l = 0
