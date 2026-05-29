@@ -379,21 +379,20 @@ function drawWaterfallRow() {
     const w = waterfallCanvas.width, h = waterfallCanvas.height;
     if (w === 0 || h === 0) return;
 
-    // Scroll the existing canvas and draw only the newest row.
+    // Scroll existing content DOWN by one row, newest row goes to TOP.
     const rowH = Math.max(2, Math.ceil(h / WATERFALL_ROWS));
     if (h > rowH) {
-        ctx.drawImage(waterfallCanvas, 0, rowH, w, h - rowH, 0, 0, w, h - rowH);
+        ctx.drawImage(waterfallCanvas, 0, 0, w, h - rowH, 0, rowH, w, h - rowH);
     }
 
     const spectrum = waterfallData[waterfallData.length - 1];
     const cols = spectrum.length;
-    const y = h - rowH;
     for (let c = 0; c < cols; c++) {
         const rgb = wfColor(spectrum[c]);
         const xStart = Math.round(c * w / cols);
         const xEnd = Math.round((c + 1) * w / cols);
         ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-        ctx.fillRect(xStart, y, Math.max(1, xEnd - xStart), rowH);
+        ctx.fillRect(xStart, 0, Math.max(1, xEnd - xStart), rowH);
     }
 }
 
@@ -409,12 +408,13 @@ function drawWaterfallFull() {
     if (waterfallData.length === 0) return;
 
     const visible = waterfallData.slice(-WATERFALL_ROWS);
+    const N = visible.length;
     const rowH = Math.max(2, Math.ceil(h / WATERFALL_ROWS));
-    const firstY = Math.max(0, h - visible.length * rowH);
 
+    // Newest row at top: index N-1 renders at y=0, index 0 at bottom.
     visible.forEach((spectrum, r) => {
         const cols = spectrum.length;
-        const y = firstY + r * rowH;
+        const y = (N - 1 - r) * rowH;
         for (let c = 0; c < cols; c++) {
             const rgb = wfColor(spectrum[c]);
             const xStart = Math.round(c * w / cols);

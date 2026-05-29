@@ -386,10 +386,6 @@ class DisplayUI:
         draw.text((8, 3), "GNSS JAMMING DETECTOR", fill=white, font=self._f_title)
         # Subtitle row
         sub = f"L1 1575.42MHz | Gain: {self.app.gain_db:.1f} | UP Time: {up_str}"
-        if getattr(self.app, 'fixed_nf', False):
-            sub += " | [GUARD FIXED]"
-        elif getattr(self.app, 'baseline_guard_active', False):
-            sub += " | [GUARD LOCKED]"
         draw.text((8, 20), sub, fill=accent_br, font=self._f_subtitle_small)
 
         # State badge (right side of header) - Extra large for field visibility
@@ -429,6 +425,11 @@ class DisplayUI:
 
         # FPS in right panel footer
         draw.text((rp_l + 6, foot_t - 22), f"FPS {fps_val}", fill=dim, font=self._f_small)
+        # Baseline guard indicator (compact, replaces noisy subtitle text)
+        if getattr(self.app, 'fixed_nf', False):
+            draw.text((rp_l + 6, foot_t - 34), "GRD", fill=(255, 200, 80), font=self._f_small)
+        elif getattr(self.app, 'baseline_guard_active', False):
+            draw.text((rp_l + 6, foot_t - 34), "GRD", fill=(255, 150, 50), font=self._f_small)
 
         # ═══ MAIN CONTENT AREA ═══
         content_l = 0
@@ -437,7 +438,7 @@ class DisplayUI:
         if self.view_mode == 1:  # SEARCH MODE (Radar)
             self._draw_radar(
                 draw, content_l + content_w // 2, (hdr_b + foot_t) // 2,
-                100, accent, grid, white, state, metrics,
+                88, accent, grid, white, state, metrics,
             )
             # Label
             draw.text((content_l + 10, hdr_b + 5), "GYRO COMPASS", fill=self._dim(white, 0.4), font=self._f_footer)
@@ -731,22 +732,16 @@ class DisplayUI:
         y_270 = cy + int(radius * np.sin(rad_270))
         draw.line((x_90, y_90, x_270, y_270), fill=grid, width=1)
         
-        # Cardinal numbers outside the ring, and abbreviations inside the ring
-        for label_angle, deg_text, label_text in self._RADAR_CARDINALS:
+        # Single-layer cardinal labels outside the ring (abbrev only — clean, uncluttered)
+        _main_cards = {"N", "E", "S", "W"}
+        for label_angle, _, label_text in self._RADAR_CARDINALS:
             rel_ang = (label_angle - theta) % 360
             rad = np.radians(rel_ang - 90)
-            
-            # Number outside the circle
-            lx_num = cx + int((radius + 12) * np.cos(rad))
-            ly_num = cy + int((radius + 12) * np.sin(rad))
-            tw_num, th_num = self._get_text_size(deg_text, self._f_compass)
-            draw.text((lx_num - tw_num // 2, ly_num - th_num // 2), deg_text, fill=self._dim(white, 0.6), font=self._f_compass)
-            
-            # Abbreviation inside the circle (below/underneath the number)
-            lx_abbr = cx + int((radius - 14) * np.cos(rad))
-            ly_abbr = cy + int((radius - 14) * np.sin(rad))
-            tw_abbr, th_abbr = self._get_text_size(label_text, self._f_compass)
-            draw.text((lx_abbr - tw_abbr // 2, ly_abbr - th_abbr // 2), label_text, fill=white, font=self._f_compass)
+            lx_out = cx + int((radius + 13) * np.cos(rad))
+            ly_out = cy + int((radius + 13) * np.sin(rad))
+            tw, th = self._get_text_size(label_text, self._f_compass)
+            color = white if label_text in _main_cards else self._dim(white, 0.55)
+            draw.text((lx_out - tw // 2, ly_out - th // 2), label_text, fill=color, font=self._f_compass)
 
         # Draw historical bearing lines with state-restricted heights
         for item in self._bearing_log:
@@ -795,27 +790,16 @@ class DisplayUI:
         # Draw central user position dot
         draw.ellipse((cx - 4, cy - 4, cx + 4, cy + 4), fill=(10, 10, 15), outline=white, width=1)
         
-        # Bearing readout (bottom-right): heading + cardinal; show last jam when pinned
+        # Heading readout — vertically centered beside the radar circle
         brg_val = f"{int(self.app.current_bearing):03d}°"
         dir_name = self.get_cardinal_direction(self.app.current_bearing)
 
-        lx, ly = 330, cy + 40
-        draw.text((lx, ly), "HEADING", fill=(160, 160, 180), font=self._f_small)
-        draw.text((lx, ly + 15), brg_val, fill=accent, font=self._f_score_big)
-        draw.text((lx, ly + 48), dir_name, fill=accent, font=self._f_brg)
-
-
-
-        if self._persistent_jam is not None and state != "JAMMING":
-            jam_angle = self._persistent_jam[0]
-            jam_dir = self.get_cardinal_direction(jam_angle)
-            draw.text((lx, ly + 68), "LAST JAM", fill=(160, 160, 180), font=self._f_small)
-            draw.text(
-                (lx, ly + 78),
-                f"{jam_angle:03d}° {jam_dir}",
-                fill=(255, 90, 100),
-                font=self._f_label,
-            )
+        lx = cx + radius + 20   # clear of the outermost cardinal label + text half-width
+        # Block height: label(10) + gap(3) + value(30) + gap(3) + dir(18) ≈ 64px → top at cy-32
+        ly_top = cy - 32
+        draw.text((lx, ly_top),      "HEADING", fill=(160, 160, 180), font=self._f_small)
+        draw.text((lx, ly_top + 13), brg_val,   fill=accent,          font=self._f_score_big)
+        draw.text((lx, ly_top + 46), dir_name,  fill=accent,          font=self._f_brg)
 
     def _draw_history(self, draw, l, t, r, b, accent, grid, white):
         draw.text((l, t-15), "MARGIN HISTORY", fill=self._dim(white, 0.6), font=self._f_label)
