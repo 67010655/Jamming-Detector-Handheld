@@ -406,7 +406,12 @@ class GPSJammerHandheld:
 
     def adjust_gain(self, delta):
         """Adjust SDR gain by delta dB."""
-        self.gain_db = float(np.clip(self.gain_db + delta, 0, 50))
+        step = abs(float(delta))
+        next_gain = self.gain_db + delta
+        if delta > 0 and self.gain_db <= 0 and step > 0:
+            base_offset = float(config.GAIN) % step
+            next_gain = base_offset if base_offset > 0.001 else step
+        self.gain_db = round(float(np.clip(next_gain, 0, 50)), 1)
         if self.sdr:
             try:
                 self.sdr.gain = self.gain_db
