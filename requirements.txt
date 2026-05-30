@@ -1,0 +1,14 @@
+numpy
+Pillow
+pyrtlsdr
+luma.core
+luma.lcd
+flask
+waitress
+RPi.GPIO
+spidev
+
+# Standard sqlite3 is included with Python, no extra install needed
+
+# Development / testing
+pytest
