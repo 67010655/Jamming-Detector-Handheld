@@ -698,6 +698,8 @@ function createParticle() {
     };
 }
 
+let particlesAnimationId = null;
+
 function initParticles() {
     if (!particleCanvas || !pCtx) return;
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -707,17 +709,25 @@ function initParticles() {
     for (let i = 0; i < PARTICLE_COUNT; i++) {
         particles.push(createParticle());
     }
-    requestAnimationFrame(animateParticles);
+    if (particlesAnimationId) {
+        cancelAnimationFrame(particlesAnimationId);
+    }
+    if (!document.hidden) {
+        particlesAnimationId = requestAnimationFrame(animateParticles);
+    }
 }
 
 function animateParticles() {
     if (document.hidden) {
-        requestAnimationFrame(animateParticles);
+        particlesAnimationId = null;
         return;
     }
     if (!pCtx) return;
     const w = particleCanvas.width, h = particleCanvas.height;
-    if (w === 0 || h === 0) { requestAnimationFrame(animateParticles); return; }
+    if (w === 0 || h === 0) {
+        particlesAnimationId = requestAnimationFrame(animateParticles);
+        return;
+    }
 
     pCtx.clearRect(0, 0, w, h);
 
@@ -773,5 +783,18 @@ function animateParticles() {
         }
     }
 
-    requestAnimationFrame(animateParticles);
+    particlesAnimationId = requestAnimationFrame(animateParticles);
 }
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        if (!particlesAnimationId && particles.length > 0) {
+            particlesAnimationId = requestAnimationFrame(animateParticles);
+        }
+    } else {
+        if (particlesAnimationId) {
+            cancelAnimationFrame(particlesAnimationId);
+            particlesAnimationId = null;
+        }
+    }
+});

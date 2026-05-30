@@ -14,38 +14,43 @@ def _get_connection():
 
 def init_db():
     """Initializes the database and creates the events table if it doesn't exist."""
-    conn = _get_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            uptime_sec INTEGER,
-            state TEXT NOT NULL,
-            score INTEGER,
-            peak_p REAL,
-            floor_rise REAL,
-            noise_floor REAL,
-            bearing_deg INTEGER DEFAULT 0
-        )
-    ''')
-    
-    # Migration: Check if bearing_deg column exists (for older database files)
-    cursor.execute("PRAGMA table_info(events)")
-    columns = [info[1] for info in cursor.fetchall()]
-    if 'bearing_deg' not in columns:
-        print("[DATABASE] Migrating schema: Adding missing 'bearing_deg' column")
-        try:
-            cursor.execute("ALTER TABLE events ADD COLUMN bearing_deg INTEGER DEFAULT 0")
-        except Exception as e:
-            print(f"[DATABASE] Migration failed: {e}")
-            
-    conn.commit()
-    conn.close()
-    print(f"[DATABASE] Initialized: {DB_NAME}")
+    conn = None
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                uptime_sec INTEGER,
+                state TEXT NOT NULL,
+                score INTEGER,
+                peak_p REAL,
+                floor_rise REAL,
+                noise_floor REAL,
+                bearing_deg INTEGER DEFAULT 0
+            )
+        ''')
+
+        # Migration: Check if bearing_deg column exists (for older database files)
+        cursor.execute("PRAGMA table_info(events)")
+        columns = [info[1] for info in cursor.fetchall()]
+        if 'bearing_deg' not in columns:
+            print("[DATABASE] Migrating schema: Adding missing 'bearing_deg' column")
+            try:
+                cursor.execute("ALTER TABLE events ADD COLUMN bearing_deg INTEGER DEFAULT 0")
+            except Exception as e:
+                print(f"[DATABASE] Migration failed: {e}")
+
+        conn.commit()
+        print(f"[DATABASE] Initialized: {DB_NAME}")
+    finally:
+        if conn:
+            conn.close()
 
 def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing_deg=0):
     """Records a detection event into the database and prunes old records."""
+    conn = None
     try:
         conn = _get_connection()
         cursor = conn.cursor()
@@ -65,12 +70,15 @@ def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing
         ''')
         
         conn.commit()
-        conn.close()
     except Exception as e:
         print(f"[DATABASE] Error logging event: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 def get_history(limit=50):
     """Fetches the most recent events from the database (all states)."""
+    conn = None
     try:
         conn = _get_connection()
         conn.row_factory = sqlite3.Row
@@ -82,14 +90,17 @@ def get_history(limit=50):
         for row in rows:
             history.append(dict(row))
         
-        conn.close()
         return history
     except Exception as e:
         print(f"[DATABASE] Error fetching history: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()
 
 def get_filtered_history(limit=5000):
     """Fetches history and applies heartbeat filtering for CSV (15s for Scanning, 1s for Events)."""
+    conn = None
     try:
         conn = _get_connection()
         conn.row_factory = sqlite3.Row
@@ -97,7 +108,6 @@ def get_filtered_history(limit=5000):
         # Fetch all candidate rows (oldest first for chronological filtering)
         cursor.execute('SELECT * FROM events ORDER BY id ASC LIMIT ?', (limit,))
         rows = cursor.fetchall()
-        conn.close()
 
         filtered = []
         last_scanning_time = 0
@@ -123,9 +133,13 @@ def get_filtered_history(limit=5000):
     except Exception as e:
         print(f"[DATABASE] Error fetching filtered history: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()
 
 def clear_db():
     """Deletes all records from the events table."""
+    conn = None
     try:
         conn = _get_connection()
         cursor = conn.cursor()
@@ -133,12 +147,14 @@ def clear_db():
         # Reset AUTOINCREMENT counter
         cursor.execute('DELETE FROM sqlite_sequence WHERE name="events"')
         conn.commit()
-        conn.close()
         print("[DATABASE] History and ID counter cleared")
         return True
     except Exception as e:
         print(f"[DATABASE] Error clearing history: {e}")
         return False
+    finally:
+        if conn:
+            conn.close()
 
 if __name__ == "__main__":
     # Test initialization
