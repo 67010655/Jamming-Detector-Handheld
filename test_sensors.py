@@ -1,12 +1,18 @@
-from hardware.mpu6050 import MPU6050
 import time
 import sys
+import config
+
+# Dynamically import correct IMU model based on configuration
+IMU_MODEL = getattr(config, 'IMU_MODEL', 'MPU6050').upper()
+if IMU_MODEL == 'MPU9250':
+    from hardware.mpu9250 import MPU9250 as IMU_CLASS
+else:
+    from hardware.mpu6050 import MPU6050 as IMU_CLASS
 
 def main():
     try:
         # Initialize sensors
-        import config
-        imu = MPU6050(address=getattr(config, 'IMU_ADDRESS', 0x69))
+        imu = IMU_CLASS(address=getattr(config, 'IMU_ADDRESS', 0x69))
         # RTC is handled by Kernel now, so we use system time
         
         print("--- Sensor Test Utility ---")
