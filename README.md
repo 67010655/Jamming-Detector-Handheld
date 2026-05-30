@@ -136,13 +136,18 @@ flowchart TD
 ```text
 .
 ├── hardware/
-│   ├── mpu6050.py              # IMU driver (I2C)
+│   ├── mpu6050.py              # IMU driver (6-DoF, I2C)
+│   ├── mpu9250.py              # IMU driver (9-DoF, I2C - planned compass expansion)
 │   └── rtc_ds3231.py           # RTC driver (I2C)
 ├── web/
 │   ├── index.html              # Dashboard (กันแจม branding)
 │   ├── style.css               # Glassmorphism, themes, title interactions
 │   ├── script.js               # Event-driven charts, polling, CSV
 │   └── *.png / BTFP_Logo.webp  # Partner assets (shared with LCD splash)
+├── tests/
+│   ├── __init__.py
+│   ├── test_database_manager.py # SQLite connection lifecycle regression test
+│   └── test_dsp.py             # DSP unit tests (pytest)
 ├── main.py                     # Entry point
 ├── detector.py                 # SDR loop, state machine, soft restart
 ├── display_ui.py               # LCD modes, splash (GUNJAM), touch dialogs
