@@ -20,7 +20,7 @@ GUNJAM is a handheld GNSS jamming detector running on Raspberry Pi Zero 2W. The 
 | Thread Safety       | **9/10**   | `threading.Event` + `RLock` zones done well; `_last_clear_time` race fixed this cycle. |
 | Reliability         | **9/10**   | SQLite WAL, RTC bus safety, frozen sensor recovery all solid.                          |
 | Performance         | **10/10**  | AABB + squared-distance particles; event-driven canvas redraws; mobile throttling.     |
-| Security            | **8.5/10** | Waitress WSGI; token auth; rate-limit race condition on `/api/clear` fixed this cycle. |
+| Security            | **8.5/10** | Waitress WSGI; trusted-LAN model (token auth omitted by design); `/api/clear` rate-limit race fixed this cycle. |
 | Code Quality        | **8.5/10** | Constants centralized; 18 DSP unit tests added this cycle; god class remains.         |
 | Web Dashboard UI/UX | **10/10**  | Responsive dark/light dashboard; high-performance event-driven rendering.              |
 
@@ -48,7 +48,7 @@ All magic numbers (`480`, `320`, `24000000`) have been moved to `config.py`. Har
 Touch button zones are rebuilt into a new `_new_zones` dict, then swapped atomically inside `threading.RLock` (`display_ui.py:618`). The touch handler thread never sees a partially-updated zone map.
 
 ### 3.3 `_last_clear_time` Race on `/api/clear` — FIXED THIS CYCLE
-Two concurrent `POST /api/clear` requests could both pass the rate-limit check before either updated `_last_clear_time`, allowing a double-clear. Fixed by adding `_clear_lock = threading.Lock()` and checking+reserving the timestamp atomically inside the lock before the database call (`web_server.py:138–149`).
+Two concurrent `POST /api/clear` requests could both pass the rate-limit check before either updated `_last_clear_time`, allowing a double-clear. Fixed by adding `_clear_lock = threading.Lock()` and checking+reserving the timestamp atomically inside the lock before the database call (`web_server.py:162–176`).
 
 ---
 
@@ -86,10 +86,10 @@ This reduces per-frame work from O(n²·√) to O(n²) with a fast early-exit fo
 ## 6. Security
 
 ### 6.1 Waitress WSGI — IMPLEMENTED
-Flask's single-threaded development server replaced with Waitress (`web_server.py:6`, `154`) running on a daemon thread with 2 worker threads. Concurrent API requests are handled correctly.
+Flask's single-threaded development server replaced with Waitress (`web_server.py:7`, `187`) running on a daemon thread with 2 worker threads. Concurrent API requests are handled correctly.
 
-### 6.2 Token Authentication — IMPLEMENTED
-`GET /api/*` routes check `X-API-Token` header against `GUNJAM_API_TOKEN` env var when set. Unauthenticated requests receive 401.
+### 6.2 Network-Level Access Control — BY DESIGN
+API token auth is intentionally omitted (`web_server.py:24-25`): the unit serves its dashboard only on a trusted, operator-controlled Wi‑Fi hotspot/LAN, so access is enforced at the network layer (isolated AP + WPA2) rather than per-request. If the dashboard is ever exposed beyond that trusted LAN, add an `X-API-Token` check (e.g. against a `GUNJAM_API_TOKEN` env var) returning 401 on mismatch as a follow-up.
 
 ### 6.3 Rate-Limited `POST /api/clear` — IMPLEMENTED + RACE FIXED
 A 60-second cooldown prevents database abuse. The check-and-reserve is now atomic under `_clear_lock` (see §3.3). Remote IP is logged on every successful clear for audit trail.

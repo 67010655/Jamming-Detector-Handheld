@@ -121,3 +121,7 @@ jamming_events.db
 *.db-wal
 *.sqlite-shm
 *.sqlite-wal
+
+# Agent / skill tooling (Claude Code, etc.)
+.agents/
+skills-lock.json
