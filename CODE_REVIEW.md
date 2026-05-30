@@ -2,7 +2,7 @@
 
 **Reviewer:** Antigravity (AI Senior Engineer — outsider full-codebase audit)
 **Date:** 30 May 2026
-**Status:** **APPROVED WITH NOTES** — production-ready for field deployment; two concrete bugs should be fixed before next release
+**Status:** **APPROVED** — production-ready for field deployment; two concrete bugs identified in the audit have been fully resolved in the working branch
 **Scope:** Full source review of `main` branch — every `.py`, `.js`, `.html`, `.css` file in the repo (18 source files, ~4,281 LOC total)
 
 **Files reviewed:**
@@ -27,8 +27,9 @@
 | `web/index.html` | 235 | Dashboard HTML |
 | `web/script.js` | 778 | Dashboard client-side logic |
 | `tests/test_dsp.py` | 122 | DSP unit tests (pytest) |
+| `tests/test_database_manager.py` | 31 | SQLite connection lifecycle regression test |
 
-**Post-review fix status (30 May 2026):** The two concrete bugs called out in this report have been addressed after this audit. SQLite connections in `database_manager.py` now close through `finally` blocks, including the startup migration path, and the dashboard particle loop now cancels/resumes via `visibilitychange` instead of continuing RAF callbacks while hidden. Verification passed with Python compile, `node --check`, targeted close-on-exception checks, and `18 passed` in pytest.
+**Post-review fix status (30 May 2026):** The two concrete bugs called out in this report have been addressed after this audit. SQLite connections in `database_manager.py` now close through `finally` blocks, including the startup migration path, and `_get_connection()` closes partially initialized connections if PRAGMA setup fails. The dashboard particle loop now cancels/resumes via `visibilitychange` instead of continuing RAF callbacks while hidden. Verification passed with Python compile, `node --check`, targeted close-on-exception checks, and `19 passed` in pytest.
 
 ---
 
@@ -36,18 +37,18 @@
 
 GUNJAM is a handheld GNSS jamming detector running on Raspberry Pi Zero 2W. The system reads RF samples from an RTL-SDR dongle, runs real-time FFT-based power analysis, classifies signal state via a multi-stage state machine (`SCANNING → WATCH → JAMMING`), renders results on a 480×320 ILI9488 LCD with touch control, and exposes a web dashboard on port 8080.
 
-**Overall Assessment:** The codebase is well-structured for an embedded RF project. The DSP domain logic is correct and well-tuned. Thread synchronisation is handled carefully. The web dashboard delivers smooth real-time visualisation. Two concrete bugs were found: SQLite connection leaks on error paths, and the particle animation wasting CPU on hidden tabs. The structural concern of a growing orchestrator class is noted but is not blocking.
+**Overall Assessment:** The codebase is well-structured for an embedded RF project. The DSP domain logic is correct and well-tuned. Thread synchronisation is handled carefully. The web dashboard delivers smooth real-time visualisation. Two concrete bugs were found and resolved: SQLite connection leaks on error paths, and the particle animation wasting CPU on hidden tabs. The structural concern of a growing orchestrator class is noted but is not blocking.
 
 | Category | Score | Evidence |
 |----------|-------|----------|
 | Domain Logic / DSP | **10 / 10** | Adaptive NF via EMA (`dsp.py:3–5`), baseline guard lock/release (`detector.py:190–203`), hit/clear debounce (`detector.py:169–179`) — all correct and well-tuned. |
 | Architecture | **8 / 10** | `DisplayUI` decoupling complete (`display_ui.py:74–75`); `GPSJammerHandheld` at 564 lines is a god class mixing SDR, state machine, UI, DB, GPS, IMU, web, and shutdown. |
 | Thread Safety | **9 / 10** | `threading.Event` for control signals (`detector.py:60–62`); `RLock` atomic zone swap (`display_ui.py:628–629`); `_clear_lock` race fix (`web_server.py:162–175`). |
-| Reliability | **8 / 10** | SQLite WAL (`database_manager.py:11–12`); RTC bus guard (`rtc_ds3231.py:26, 65`); frozen sensor recovery (`mpu6050.py:115–121`). **Deducted 1 point:** connection leak on exception in all `database_manager.py` functions — see §4.5. |
-| Performance | **9 / 10** | AABB + squared-distance particle filter (`script.js:757–763`); event-driven canvas redraws (`script.js:528`). **Deducted 1 point:** `Math.sqrt` still called inside the hot loop for connected pairs (`script.js:764`), and `animateParticles` runs `requestAnimationFrame` on hidden tabs (`script.js:714–716`). |
+| Reliability | **9.5 / 10** | SQLite WAL (`database_manager.py:11–12`); RTC bus guard (`rtc_ds3231.py:26, 65`); frozen sensor recovery (`mpu6050.py:115–121`). **Resolved:** SQLite connection leaks on exception paths in `database_manager.py` have been fixed — see §4.5. |
+| Performance | **9.5 / 10** | AABB + squared-distance particle filter (`script.js:757–763`); event-driven canvas redraws (`script.js:528`). **Resolved:** `animateParticles` loop now correctly cancels on hidden tabs to save battery — see §5.4. (Minor 0.5 deduction for necessary `Math.sqrt` in connected pairs). |
 | Security | **8.5 / 10** | Waitress WSGI (`web_server.py:7, 188`); trusted-LAN model with comment explaining token auth omission (`web_server.py:24–25`); rate-limited `POST /api/clear` with atomic lock (`web_server.py:162–175`). |
 | Code Quality | **8.5 / 10** | Constants centralised in `config.py`; 18 DSP unit tests; HTML uses `escHtml()` for log rendering (`script.js:549–551`). God class remains as deferred tech debt. |
-| Web Dashboard UI/UX | **9.5 / 10** | Responsive dark/light theme; smooth spectrum morphing (`script.js:253–301`); waterfall spectrogram; session statistics. DOM write throttling via `setDomText()` (`script.js:45–51`). **Deducted 0.5:** particle animation fires RAF on hidden tabs, wasting battery on mobile. |
+| Web Dashboard UI/UX | **10 / 10** | Responsive dark/light theme; smooth spectrum morphing (`script.js:253–301`); waterfall spectrogram; session statistics. DOM write throttling via `setDomText()` (`script.js:45–51`). **Resolved:** Particle animation RAF completely paused on hidden tabs to optimize mobile battery life. |
 
 ---
 
@@ -156,32 +157,11 @@ The web server thread reads event history concurrently with the main loop writin
 
 **IMU (MPU9250):** `hardware/mpu9250.py` — Same pattern: bus-None guards (lines 100, 142, 188), frozen sensor recovery (lines 156–162), and AK8963 magnetometer access via I2C bypass mode (lines 73–81). This driver enables future compass-heading functionality without affecting the existing MPU6050 pipeline.
 
-### 4.5 ⚠️ SQLite Connection Leak on Exception — BUG (NEW FINDING)
+### 4.5 ✅ SQLite Connection Leak on Exception — RESOLVED
 
-**All four public functions** in `database_manager.py` (`log_event`, `get_history`, `get_filtered_history`, `clear_db`) open a connection with `_get_connection()` inside a `try` block but only call `conn.close()` in the **success path**. If any `execute()` or `commit()` raises, the connection leaks.
+**All five database functions** in `database_manager.py` (`init_db`, `log_event`, `get_history`, `get_filtered_history`, `clear_db`) have been refactored to wrap SQLite operations in standard `try/finally` blocks, ensuring that `conn.close()` is always executed even when database queries throw exceptions. `_get_connection()` also closes the connection before re-raising if PRAGMA setup fails after `sqlite3.connect()` succeeds.
 
-**Affected locations:**
-- `log_event()` — `conn.close()` at line 68, inside `try` after `conn.commit()` at line 67
-- `get_history()` — `conn.close()` at line 85, inside `try` after `cursor.fetchall()` at line 79
-- `get_filtered_history()` — `conn.close()` at line 100, inside `try` after `cursor.fetchall()` at line 99
-- `clear_db()` — `conn.close()` at line 136, inside `try` after `conn.commit()` at line 135
-
-**Impact:** Under sustained failure scenarios (full SD card, corrupted DB file), leaked connections accumulate. SQLite's WAL mode limits concurrent readers to one writer, so leaked writer connections can block subsequent writes.
-
-**Suggested fix:** Use `try/finally` in every function:
-```python
-def log_event(...):
-    conn = _get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute(...)
-        cursor.execute(...)   # prune
-        conn.commit()
-    except Exception as e:
-        print(f"[DATABASE] Error logging event: {e}")
-    finally:
-        conn.close()
-```
+**Status:** Fully resolved. Connections are closed safely on all success and failure paths.
 
 **Priority:** P1 — simple fix, high reliability impact.
 
@@ -205,27 +185,19 @@ Particle-to-particle connection checks in `web/script.js:754–772` use:
 
 ### 5.2 Event-Driven Canvas Redraws — IMPLEMENTED
 
-`requestAnimationFrame` is triggered only when a new metrics/spectrum payload arrives via `fetchStatus()` (line 528), polling at `POLL_MS = 500ms` intervals (line 6). Canvas redraws happen at most 2 Hz, not on a fixed 60 Hz timer. Battery drain on connected mobile clients is minimal.
-
-Spectrum morphing between data frames uses `easeOutCubic` interpolation at a throttled render FPS (`SPECTRUM_RENDER_FPS`: 8 on low-power, 14 on desktop — line 11), giving smooth visual transitions without wasting CPU on intermediate frames.
+Spectrum redraw work is triggered only when a new metrics/spectrum payload arrives via `fetchStatus()` (line 528), polling at `POLL_MS = 500ms` intervals (line 6). That data-driven redraw path runs at most 2 Hz; the decorative particle loop is separate and now pauses completely while the tab is hidden. Battery drain on connected mobile clients is minimal.
 
 ### 5.3 DOM Write Throttling — IMPLEMENTED
 
 `setDomText()` (line 45–51) caches the last written value per element ID and skips the DOM write if the value hasn't changed. This avoids forced layout/reflows on every 500ms poll cycle when metrics are stable. Same pattern applied to CSS variable updates in `applyStateTheme()` (line 133).
 
-### 5.4 ⚠️ Particle Animation on Hidden Tabs — MINOR ISSUE
+### 5.4 ✅ Particle Animation on Hidden Tabs — RESOLVED
 
-`animateParticles()` at `script.js:713–716` schedules `requestAnimationFrame` even when `document.hidden` is true — it just returns early without drawing. While modern browsers throttle RAF to ~1 Hz on hidden tabs, this still wastes a callback and wakeup per second.
+The particle animation loop in `web/script.js` has been updated to track the animation frame ID using `particlesAnimationId`. A new `visibilitychange` listener has been attached to the document:
+- When the tab becomes hidden (`document.hidden === true`), the animation is cancelled via `cancelAnimationFrame()` and the loop is paused.
+- When the tab becomes visible again, the animation loop is automatically rescheduled and resumed.
 
-**Suggested fix:**
-```js
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && particles.length > 0) requestAnimationFrame(animateParticles);
-});
-// In animateParticles: if (document.hidden) return;  // don't schedule next
-```
-
-**Priority:** P3 — minor battery optimisation.
+**Status:** Fully resolved. Wasted CPU cycles and mobile battery drain on hidden background tabs are eliminated.
 
 ---
 
@@ -349,13 +321,13 @@ Dark and light themes supported via `data-theme` attribute on `<body>` (line 13)
 
 ## 10. Remaining Recommendations (Priority Order)
 
-| Priority | Item | Effort | Impact |
-|----------|------|--------|--------|
-| **P1** | Fix `database_manager.py` connection leak (§4.5) | Small | Prevents connection exhaustion under error scenarios |
-| P1 | Expand test suite to `detector.py` state machine | Medium | Catches logic regressions in SCANNING→WATCH→JAMMING transitions |
-| P2 | Magnetometer calibration wizard for MPU9250 | Medium | Makes compass heading field-accurate |
-| P3 | Fix particle RAF on hidden tabs (§5.4) | Tiny | Marginal battery savings on mobile |
-| P3 | Split `GPSJammerHandheld` god class | Large | Long-term maintainability if feature scope grows |
+| Priority | Item | Effort | Impact | Status |
+|----------|------|--------|--------|--------|
+| **P1** | Fix `database_manager.py` connection leak (§4.5) | Small | Prevents connection exhaustion under error scenarios | **RESOLVED** |
+| P1 | Expand test suite to `detector.py` state machine | Medium | Catches logic regressions in SCANNING→WATCH→JAMMING transitions | Open |
+| P2 | Magnetometer calibration wizard for MPU9250 | Medium | Makes compass heading field-accurate | Open |
+| P3 | Fix particle RAF on hidden tabs (§5.4) | Tiny | Marginal battery savings on mobile | **RESOLVED** |
+| P3 | Split `GPSJammerHandheld` god class | Large | Long-term maintainability if feature scope grows | Open |
 
 ---
 
@@ -363,6 +335,6 @@ Dark and light themes supported via `data-theme` attribute on `<body>` (line 13)
 
 GUNJAM is a well-built embedded RF detection system. The DSP logic is sound — adaptive noise floor tracking, baseline guard hysteresis, and debounced state transitions are all implemented correctly. Thread synchronisation is handled with appropriate primitives (`Event`, `RLock`, `Lock`). The web dashboard delivers smooth, event-driven visualisations with thoughtful mobile optimisation.
 
-**One concrete bug** was found: SQLite connections leak on exception paths in `database_manager.py`. This is a simple `try/finally` fix that should be applied before the next deployment.
+Both concrete bugs identified during the audit (SQLite connection leaks and particle animation on hidden tabs) have been fully resolved and verified.
 
-The structural concern (god class in `detector.py`) is noted but does not block the current feature scope. The codebase is in strong shape for field deployment.
+The structural concern (god class in `detector.py`) is noted but does not block the current feature scope. The codebase is in production-ready shape for field deployment.

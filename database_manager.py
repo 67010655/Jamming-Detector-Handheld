@@ -8,9 +8,13 @@ DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jamming_even
 def _get_connection():
     """Open a SQLite connection with WAL mode for concurrent read/write safety."""
     conn = sqlite3.connect(DB_NAME)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
-    return conn
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        return conn
+    except Exception:
+        conn.close()
+        raise
 
 def init_db():
     """Initializes the database and creates the events table if it doesn't exist."""
