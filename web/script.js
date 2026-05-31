@@ -7,6 +7,9 @@ const POLL_MS = 500;
 const MARGIN_MAX = 50;
 const WATERFALL_ROWS = 60; 
 const WATERFALL_ADD_MS = 500;
+const LOW_POWER_VISUALS = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4;
+const SPECTRUM_RENDER_FPS = LOW_POWER_VISUALS ? 8 : 14;
+const SPECTRUM_MORPH_MS = Math.min(420, POLL_MS * 0.85);
 
 // ── DOM Refs ──
 const $id = id => document.getElementById(id);
@@ -21,6 +24,14 @@ let lastWfTime     = 0;
 let allLogs        = [];
 let activeFilter   = 'ALL';
 let isDark         = true;
+let spectrumBgCanvas = null;
+let spectrumBgKey = '';
+let spectrumFromData = null;
+let spectrumTargetData = null;
+let spectrumDisplayData = null;
+let spectrumAnimStart = 0;
+let spectrumAnimFrame = null;
+let lastSpectrumRenderAt = 0;
 
 // Cache the last printed DOM values to avoid forced layouts (Value Differencing)
 const domCache = {};
@@ -46,9 +57,11 @@ function toggleTheme() {
     localStorage.setItem('jd-theme', isDark ? 'dark' : 'light');
     
     // Force redraw on theme switch since colors changed
-    drawSpectrum(lastSpectrumData);
+    spectrumBgCanvas = null;
+    spectrumBgKey = '';
+    drawSpectrum(spectrumDisplayData || lastSpectrumData);
     drawMarginTrend();
-    drawWaterfall();
+    drawWaterfallFull();
 }
 
 function loadTheme() {
@@ -79,6 +92,25 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function lerp(a, b, t) { return a + (b - a) * t; }
 function lerpColor(c1, c2, t) {
     return [Math.round(lerp(c1[0], c2[0], t)), Math.round(lerp(c1[1], c2[1], t)), Math.round(lerp(c1[2], c2[2], t))];
+}
+function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+}
+async function readError(res) {
+    try {
+        const data = await res.json();
+        return data.error || data.message || `Request failed (${res.status})`;
+    } catch (e) {
+        return `Request failed (${res.status})`;
+    }
+}
+async function fetchJson(url) {
+    const res = await fetch(url);
+    const type = res.headers.get('content-type') || '';
+    if (!res.ok || !type.includes('application/json')) {
+        throw new Error(`API unavailable: ${url}`);
+    }
+    return res.json();
 }
 
 // ── State Colors ──
@@ -139,10 +171,46 @@ function canvasColors() {
     };
 }
 
-// Keep a reference to latest spectrum array to draw only when new data arrives
+// Keep a reference to latest spectrum array for redraws after resize/theme changes.
 let lastSpectrumData = null;
 
-// ═══ DRAW SPECTRUM (CALLED ONLY WHEN NEW DATA ARRIVES - 4Hz MAX) ═══
+function getSpectrumBackground(w, h, cc) {
+    const key = `${w}x${h}:${isDark ? 'd' : 'l'}`;
+    if (spectrumBgCanvas && spectrumBgKey === key) return spectrumBgCanvas;
+
+    const bg = document.createElement('canvas');
+    bg.width = w;
+    bg.height = h;
+    const bgCtx = bg.getContext('2d');
+
+    bgCtx.fillStyle = cc.bg;
+    bgCtx.fillRect(0, 0, w, h);
+    bgCtx.strokeStyle = cc.grid;
+    bgCtx.lineWidth = 1;
+    bgCtx.beginPath();
+    for (let i = 1; i < 5; i++) {
+        const y = (h / 5) * i;
+        bgCtx.moveTo(0, y);
+        bgCtx.lineTo(w, y);
+        const x = (w / 5) * i;
+        bgCtx.moveTo(x, 0);
+        bgCtx.lineTo(x, h);
+    }
+    bgCtx.stroke();
+
+    bgCtx.font = '10px "JetBrains Mono", monospace';
+    bgCtx.fillStyle = cc.gridText;
+    for (let i = 1; i < 5; i++) {
+        const db = -20 * i;
+        bgCtx.fillText(`${db}`, 4, (h / 5) * i - 3);
+    }
+
+    spectrumBgCanvas = bg;
+    spectrumBgKey = key;
+    return bg;
+}
+
+// ═══ DRAW SPECTRUM ═══
 function drawSpectrum(data) {
     if (!spectrumCanvas || !data || data.length === 0) return;
     const ctx = spectrumCanvas.getContext('2d');
@@ -152,39 +220,19 @@ function drawSpectrum(data) {
     const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
 
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = cc.bg;
-    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(getSpectrumBackground(w, h, cc), 0, 0);
 
-    // Grid Lines
-    ctx.strokeStyle = cc.grid;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 1; i < 5; i++) {
-        const y = (h / 5) * i;
-        ctx.moveTo(0, y); ctx.lineTo(w, y);
-        const x = (w / 5) * i;
-        ctx.moveTo(x, 0); ctx.lineTo(x, h);
-    }
-    ctx.stroke();
-
-    // dB Labels
-    ctx.font = '10px "JetBrains Mono", monospace';
-    ctx.fillStyle = cc.gridText;
-    for (let i = 1; i < 5; i++) {
-        const db = -20 * i;
-        ctx.fillText(`${db}`, 4, (h / 5) * i - 3);
-    }
-
-    const step = w / (data.length - 1);
+    const step = data.length > 1 ? w / (data.length - 1) : w;
+    const points = data.map((val, i) => {
+        const x = i * step;
+        const y = h - ((val + 100) * (h / 80));
+        return [x, Math.max(0, Math.min(h, y))];
+    });
     
     // Path for line and fill
     ctx.beginPath();
     ctx.moveTo(0, h);
-    data.forEach((val, i) => {
-        const x = i * step;
-        const y = h - ((val + 100) * (h / 80));
-        ctx.lineTo(x, Math.max(0, Math.min(h, y)));
-    });
+    points.forEach(([x, y]) => ctx.lineTo(x, y));
 
     // Fill area below line
     ctx.lineTo(w, h);
@@ -194,18 +242,65 @@ function drawSpectrum(data) {
 
     // Clean Line
     ctx.beginPath();
-    data.forEach((val, i) => {
-        const x = i * step;
-        const y = h - ((val + 100) * (h / 80));
-        const clampedY = Math.max(0, Math.min(h, y));
-        if (i === 0) ctx.moveTo(x, clampedY); else ctx.lineTo(x, clampedY);
+    points.forEach(([x, y], i) => {
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     });
     ctx.strokeStyle = accent || cc.line;
     ctx.lineWidth = 2.2; 
     ctx.stroke();
 }
 
-// ═══ DRAW MARGIN TREND (CALLED ONLY WHEN NEW DATA ARRIVES - 4Hz MAX) ═══
+// ═══ SPECTRUM SMOOTHING ═══
+function setSpectrumTarget(data) {
+    if (!data || data.length === 0) return;
+    const next = data.map(value => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : -100;
+    });
+
+    if (!spectrumDisplayData || spectrumDisplayData.length !== next.length) {
+        spectrumFromData = next;
+        spectrumTargetData = next;
+        spectrumDisplayData = next.slice();
+        drawSpectrum(spectrumDisplayData);
+        return;
+    }
+
+    spectrumFromData = spectrumDisplayData.slice();
+    spectrumTargetData = next;
+    spectrumAnimStart = performance.now();
+    startSpectrumAnimation();
+}
+
+function startSpectrumAnimation() {
+    if (spectrumAnimFrame) return;
+    spectrumAnimFrame = requestAnimationFrame(animateSpectrum);
+}
+
+function animateSpectrum(now) {
+    spectrumAnimFrame = null;
+    if (!spectrumFromData || !spectrumTargetData) return;
+
+    const frameMs = 1000 / SPECTRUM_RENDER_FPS;
+    const rawT = clamp((now - spectrumAnimStart) / SPECTRUM_MORPH_MS, 0, 1);
+    const t = easeOutCubic(rawT);
+
+    if (now - lastSpectrumRenderAt >= frameMs || rawT >= 1) {
+        for (let i = 0; i < spectrumTargetData.length; i++) {
+            spectrumDisplayData[i] = lerp(spectrumFromData[i], spectrumTargetData[i], t);
+        }
+        drawSpectrum(spectrumDisplayData);
+        lastSpectrumRenderAt = now;
+    }
+
+    if (rawT < 1) {
+        startSpectrumAnimation();
+    } else {
+        spectrumDisplayData = spectrumTargetData.slice();
+    }
+}
+
+// ═══ DRAW MARGIN TREND (CALLED ONLY WHEN NEW DATA ARRIVES) ═══
 function drawMarginTrend() {
     if (!marginCanvas) return;
     const ctx = marginCanvas.getContext('2d');
@@ -275,46 +370,59 @@ function wfColor(dbfs) {
     else if (t < 0.65) c = lerpColor([0, 180, 120],  [220, 200, 0],  (t - 0.4) / 0.25);
     else if (t < 0.85) c = lerpColor([220, 200, 0],  [240, 80, 20],  (t - 0.65) / 0.2);
     else                c = lerpColor([240, 80, 20],  [255, 255, 255],(t - 0.85) / 0.15);
-    return c; // returns [r, g, b] array for ImageData use
+    return c;
 }
 
-function drawWaterfall() {
+function drawWaterfallRow() {
     if (!waterfallCanvas || waterfallData.length === 0) return;
     const ctx = waterfallCanvas.getContext('2d');
     const w = waterfallCanvas.width, h = waterfallCanvas.height;
     if (w === 0 || h === 0) return;
 
-    // Use ImageData for pixel-level rendering — 10-50x faster than fillRect per cell
-    const imgData = ctx.createImageData(w, h);
-    const pixels = imgData.data;
-    const rows = waterfallData.length;
-    const rowH = h / WATERFALL_ROWS;
+    // Scroll existing content DOWN by one row, newest row goes to TOP.
+    const rowH = Math.max(2, Math.ceil(h / WATERFALL_ROWS));
+    if (h > rowH) {
+        ctx.drawImage(waterfallCanvas, 0, 0, w, h - rowH, 0, rowH, w, h - rowH);
+    }
 
-    for (let r = 0; r < rows; r++) {
-        const spectrum = waterfallData[r];
+    const spectrum = waterfallData[waterfallData.length - 1];
+    const cols = spectrum.length;
+    for (let c = 0; c < cols; c++) {
+        const rgb = wfColor(spectrum[c]);
+        const xStart = Math.round(c * w / cols);
+        const xEnd = Math.round((c + 1) * w / cols);
+        ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+        ctx.fillRect(xStart, 0, Math.max(1, xEnd - xStart), rowH);
+    }
+}
+
+function drawWaterfallFull() {
+    if (!waterfallCanvas) return;
+    const ctx = waterfallCanvas.getContext('2d');
+    const w = waterfallCanvas.width, h = waterfallCanvas.height;
+    if (w === 0 || h === 0) return;
+
+    const cc = canvasColors();
+    ctx.fillStyle = cc.bg;
+    ctx.fillRect(0, 0, w, h);
+    if (waterfallData.length === 0) return;
+
+    const visible = waterfallData.slice(-WATERFALL_ROWS);
+    const N = visible.length;
+    const rowH = Math.max(2, Math.ceil(h / WATERFALL_ROWS));
+
+    // Newest row at top: index N-1 renders at y=0, index 0 at bottom.
+    visible.forEach((spectrum, r) => {
         const cols = spectrum.length;
-        const yStart = Math.round(r * rowH);
-        const yEnd = Math.round((r + 1) * rowH);
-
+        const y = (N - 1 - r) * rowH;
         for (let c = 0; c < cols; c++) {
             const rgb = wfColor(spectrum[c]);
             const xStart = Math.round(c * w / cols);
             const xEnd = Math.round((c + 1) * w / cols);
-
-            // Fill the rectangle directly in the pixel buffer
-            for (let py = yStart; py < yEnd && py < h; py++) {
-                for (let px = xStart; px < xEnd && px < w; px++) {
-                    const idx = (py * w + px) * 4;
-                    pixels[idx]     = rgb[0];
-                    pixels[idx + 1] = rgb[1];
-                    pixels[idx + 2] = rgb[2];
-                    pixels[idx + 3] = 255;
-                }
-            }
+            ctx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+            ctx.fillRect(xStart, y, Math.max(1, xEnd - xStart), rowH);
         }
-    }
-
-    ctx.putImageData(imgData, 0, 0);
+    });
 }
 
 // ═══ SESSION STATS ═══
@@ -341,8 +449,7 @@ function updateSession(m) {
 // ═══ FETCH STATUS ═══
 async function fetchStatus() {
     try {
-        const res = await fetch('/api/status');
-        const data = await res.json();
+        const data = await fetchJson('/api/status');
 
         // Sync local clock date if provided (run once or verify shift)
         if (data.real_date) {
@@ -395,6 +502,7 @@ async function fetchStatus() {
 
         if (data.spectrum) {
             lastSpectrumData = data.spectrum;
+            setSpectrumTarget(data.spectrum);
 
             // Waterfall accumulation
             const now = Date.now();
@@ -418,28 +526,24 @@ async function fetchStatus() {
         // Only trigger drawing when new data arrives (4Hz max) instead of 60 FPS loop!
         // This is a massive CPU optimization.
         requestAnimationFrame(() => {
-            if (lastSpectrumData) {
-                drawSpectrum(lastSpectrumData);
-            }
             drawMarginTrend();
             if (waterfallChanged) {
-                drawWaterfall();
+                drawWaterfallRow();
             }
         });
         
-    } catch (e) { console.error('Status fetch error:', e); }
+    } catch (e) { console.warn('Status fetch skipped:', e.message || e); }
     setTimeout(fetchStatus, POLL_MS);
 }
 
 // ═══ FETCH HISTORY ═══
 async function fetchHistory() {
     try {
-        const res = await fetch('/api/history?limit=200');
-        const data = await res.json();
+        const data = await fetchJson('/api/history?limit=200');
         if (!data || data.length === 0) return;
         allLogs = data;
         renderLogs();
-    } catch (e) { console.error('History fetch error:', e); }
+    } catch (e) { console.warn('History fetch skipped:', e.message || e); }
 }
 
 function escHtml(s) {
@@ -481,20 +585,52 @@ function renderLogs() {
 // ═══ FILTER TABS ═══
 document.querySelectorAll('.filter-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.filter-tab').forEach(t => {
+            t.classList.remove('active');
+            t.setAttribute('aria-pressed', 'false');
+        });
         tab.classList.add('active');
+        tab.setAttribute('aria-pressed', 'true');
         activeFilter = tab.dataset.filter;
         renderLogs();
     });
 });
 
 // ═══ BUTTONS ═══
-$id('export-btn').addEventListener('click', () => { window.location.href = '/api/export'; });
+$id('export-btn').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/export');
+        if (!res.ok) {
+            alert(await readError(res));
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'jamming_history.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        alert('Export failed. Check the dashboard connection.');
+    }
+});
 $id('clear-btn').addEventListener('click', async () => {
     if (confirm('Clear all detection logs?')) {
-        await fetch('/api/clear', { method: 'POST' });
-        allLogs = [];
-        renderLogs();
+        try {
+            const res = await fetch('/api/clear', { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                alert(data.error || `Clear failed (${res.status})`);
+                return;
+            }
+            allLogs = [];
+            renderLogs();
+        } catch (e) {
+            alert('Clear failed. Check the dashboard connection.');
+        }
     }
 });
 
@@ -509,9 +645,14 @@ function resizeCanvas(canvas) {
 }
 
 function resizeAll() {
+    spectrumBgCanvas = null;
+    spectrumBgKey = '';
     resizeCanvas(spectrumCanvas);
     resizeCanvas(marginCanvas);
     resizeCanvas(waterfallCanvas);
+    drawSpectrum(spectrumDisplayData || lastSpectrumData);
+    drawMarginTrend();
+    drawWaterfallFull();
 }
 
 // ═══ INIT ═══
@@ -535,7 +676,7 @@ const pCtx = particleCanvas ? particleCanvas.getContext('2d') : null;
 let particles = [];
 // Reduce particle count on mobile/touch devices for extreme smoothness
 const isMobile = typeof navigator !== 'undefined' && (navigator.maxTouchPoints > 0 || /Mobi|Android/i.test(navigator.userAgent));
-const PARTICLE_COUNT = isMobile ? 25 : 65;
+const PARTICLE_COUNT = LOW_POWER_VISUALS ? 0 : (isMobile ? 12 : 32);
 const CONNECTION_DIST = 160;
 const CONNECTION_DIST_SQ = CONNECTION_DIST * CONNECTION_DIST;
 
@@ -557,20 +698,36 @@ function createParticle() {
     };
 }
 
+let particlesAnimationId = null;
+
 function initParticles() {
     if (!particleCanvas || !pCtx) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (PARTICLE_COUNT === 0) return;
     resizeParticles();
     particles = [];
     for (let i = 0; i < PARTICLE_COUNT; i++) {
         particles.push(createParticle());
     }
-    requestAnimationFrame(animateParticles);
+    if (particlesAnimationId) {
+        cancelAnimationFrame(particlesAnimationId);
+    }
+    if (!document.hidden) {
+        particlesAnimationId = requestAnimationFrame(animateParticles);
+    }
 }
 
 function animateParticles() {
+    if (document.hidden) {
+        particlesAnimationId = null;
+        return;
+    }
     if (!pCtx) return;
     const w = particleCanvas.width, h = particleCanvas.height;
-    if (w === 0 || h === 0) { requestAnimationFrame(animateParticles); return; }
+    if (w === 0 || h === 0) {
+        particlesAnimationId = requestAnimationFrame(animateParticles);
+        return;
+    }
 
     pCtx.clearRect(0, 0, w, h);
 
@@ -626,5 +783,18 @@ function animateParticles() {
         }
     }
 
-    requestAnimationFrame(animateParticles);
+    particlesAnimationId = requestAnimationFrame(animateParticles);
 }
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        if (!particlesAnimationId && particles.length > 0) {
+            particlesAnimationId = requestAnimationFrame(animateParticles);
+        }
+    } else {
+        if (particlesAnimationId) {
+            cancelAnimationFrame(particlesAnimationId);
+            particlesAnimationId = null;
+        }
+    }
+});

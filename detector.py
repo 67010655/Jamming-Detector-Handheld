@@ -12,7 +12,12 @@ from led_control import LEDController
 from buzzer import BuzzerController
 import web_server
 import database_manager
-from hardware.mpu6050 import MPU6050
+# Dynamically import correct IMU model based on configuration
+IMU_MODEL = getattr(config, 'IMU_MODEL', 'MPU6050').upper()
+if IMU_MODEL == 'MPU9250':
+    from hardware.mpu9250 import MPU9250 as IMU_CLASS
+else:
+    from hardware.mpu6050 import MPU6050 as IMU_CLASS
 
 class GPSJammerHandheld:
     def __init__(self, preview=False):
@@ -26,16 +31,16 @@ class GPSJammerHandheld:
         self.imu = None
         self.current_bearing = 0.0
 
-        self.sample_count = 8192
+        self.sample_count = config.SAMPLE_COUNT
         self._window = np.hanning(self.sample_count).astype(np.float32)
         self.center_freq_hz = config.CENTER_FREQ
         self.sample_rate_hz = config.SAMPLE_RATE
         self.gain_db = config.GAIN
 
-        self.target_fps = 10
+        self.target_fps = config.FPS
 
-        self.alpha_idle = 0.97
-        self.alpha_alert = 0.998
+        self.alpha_idle = config.ALPHA_IDLE
+        self.alpha_alert = config.ALPHA_ALERT
 
         self.floor_rise_threshold_db = config.FLOOR_RISE_THRESHOLD
         self.peak_threshold_db = config.PEAK_THRESHOLD
@@ -80,10 +85,10 @@ class GPSJammerHandheld:
             
             self.ui.draw_splash("CALIBRATING IMU SENSORS...", progress=90)
             try:
-                self.imu = MPU6050(address=getattr(config, 'IMU_ADDRESS', 0x69))
+                self.imu = IMU_CLASS(address=getattr(config, 'IMU_ADDRESS', 0x69))
                 self.imu.calibrate(samples=150)
             except Exception as e:
-                print(f"[IMU] Failed to initialize MPU6050: {e}")
+                print(f"[IMU] Failed to initialize {IMU_MODEL}: {e}")
                 self.imu = None
 
             self.ui.draw_splash("STARTING SYSTEM MODULES...", progress=100)
@@ -102,7 +107,11 @@ class GPSJammerHandheld:
         self.last_log_time = 0
         self.log_interval = 1.0 # Seconds between logs for the same persistent event
         
-        web_server.start_server(port=8080)
+        try:
+            web_server.start_server(port=8080)
+        except Exception:
+            self.shutdown()
+            raise
         
         self.buzzer.play_startup()
         
@@ -402,7 +411,12 @@ class GPSJammerHandheld:
 
     def adjust_gain(self, delta):
         """Adjust SDR gain by delta dB."""
-        self.gain_db = float(np.clip(self.gain_db + delta, 0, 50))
+        step = abs(float(delta))
+        next_gain = self.gain_db + delta
+        if delta > 0 and self.gain_db <= 0 and step > 0:
+            base_offset = float(config.GAIN) % step
+            next_gain = base_offset if base_offset > 0.001 else step
+        self.gain_db = round(float(np.clip(next_gain, 0, 50)), 1)
         if self.sdr:
             try:
                 self.sdr.gain = self.gain_db

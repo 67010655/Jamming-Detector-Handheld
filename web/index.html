@@ -6,17 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>กันแจม | JAMMING DETECTOR HANDHELD DASHBOARD</title>
     <meta name="description" content="Real-time GNSS L1 band jamming detection and RF spectrum analysis dashboard">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Prompt:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link rel="stylesheet" href="fonts.css">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body data-theme="dark">
     <!-- ═══ PARTICLE BACKGROUND ═══ -->
-    <canvas id="particleCanvas" class="particle-bg"></canvas>
+    <canvas id="particleCanvas" class="particle-bg" aria-hidden="true"></canvas>
     <!-- ═══ SCANLINE OVERLAY ═══ -->
     <div class="scanline-overlay"></div>
     <main class="dashboard">
@@ -39,7 +35,7 @@
                     <span id="clock-date" class="clock-date">LOADING...</span>
                 </div>
                 <!-- Day/Night Toggle -->
-                <button id="theme-toggle" class="theme-toggle" title="Toggle Day/Night Mode">
+                <button id="theme-toggle" class="theme-toggle" title="Toggle Day/Night Mode" aria-label="Toggle day or night mode">
                     <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="5"></circle>
@@ -57,7 +53,7 @@
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                     </svg>
                 </button>
-                <div id="state-badge" class="state-badge" data-state="SCANNING">SCANNING</div>
+                <div id="state-badge" class="state-badge" data-state="SCANNING" role="status" aria-live="polite">SCANNING</div>
             </div>
         </header>
 
@@ -69,7 +65,7 @@
                     <span class="card-unit">dBFS vs Frequency</span>
                 </div>
                 <div class="spectrum-wrap">
-                    <canvas id="spectrumCanvas"></canvas>
+                    <canvas id="spectrumCanvas" role="img" aria-label="Live RF spectrum chart"></canvas>
                 </div>
                 <div class="metrics-strip">
                     <div class="metric">
@@ -136,7 +132,7 @@
                     <span class="card-title">MARGIN TREND</span>
                     <span class="card-unit">Last 50 samples</span>
                 </div>
-                <canvas id="marginCanvas"></canvas>
+                <canvas id="marginCanvas" role="img" aria-label="Signal margin trend chart"></canvas>
             </section>
 
             <section class="card" id="waterfall-card">
@@ -144,7 +140,7 @@
                     <span class="card-title">WATERFALL SPECTROGRAM</span>
                     <span class="card-unit">Time &darr;</span>
                 </div>
-                <canvas id="waterfallCanvas"></canvas>
+                <canvas id="waterfallCanvas" role="img" aria-label="Waterfall spectrogram chart"></canvas>
             </section>
 
             <section class="card" id="summary-card">
@@ -181,13 +177,13 @@
                 <span class="card-title">DETECTION LOGS</span>
                 <div class="log-controls">
                     <div class="filter-tabs">
-                        <button class="filter-tab active" data-filter="ALL">ALL</button>
-                        <button class="filter-tab" data-filter="JAMMING">JAMMING</button>
-                        <button class="filter-tab" data-filter="WATCH">WATCH</button>
-                        <button class="filter-tab" data-filter="SCANNING">SCANNING</button>
+                        <button class="filter-tab active" data-filter="ALL" aria-pressed="true">ALL</button>
+                        <button class="filter-tab" data-filter="JAMMING" aria-pressed="false">JAMMING</button>
+                        <button class="filter-tab" data-filter="WATCH" aria-pressed="false">WATCH</button>
+                        <button class="filter-tab" data-filter="SCANNING" aria-pressed="false">SCANNING</button>
                     </div>
                     <button id="export-btn" class="btn btn-accent">EXPORT CSV</button>
-                    <button id="clear-btn" class="btn btn-danger">CLEAR</button>
+                    <button id="clear-btn" class="btn btn-danger">CLEAR LOGS</button>
                 </div>
             </div>
             <div class="table-wrap">
