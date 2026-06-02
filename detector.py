@@ -12,12 +12,9 @@ from led_control import LEDController
 from buzzer import BuzzerController
 import web_server
 import database_manager
-# Dynamically import correct IMU model based on configuration
-IMU_MODEL = getattr(config, 'IMU_MODEL', 'MPU6050').upper()
-if IMU_MODEL == 'MPU9250':
-    from hardware.mpu9250 import MPU9250 as IMU_CLASS
-else:
-    from hardware.mpu6050 import MPU6050 as IMU_CLASS
+from hardware.imu import create_imu, normalize_imu_model
+
+IMU_MODEL = normalize_imu_model()
 
 class GPSJammerHandheld:
     def __init__(self, preview=False):
@@ -85,7 +82,7 @@ class GPSJammerHandheld:
             
             self.ui.draw_splash("CALIBRATING IMU SENSORS...", progress=90)
             try:
-                self.imu = IMU_CLASS(address=getattr(config, 'IMU_ADDRESS', 0x69))
+                self.imu = create_imu(model=IMU_MODEL)
                 self.imu.calibrate(samples=150)
             except Exception as e:
                 print(f"[IMU] Failed to initialize {IMU_MODEL}: {e}")

@@ -15,9 +15,9 @@
 
 ### ⚠️ กฎเหล็กเรื่องแรงดันไฟฟ้าและพอร์ต I2C
 * **I2C Address & AD0 Pin:** 
-  * บอร์ด MPU6050 และ RTC (DS3231) แชร์บัส **I2C1 (SDA: Pin 3, SCL: Pin 5)** ร่วมกัน
-  * **ที่อยู่เริ่มต้น (Default Address):** RTC อยู่ที่ `0x68`, MPU6050 ตั้งค่าไว้ที่ `0x68` (เมื่อปล่อยขา AD0 ลอย) หรือ `0x69` (เมื่อป้อนไฟควบคุมระดับ 3.3V เข้าขา AD0)
-  * **ข้อห้ามสำคัญที่สุด:** **ห้ามป้อนไฟ 5V เข้าขา AD0 ของ MPU6050 โดยเด็ดขาด!** เพราะขา I/O ของชิปไม่รองรับแรงดัน 5V (Not 5V Tolerant) หากต่อจะส่งผลให้เกิด Latch-up ตัวชิปช็อตและดึงกระแสหลักของระบบจนเครื่องร้อนจัด และทำให้ระบบ Wi-Fi Hotspot ดับ/รวนทันที
+  * บอร์ด GY-9250 และ RTC (DS3231) แชร์บัส **I2C1 (SDA: Pin 3, SCL: Pin 5)** ร่วมกัน
+  * **ที่อยู่เริ่มต้น (Default Address):** RTC อยู่ที่ `0x68`; GY-9250 ต้องตั้งให้เป็น `0x69` โดยผูกขา AD0/ADO เข้ากับ **3.3V**
+  * **ข้อห้ามสำคัญที่สุด:** **ห้ามป้อนไฟ 5V เข้าขา AD0/ADO ของ GY-9250 โดยเด็ดขาด!** ให้ใช้ 3.3V เท่านั้น เพื่อเลี่ยง I2C address collision กับ DS3231 และป้องกันความเสียหายกับขา I/O ของ IMU
 * **การจ่ายไฟและหลีกเลี่ยง Under-voltage:**
   * อุปกรณ์ RTL-SDR Dongle กินกระแสไฟสูงมาก (300-500mA) รวมกับจอ TFT LCD และชิป Wi-Fi 
   * ห้ามเขียนโปรแกรมที่ดึงโหลด CPU ขึ้น 100% ต่อเนื่องอย่างไร้จุดหมาย และห้ามตั้งเวลาเขียนข้อมูลลง SD Card บ่อยเกินไป เพราะความต้านทานแรงดันจะตกลงและทำให้ Wi-Fi หลุด
@@ -53,3 +53,12 @@
 ---
 
 *กรุณายึดถือแนวทางในไฟล์นี้อย่างเคร่งครัดทุกครั้งที่มีการเรียกใช้เอเจนต์เพื่อพัฒนาโปรเจกต์ต่อครับ!*
+
+---
+
+## GY-9250 / MPU9250 hardware note
+
+- This project uses GY-9250 as the permanent IMU module.
+- Keep `IMU_MODEL = 'GY-9250'` and `IMU_ADDRESS = 0x69` when DS3231 RTC remains on the same I2C1 bus at `0x68`.
+- Tie the GY-9250 AD0/ADO pin to **3.3V only** before booting. Do not connect AD0/ADO to 5V.
+- The app uses the GY-9250 gyro for the current polar radar bearing. The AK8963 magnetometer is initialized for diagnostics and future true-heading use, but the main field UI still uses the gyro-relative bearing path.

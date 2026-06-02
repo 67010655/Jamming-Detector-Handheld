@@ -120,14 +120,13 @@ flowchart TD
 | **Raspberry Pi Zero 2W** | Quad-core Cortex-A53, 512 MB RAM           | Edge compute           |
 | **RTL-SDR V3**           | RTL2832U, 500 kHz – 1766 MHz               | RF receiver            |
 | **ILI9488 LCD**          | 3.5" TFT SPI 480×320 + XPT2046 touch       | Field UI               |
-| **MPU6050**              | 6-DoF IMU (I2C `0x69` with AD0)            | Polar radar / heading  |
-| **MPU9250**              | 9-DoF IMU: 3-axis gyro + accel + magnetometer (I2C) | True compass heading (planned) |
+| **GY-9250 / MPU9250**    | 9-DoF IMU: 3-axis gyro + accel + AK8963 magnetometer (I2C `0x69` in this build) | Polar radar now; magnetic heading diagnostic ready |
 | **DS3231**               | I2C RTC (`0x68`)                           | Offline timestamp sync |
 | **LX-28UPS**             | 2×18650 UPS / 5 V boost                    | Portable power         |
 | **GNSS L1 antenna**      | ~1575.42 MHz directional                   | Signal capture         |
 | **Peripherals**          | RGB LEDs, buzzer (GPIO 18), mute (GPIO 23) | Alerts & silencing     |
 
-> **Safety:** Do not apply **5 V** to MPU6050 **AD0** — I/O is not 5 V tolerant. See `HARDWARE_WIRING.md` and `agent.md` for pin maps and I2C rules.
+> **Safety:** Do not apply **5 V** to GY-9250 **AD0/ADO**. Tie AD0/ADO to **3.3 V** so the IMU uses `0x69`; DS3231 already uses `0x68`. See `HARDWARE_WIRING.md` and `agent.md` for pin maps and I2C rules.
 
 ---
 
@@ -136,8 +135,8 @@ flowchart TD
 ```text
 .
 ├── hardware/
-│   ├── mpu6050.py              # IMU driver (6-DoF, I2C)
-│   ├── mpu9250.py              # IMU driver (9-DoF, I2C - planned compass expansion)
+│   ├── imu.py                  # IMU model selection helper
+│   ├── mpu9250.py              # GY-9250 driver (9-DoF, I2C + magnetometer diagnostic)
 │   └── rtc_ds3231.py           # RTC driver (I2C)
 ├── web/
 │   ├── index.html              # Dashboard (กันแจม branding)
@@ -157,7 +156,7 @@ flowchart TD
 ├── config.py                   # Pins & system config
 ├── buzzer.py / led_control.py  # GPIO alerts
 ├── calibrate_touch.py          # Touch calibration utility
-├── test_sensors.py             # IMU / RTC bench test
+├── test_sensors.py             # IMU / RTC bench test, including GY-9250 magnetic heading
 ├── HARDWARE_WIRING.md          # Wiring reference
 ├── LED_SETUP.md                # LED GPIO guide
 ├── agent.md                    # AI / developer safety rules

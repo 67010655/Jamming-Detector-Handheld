@@ -1,6 +1,6 @@
 # Jamming Detector Handheld - Hardware Wiring Guide
 
-ไฟล์นี้สรุปการต่อสายไฟระหว่างแผงหน้าจอ (ILI9488 + XPT2046), เซ็นเซอร์ MPU6050, และโมดูลอื่นๆ เข้ากับ Raspberry Pi เพื่อใช้ในการตรวจสอบและต่อสายไฟใหม่
+ไฟล์นี้สรุปการต่อสายไฟระหว่างแผงหน้าจอ (ILI9488 + XPT2046), เซ็นเซอร์ GY-9250, และโมดูลอื่นๆ เข้ากับ Raspberry Pi เพื่อใช้ในการตรวจสอบและต่อสายไฟใหม่
 
 ## 1. หน้าจอแสดงผล (ILI9488 TFT LCD)
 เชื่อมต่อผ่านระบบ **SPI0**
@@ -34,19 +34,7 @@
 
 ---
 
-## 3. เซ็นเซอร์ MPU6050 (Gyroscope/IMU)
-เชื่อมต่อผ่านระบบ **I2C1** (ที่อยู่ไอทูซี: `0x69`)
-
-| ขาบนโมดูล MPU6050 | ต่อเข้ากับ Raspberry Pi (ชื่อ GPIO) | หมายเลข Pin บน Pi (Physical) | หน้าที่ |
-| :--- | :--- | :--- | :--- |
-| **VCC** | 3.3V | Pin 1 หรือ 17 | ไฟเลี้ยงโมดูล |
-| **GND** | GND | Pin 6, 9, 14, 20... | กราวด์ |
-| **SCL** | GPIO 3 (I2C1 SCL) | Pin 5 | สัญญาณนาฬิกา I2C (แชร์บัส) |
-| **SDA** | GPIO 2 (I2C1 SDA) | Pin 3 | สัญญาณข้อมูล I2C (แชร์บัส) |
-
----
-
-## 4. เซ็นเซอร์ DS3231 (Real-Time Clock - RTC)
+## 3. เซ็นเซอร์ DS3231 (Real-Time Clock - RTC)
 เชื่อมต่อผ่านระบบ **I2C1** (ที่อยู่ไอทูซี: `0x68`) เพื่อรักษานาฬิกาเวลาจริงสำหรับการทำงานแบบออฟไลน์
 
 | ขาบนโมดูล DS3231 | ต่อเข้ากับ Raspberry Pi (ชื่อ GPIO) | หมายเลข Pin บน Pi (Physical) | หน้าที่ |
@@ -56,8 +44,32 @@
 | **SCL** | GPIO 3 (I2C1 SCL) | Pin 5 | สัญญาณนาฬิกา I2C (แชร์บัส) |
 | **SDA** | GPIO 2 (I2C1 SDA) | Pin 3 | สัญญาณข้อมูล I2C (แชร์บัส) |
 
-> **💡 เทคนิคเชิงวิศวกรรมการแชร์สาย I2C1 (MPU6050 + DS3231):**
-> เซ็นเซอร์ **MPU6050 (IMU)** และ **DS3231 (RTC)** ใช้สายบัส **I2C1** ร่วมกัน (ต่อสาย SDA เข้า Pin 3 ขนานกัน และสาย SCL เข้า Pin 5 ขนานกัน) เนื่องจากตัวระบบสามารถแยกแยะอุปกรณ์ด้วย Address ที่ต่างกันเด็ดขาด (DS3231 อยู่ที่ `0x68` และ MPU6050 อยู่ที่ `0x69`) ทำให้ระบบสามารถแชร์พอร์ตร่วมกันโดยไม่เกิดสัญญาณขัดแย้ง และช่วยลดจำนวนการใช้สาย GPIO บน Pi Zero 2W ลงได้อย่างสมบูรณ์แบบครับ
+> **💡 เทคนิคเชิงวิศวกรรมการแชร์สาย I2C1 (GY-9250 + DS3231):**
+> เซ็นเซอร์ **GY-9250 (IMU)** และ **DS3231 (RTC)** ใช้สายบัส **I2C1** ร่วมกันได้ เพราะ address ไม่ซ้ำกัน: DS3231 อยู่ที่ `0x68` และ GY-9250 ต้องตั้งให้เป็น `0x69` โดยผูก AD0/ADO เข้ากับ 3.3V
+
+---
+
+## 4. GY-9250 / MPU9250 (9-axis IMU)
+Use I2C1 with the fixed project address `0x69`.
+
+| Pin on GY-9250 / MPU9250 | Connect to Raspberry Pi | Physical Pin | Purpose |
+| :--- | :--- | :--- | :--- |
+| **VCC** | 3.3V | Pin 1 or Pin 17 | Sensor power |
+| **GND** | GND | Pin 6, 9, 14, 20... | Ground |
+| **SCL** | GPIO 3 (I2C1 SCL) | Pin 5 | I2C clock, shared bus |
+| **SDA** | GPIO 2 (I2C1 SDA) | Pin 3 | I2C data, shared bus |
+| **AD0 / ADO** | 3.3V | Pin 1 or Pin 17 | Force main IMU address to `0x69` |
+
+> **Critical:** DS3231 already occupies `0x68`. Most GY-9250 boards default to `0x68` when AD0/ADO is LOW or floating, so tie AD0/ADO to **3.3V only** before booting this build. Do **not** feed 5V into AD0/ADO.
+
+Recommended smoke check after wiring:
+
+```bash
+i2cdetect -y 1
+python test_sensors.py
+```
+
+Expected I2C devices: DS3231 at `0x68`, GY-9250 main IMU at `0x69`, and AK8963 magnetometer at `0x0c` after the driver enables bypass mode.
 
 ---
 

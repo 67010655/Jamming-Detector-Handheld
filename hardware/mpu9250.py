@@ -1,5 +1,5 @@
 """
-MPU9250 IMU driver — drop-in companion to hardware/mpu6050.py.
+GY-9250 / MPU9250 IMU driver for the permanent 9-axis hardware build.
 
 Address scheme
 --------------
@@ -34,8 +34,9 @@ class MPU9250:
     _INT_PIN_CFG = 0x37    # bit 1 = I2C_BYPASS_EN
     _USER_CTRL   = 0x6A    # bit 5 = I2C_MST_EN (disable to allow bypass)
 
-    def __init__(self, address=0x68, bus=1):
-        self.address = address
+    def __init__(self, address=None, bus=1):
+        configured_address = getattr(config, 'IMU_ADDRESS', None)
+        self.address = address if address is not None else (configured_address if configured_address is not None else 0x69)
         self.bus_num = bus
         self.bus = None
         self.last_time = time.time()
@@ -44,6 +45,7 @@ class MPU9250:
         self.last_raw_z = 0
         self.frozen_count = 0
         self._init_success = False
+        self._mag_enabled = False
 
         # Hard-iron calibration offsets (µT) for future magnetometer calibration
         self.mag_offset_x = 0.0
@@ -74,16 +76,23 @@ class MPU9250:
             self.bus.write_byte_data(self.address, self._USER_CTRL, 0x00)    # disable I2C master
             self.bus.write_byte_data(self.address, self._INT_PIN_CFG, 0x02)  # set BYPASS_EN
             time.sleep(0.05)
-            # Init AK8963: power-down then continuous mode 2 (100 Hz, 16-bit)
-            self.bus.write_byte_data(self._AK8963_ADDR, self._AK8963_CNTL1, 0x00)
-            time.sleep(0.01)
-            self.bus.write_byte_data(self._AK8963_ADDR, self._AK8963_CNTL1, self._AK8963_CONT2)
-            time.sleep(0.01)
+            self._mag_enabled = self._init_magnetometer()
             self._init_success = True
             return True
         except Exception as e:
             print(f"[IMU9] Initialization failed at 0x{self.address:02x}: {e}")
             self._init_success = False
+            return False
+
+    def _init_magnetometer(self):
+        try:
+            self.bus.write_byte_data(self._AK8963_ADDR, self._AK8963_CNTL1, 0x00)
+            time.sleep(0.01)
+            self.bus.write_byte_data(self._AK8963_ADDR, self._AK8963_CNTL1, self._AK8963_CONT2)
+            time.sleep(0.01)
+            return True
+        except Exception as e:
+            print(f"[IMU9] Magnetometer unavailable at 0x{self._AK8963_ADDR:02x}: {e}")
             return False
 
     # ── gyro helpers ────────────────────────────────────────────────────
@@ -110,7 +119,7 @@ class MPU9250:
         except Exception:
             return None
 
-    # ── public interface (matches MPU6050) ───────────────────────────────
+    # ── public interface ─────────────────────────────────────────────────
     def calibrate(self, samples=150):
         """Read gyro at rest to compute zero-offset."""
         axis_name = getattr(config, 'IMU_GYRO_AXIS', 'Z').upper()
@@ -184,7 +193,7 @@ class MPU9250:
         Read AK8963 and return magnetic heading in degrees (0–360).
         Returns None if bus unavailable, data not ready, or sensor overflow.
         """
-        if self.bus is None:
+        if self.bus is None or not self._mag_enabled:
             return None
         try:
             st1 = self.bus.read_byte_data(self._AK8963_ADDR, self._AK8963_ST1)

@@ -21,8 +21,8 @@
 | `calibrate_touch.py` | 271 | 4-point touchscreen calibrator |
 | `test_sensors.py` | 40 | IMU live-view diagnostic |
 | `generate_previews.py` | 128 | Offline screenshot generator |
-| `hardware/mpu6050.py` | 150 | 6-DoF IMU gyro driver |
-| `hardware/mpu9250.py` | 215 | 9-DoF IMU + AK8963 magnetometer |
+| `hardware/imu.py` | 35 | IMU model selection helper |
+| `hardware/mpu9250.py` | 215 | GY-9250 IMU + AK8963 magnetometer |
 | `hardware/rtc_ds3231.py` | 78 | RTC I2C driver |
 | `web/index.html` | 235 | Dashboard HTML |
 | `web/script.js` | 778 | Dashboard client-side logic |
@@ -44,7 +44,7 @@ GUNJAM is a handheld GNSS jamming detector running on Raspberry Pi Zero 2W. The 
 | Domain Logic / DSP | **10 / 10** | Adaptive NF via EMA (`dsp.py:3–5`), baseline guard lock/release (`detector.py:190–203`), hit/clear debounce (`detector.py:169–179`) — all correct and well-tuned. |
 | Architecture | **8 / 10** | `DisplayUI` decoupling complete (`display_ui.py:74–75`); `GPSJammerHandheld` at 564 lines is a god class mixing SDR, state machine, UI, DB, GPS, IMU, web, and shutdown. |
 | Thread Safety | **9 / 10** | `threading.Event` for control signals (`detector.py:60–62`); `RLock` atomic zone swap (`display_ui.py:628–629`); `_clear_lock` race fix (`web_server.py:162–175`). |
-| Reliability | **9.5 / 10** | SQLite WAL (`database_manager.py:11–12`); RTC bus guard (`rtc_ds3231.py:26, 65`); frozen sensor recovery (`mpu6050.py:115–121`). **Resolved:** SQLite connection leaks on exception paths in `database_manager.py` have been fixed — see §4.5. |
+| Reliability | **9.5 / 10** | SQLite WAL (`database_manager.py:11–12`); RTC bus guard (`rtc_ds3231.py:26, 65`); frozen sensor recovery in the GY-9250 driver. **Resolved:** SQLite connection leaks on exception paths in `database_manager.py` have been fixed — see §4.5. |
 | Performance | **9.5 / 10** | AABB + squared-distance particle filter (`script.js:757–763`); event-driven canvas redraws (`script.js:528`). **Resolved:** `animateParticles` loop now correctly cancels on hidden tabs to save battery — see §5.4. (Minor 0.5 deduction for necessary `Math.sqrt` in connected pairs). |
 | Security | **8.5 / 10** | Waitress WSGI (`web_server.py:7, 188`); trusted-LAN model with comment explaining token auth omission (`web_server.py:24–25`); rate-limited `POST /api/clear` with atomic lock (`web_server.py:162–175`). |
 | Code Quality | **8.5 / 10** | Constants centralised in `config.py`; 18 DSP unit tests; HTML uses `escHtml()` for log rendering (`script.js:549–551`). God class remains as deferred tech debt. |
@@ -153,9 +153,7 @@ The web server thread reads event history concurrently with the main loop writin
 
 **RTC (DS3231):** `hardware/rtc_ds3231.py` guards every I2C method with `if self.bus is None: return` (lines 26, 65). Windows debugging and offline CI runs gracefully fall back to system time.
 
-**IMU (MPU6050):** `hardware/mpu6050.py:58` — `read_raw_data()` returns `None` if `self.bus is None`. Frozen sensor recovery triggers re-initialisation after 40 identical non-zero readings (lines 115–121).
-
-**IMU (MPU9250):** `hardware/mpu9250.py` — Same pattern: bus-None guards (lines 100, 142, 188), frozen sensor recovery (lines 156–162), and AK8963 magnetometer access via I2C bypass mode (lines 73–81). This driver enables future compass-heading functionality without affecting the existing MPU6050 pipeline.
+**IMU (GY-9250 / MPU9250):** `hardware/mpu9250.py` keeps gyro bearing resilient with bus-None guards, frozen sensor recovery, and AK8963 magnetometer access via I2C bypass mode. The build keeps the IMU at `0x69` to avoid the DS3231 RTC at `0x68`.
 
 ### 4.5 ✅ SQLite Connection Leak on Exception — RESOLVED
 

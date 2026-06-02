@@ -33,8 +33,8 @@ GUARD_RELEASE_THRESHOLD = 5.0  # dB above calibrated_base_nf → release lock
 SPI_CLOCK_HZ = 24_000_000      # ILI9488 SPI bus speed (24 MHz)
 
 # ── IMU Orientation Setup ──────────────────────────────────
-IMU_MODEL = 'MPU6050'   # IMU model to use: 'MPU6050' or 'MPU9250' (MPU9250 has planned magnetometer support)
-IMU_ADDRESS = 0x69      # I2C Address (default is 0x69, on some boards it is 0x68)
+IMU_MODEL = 'GY-9250'   # Permanent IMU model for this build
+IMU_ADDRESS = 0x69      # Keep IMU at 0x69 so it does not collide with DS3231 RTC at 0x68
 IMU_GYRO_AXIS = 'X'     # Axis to measure horizontal rotation: 'X', 'Y', or 'Z'
                         # - Use 'Z' if IMU is mounted flat (horizontal)
                         # - Use 'X' or 'Y' if mounted vertically on a wall

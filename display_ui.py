@@ -686,7 +686,7 @@ class DisplayUI:
     )
 
     def _draw_radar(self, draw, cx, cy, radius, accent, grid, white, state="SCANNING", metrics=None):
-        # theta: device heading from MPU6050 gyro integration (relative compass, not GPS/magnetometer)
+        # theta: device heading from GY-9250 gyro integration (relative compass, not GPS/magnetometer)
         theta = self.app.current_bearing
 
         # Draw outer bezel rings (double outline for premium look)

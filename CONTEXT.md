@@ -8,7 +8,7 @@ A handheld system designed to detect and log GNSS (GPS L1) jamming signals in th
 - **SDR Receiver:** RTL-SDR v3 (USB interface)
 - **Display:** 3.5" ILI9488 TFT LCD with Touch (SPI interface)
 - **Sensors:** 
-  - **MPU6050 (IMU):** Directional mapping and compass heading calculations (Fully Integrated, I2C `0x69`)
+  - **GY-9250 (9-axis IMU):** Directional mapping and compass heading diagnostics (I2C `0x69`)
   - **DS3231 (RTC):** Precise Real-Time Clock for offline system time sync in field operations (I2C `0x68`)
 - **Antenna:** Directional Antenna (tuned for 1575.42 MHz)
 - **Peripherals:** Status RGB LEDs, Active Buzzer (GPIO 18), and Physical Mute Switch (GPIO 23 / Configurable)
@@ -18,7 +18,7 @@ A handheld system designed to detect and log GNSS (GPS L1) jamming signals in th
 - **Power Management:** LX-28UPS module (Provides safe charging circuitry and 5V boost conversion)
 - **Soft Power Actions:** 3-button Confirm Dialogue on LCD (SHUTDOWN / RESTART / CANCEL).
   - **SHUTDOWN:** Safe OS halt sequence to prevent MicroSD corruption.
-  - **RESTART:** Fast 2-second in-process Python reload (`os.execv`) to reset system & MPU6050 I2C states instantly without a full OS reboot.
+  - **RESTART:** Fast 2-second in-process Python reload (`os.execv`) to reset system & GY-9250 I2C states instantly without a full OS reboot.
 
 ## Software Stack & File Structure
 - `main.py`: The application entry point that initializes all modules.
@@ -31,5 +31,5 @@ A handheld system designed to detect and log GNSS (GPS L1) jamming signals in th
 
 ## Known Issues & Development Focus
 - **Solved:** UI lag on both Pi Zero and client browsers completely resolved via Event-Driven Canvas rendering (Spectrum & Margin Trend at 4Hz, Waterfall Spectrogram at 2Hz) and DOM Value Differencing (bypassing DOM writes for unchanged values).
-- **Solved:** MPU6050 connection drops due to loose wiring handled smoothly with the instant LCD RESTART button.
+- **Solved:** GY-9250 connection drops due to loose wiring are handled smoothly with the instant LCD RESTART button.
 - **Ongoing:** Maximizing RF shielding in the handheld enclosure to isolate internal Pi Zero clock noise from the RTL-SDR front-end.
