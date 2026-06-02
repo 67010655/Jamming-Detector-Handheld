@@ -77,3 +77,43 @@ def test_mpu9250_keeps_gyro_ready_when_magnetometer_init_fails(monkeypatch):
     assert sensor._init_success is True
     assert sensor._mag_enabled is False
     assert sensor._read_gyro_raw() == 42
+
+
+def test_get_heading_mag_applies_offset_and_declination(monkeypatch):
+    import hardware.mpu9250 as mpu9250
+
+    sensor = mpu9250.MPU9250(address=0x69)
+    sensor._mag_enabled = True
+    sensor.mag_offset_x = 100.0
+    sensor.mag_offset_y = 50.0
+    sensor.declination_deg = 5.0
+
+    monkeypatch.setattr(sensor, "read_mag_raw", lambda: (200, 150))
+
+    assert abs(sensor.get_heading_mag() - 50.0) < 0.001
+
+
+def test_complementary_filter_bearing_wrapping_and_fusion(monkeypatch):
+    import hardware.mpu9250 as mpu9250
+
+    sensor = mpu9250.MPU9250(address=0x69)
+    sensor.bus = "mock_bus"
+    sensor._init_success = True
+    sensor.fusion_mode = "COMPLEMENTARY"
+    sensor.fusion_alpha = 0.90  # 90% gyro, 10% mag
+    sensor.bearing = 359.0
+    sensor.bearing_initialized = True
+
+    monkeypatch.setattr(sensor, "get_heading_mag", lambda: 1.0)
+    monkeypatch.setattr(sensor, "_read_gyro_raw", lambda: 0)  # no gyro drift
+    monkeypatch.setattr(mpu9250.time, "time", lambda: 100.0)
+
+    sensor.last_time = 99.0
+    sensor.gyro_z_offset = 0
+
+    bearing = sensor.update_bearing()
+    # predicted bearing is 359.0
+    # diff = 1.0 - 359.0 = -358.0 -> wrapping makes it +2.0
+    # complementary output = 359.0 + 0.1 * 2.0 = 359.2
+    assert abs(bearing - 359.2) < 0.001
+

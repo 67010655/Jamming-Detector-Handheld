@@ -47,9 +47,13 @@ class MPU9250:
         self._init_success = False
         self._mag_enabled = False
 
-        # Hard-iron calibration offsets (µT) for future magnetometer calibration
-        self.mag_offset_x = 0.0
-        self.mag_offset_y = 0.0
+        # Load sensor fusion and magnetometer settings from config
+        self.fusion_mode = getattr(config, 'IMU_FUSION_MODE', 'COMPLEMENTARY')
+        self.fusion_alpha = getattr(config, 'IMU_FUSION_ALPHA', 0.96)
+        self.mag_offset_x = getattr(config, 'IMU_MAG_OFFSET_X', 0.0)
+        self.mag_offset_y = getattr(config, 'IMU_MAG_OFFSET_Y', 0.0)
+        self.declination_deg = getattr(config, 'IMU_DECLINATION_DEG', 0.0)
+        self.bearing_initialized = False
 
         self._init_sensor()
 
@@ -147,7 +151,7 @@ class MPU9250:
             print("[IMU9] Calibration FAILED — too few valid I2C reads. Check wiring.")
 
     def update_bearing(self):
-        """Integrate gyro for relative heading. Returns 0.0 if bus unavailable."""
+        """Get absolute heading (via complementary fusion, raw mag, or gyro fallback)."""
         if self.bus is None:
             return 0.0
         if not self._init_success:
@@ -183,16 +187,35 @@ class MPU9250:
 
         invert = getattr(config, 'IMU_INVERT_GYRO', False)
         direction = -1.0 if invert else 1.0
+        gyro_delta = gyro_rate * dt * direction
 
-        self.bearing += gyro_rate * dt * direction
-        self.bearing %= 360
+        # Fetch absolute magnetometer heading
+        mag_heading = self.get_heading_mag()
+
+        if self.fusion_mode == 'MAG_ONLY' and mag_heading is not None:
+            self.bearing = mag_heading
+            self.bearing_initialized = True
+        elif self.fusion_mode == 'COMPLEMENTARY' and mag_heading is not None:
+            # Gyro prediction
+            gyro_predicted = (self.bearing + gyro_delta) % 360
+            if not self.bearing_initialized:
+                # Seed with magnetic heading initially to avoid slow convergence
+                self.bearing = mag_heading
+                self.bearing_initialized = True
+            else:
+                # Shortest angular distance to prevent wrapping spin at 0/360 boundary
+                diff = mag_heading - gyro_predicted
+                diff = (diff + 180) % 360 - 180
+                # Complementary filter fusion
+                self.bearing = (gyro_predicted + (1.0 - self.fusion_alpha) * diff) % 360
+        else:
+            # Fallback to pure gyro integration
+            self.bearing = (self.bearing + gyro_delta) % 360
+
         return self.bearing
 
-    def get_heading_mag(self):
-        """
-        Read AK8963 and return magnetic heading in degrees (0–360).
-        Returns None if bus unavailable, data not ready, or sensor overflow.
-        """
+    def read_mag_raw(self):
+        """Read raw X and Y from the AK8963 magnetometer. Returns (hx, hy) or None."""
         if self.bus is None or not self._mag_enabled:
             return None
         try:
@@ -211,13 +234,27 @@ class MPU9250:
                 hx -= 65536
             if hy > 32767:
                 hy -= 65536
-
-            mx = float(hx) - self.mag_offset_x
-            my = float(hy) - self.mag_offset_y
-
-            return math.degrees(math.atan2(my, mx)) % 360
+            return hx, hy
         except Exception:
             return None
 
+    def get_heading_mag(self):
+        """
+        Read AK8963 and return magnetic heading in degrees (0–360) aligned with True North.
+        Returns None if bus unavailable, data not ready, or sensor overflow.
+        """
+        raw = self.read_mag_raw()
+        if raw is None:
+            return None
+        hx, hy = raw
+        mx = float(hx) - self.mag_offset_x
+        my = float(hy) - self.mag_offset_y
+
+        # Add magnetic declination to align with True geographical North
+        heading = math.degrees(math.atan2(my, mx)) + self.declination_deg
+        return heading % 360
+
     def reset_bearing(self):
         self.bearing = 0.0
+        self.bearing_initialized = False
+

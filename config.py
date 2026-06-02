@@ -40,6 +40,13 @@ IMU_GYRO_AXIS = 'X'     # Axis to measure horizontal rotation: 'X', 'Y', or 'Z'
                         # - Use 'X' or 'Y' if mounted vertically on a wall
 IMU_INVERT_GYRO = True  # Invert gyro sign so radar ring matches physical turn (left ↔ left)
 
+# ── Sensor Fusion & Compass Setup ──────────────────────────
+IMU_FUSION_MODE = 'COMPLEMENTARY'  # Mode: 'COMPLEMENTARY' (Fused 9-axis), 'GYRO_ONLY' (like MPU6050), 'MAG_ONLY' (True Compass only)
+IMU_FUSION_ALPHA = 0.96          # Gyro weight in complementary filter (0.90 to 0.99). Higher = smoother radar, Lower = reacts faster to compass
+IMU_MAG_OFFSET_X = 0.0           # Hard-iron offset X (updated via calibration)
+IMU_MAG_OFFSET_Y = 0.0           # Hard-iron offset Y (updated via calibration)
+IMU_DECLINATION_DEG = -0.5       # Local magnetic declination (e.g. -0.5 deg in Bangkok) to align with True North
+
 LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
 LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)
 LED_GREEN_PIN = 26      # GPIO26 (Physical Pin 37) for GREEN LED (SCANNING state)
