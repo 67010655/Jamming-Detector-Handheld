@@ -71,15 +71,18 @@ class MPU9250:
                 except Exception:
                     pass
             self.bus = smbus2.SMBus(self.bus_num)
-            # Wake MPU9250
-            self.bus.write_byte_data(self.address, self._PWR_MGMT_1, 0x00)
+            # Reset MPU9250 to ensure clean boot
+            self.bus.write_byte_data(self.address, self._PWR_MGMT_1, 0x80)
+            time.sleep(0.1)
+            # Wake MPU9250 and set clock source to Gyro Z for stability
+            self.bus.write_byte_data(self.address, self._PWR_MGMT_1, 0x01)
             time.sleep(0.1)
             # Gyro full-scale ±250 °/s (131 LSB/°/s, most sensitive)
             self.bus.write_byte_data(self.address, self._GYRO_CONFIG, 0x00)
             # Enable I2C bypass so host can reach AK8963 directly
             self.bus.write_byte_data(self.address, self._USER_CTRL, 0x00)    # disable I2C master
             self.bus.write_byte_data(self.address, self._INT_PIN_CFG, 0x02)  # set BYPASS_EN
-            time.sleep(0.05)
+            time.sleep(0.1)
             self._mag_enabled = self._init_magnetometer()
             self._init_success = True
             return True
