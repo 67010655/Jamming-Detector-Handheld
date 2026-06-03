@@ -942,6 +942,7 @@ class DisplayUI:
                         else:
                             self.app.fixed_nf = True
                             self.show_toast("CALIB: FIXED MODE", 1.5)
+                        self.app.calibration_source = "local"
                         self.app.request_calibration.set()
                         return
             self._calib_confirm = False
@@ -955,11 +956,9 @@ class DisplayUI:
                     modes = ["NORMAL", "SEARCH", "ANALYTICS"]
                     self.show_toast(f"MODE: {modes[self.view_mode]}")
                 elif label == "GAIN-":
-                    self.app.adjust_gain(-2.0)
-                    self.show_toast(f"GAIN: {self.app.gain_db:.1f} dB")
+                    self.app.adjust_gain(-2.0, source="local")
                 elif label == "GAIN+":
-                    self.app.adjust_gain(2.0)
-                    self.show_toast(f"GAIN: {self.app.gain_db:.1f} dB")
+                    self.app.adjust_gain(2.0, source="local")
                 elif label == "CALIB":
                     self._calib_confirm = True
                     self._calib_confirm_until = now + 10.0 # 10 seconds to decide

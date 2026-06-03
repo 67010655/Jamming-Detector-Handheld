@@ -60,6 +60,7 @@ class GPSJammerHandheld:
         self.jammer_active = False
         self.current_state = "SCANNING"
         self.request_calibration = threading.Event()  # Set from touch thread
+        self.calibration_source = "local"
         self.shutdown_requested = threading.Event()    # Set from touch thread
         self.reboot_requested = threading.Event()      # Set from touch thread
 
@@ -311,11 +312,13 @@ class GPSJammerHandheld:
                     except Exception:
                         pass
                 if self.request_calibration.is_set():
+                    source_str = " (REMOTE)" if getattr(self, 'calibration_source', 'local') == 'remote' else ""
+                    self.ui.show_toast(f"CALIBRATING...{source_str}", 2.0)
                     # Force a draw first so the "CALIBRATING..." toast is visible
                     self.ui.draw_ui(metrics, power)
                     self._calibrate()
                     self.request_calibration.clear()
-                    self.ui.show_toast("CALIBRATION DONE!", 1.5)
+                    self.ui.show_toast(f"CALIB DONE{source_str}", 1.5)
 
                 if self.shutdown_requested.is_set():
                     self.safe_power_off()
@@ -406,7 +409,7 @@ class GPSJammerHandheld:
         print("[UI] Recalibrating Noise Floor...")
         self._calibrate()
 
-    def adjust_gain(self, delta):
+    def adjust_gain(self, delta, source="local"):
         """Adjust SDR gain by delta dB."""
         step = abs(float(delta))
         next_gain = self.gain_db + delta
@@ -420,6 +423,11 @@ class GPSJammerHandheld:
                 print(f"[UI] Gain adjusted to: {self.sdr.gain:.1f} dB")
             except Exception as e:
                 print(f"[ERROR] Failed to set gain: {e}")
+
+        # Show toast on TFT screen
+        source_str = " (REMOTE)" if source == "remote" else ""
+        if getattr(self, 'ui', None):
+            self.ui.show_toast(f"GAIN: {self.gain_db:.1f} dB{source_str}", 1.5)
 
     def manual_capture(self):
         """Log a manual snapshot event to database."""

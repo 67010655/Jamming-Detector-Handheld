@@ -180,6 +180,7 @@ def clear_history():
 def web_recalibrate():
     global app_instance
     if app_instance is not None:
+        app_instance.calibration_source = "remote"
         app_instance.request_calibration.set()
         return jsonify({"success": True})
     return jsonify({"success": False, "error": "App instance not initialized"}), 500
@@ -191,7 +192,7 @@ def web_adjust_gain():
         try:
             data = request.get_json() or {}
             delta = float(data.get('delta', 2.0))
-            app_instance.adjust_gain(delta)
+            app_instance.adjust_gain(delta, source="remote")
             return jsonify({"success": True, "gain": app_instance.gain_db})
         except (TypeError, ValueError) as e:
             return jsonify({"success": False, "error": str(e)}), 400
