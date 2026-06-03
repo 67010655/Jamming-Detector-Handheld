@@ -44,11 +44,24 @@ class BuzzerController:
             if task is None:
                 break
                 
-            pulses, pulse_duration, gap_duration, frequency_hz = task
-            for index in range(pulses):
-                self._buzz(pulse_duration, frequency_hz)
-                if index < pulses - 1:
-                    time.sleep(gap_duration)
+            if isinstance(task, list):
+                for note in task:
+                    if not self._running:
+                        break
+                    freq = note[0]
+                    dur = note[1]
+                    gap = note[2] if len(note) > 2 else 0.0
+                    self._buzz(dur, freq)
+                    if gap > 0:
+                        time.sleep(gap)
+            else:
+                pulses, pulse_duration, gap_duration, frequency_hz = task
+                for index in range(pulses):
+                    if not self._running:
+                        break
+                    self._buzz(pulse_duration, frequency_hz)
+                    if index < pulses - 1 and gap_duration > 0:
+                        time.sleep(gap_duration)
                     
             self._queue.task_done()
 
@@ -69,7 +82,7 @@ class BuzzerController:
             except Exception:
                 pass
 
-    def _tone(self, pulses=2, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1200):
+    def _tone(self, pulses=2, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1200, sequence=None):
         # Clear any pending tones so the new state overrides immediately
         while not self._queue.empty():
             try:
@@ -78,12 +91,17 @@ class BuzzerController:
             except queue.Empty:
                 break
                 
-        self._queue.put((pulses, pulse_duration, gap_duration, frequency_hz))
+        if sequence is not None:
+            self._queue.put(sequence)
+        else:
+            self._queue.put((pulses, pulse_duration, gap_duration, frequency_hz))
 
     def play_startup(self):
         """Play a short startup chime when the device starts."""
         print("[BUZZER] Playing startup sound")
-        self._tone(pulses=3, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1000)
+        # Ascending major triad arpeggio (C6 -> E6 -> G6)
+        startup_seq = [(1047, 0.05, 0.02), (1319, 0.05, 0.02), (1568, 0.08, 0.0)]
+        self._tone(sequence=startup_seq)
 
     def set_state(self, state):
         """Play a notification sound for each detector state change."""
@@ -92,15 +110,23 @@ class BuzzerController:
 
         self.current_state = state
         if state == "SCANNING":
-            self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.10, frequency_hz=900)
+            # Pleasant descending chime (E6 -> A5)
+            scan_seq = [(1319, 0.06, 0.02), (880, 0.10, 0.0)]
+            self._tone(sequence=scan_seq)
         elif state == "WATCH":
-            self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.08, frequency_hz=1200)
+            # Soft caution warning double-pulse
+            watch_seq = [(1100, 0.06, 0.05), (1100, 0.06, 0.0)]
+            self._tone(sequence=watch_seq)
         elif state == "JAMMING":
-            self._tone(pulses=2, pulse_duration=0.08, gap_duration=0.05, frequency_hz=1500)
+            # Rapid high-tech alarm chirp sequence
+            jam_seq = [(1800, 0.04, 0.02), (1500, 0.04, 0.02), (1800, 0.04, 0.02), (1500, 0.06, 0.0)]
+            self._tone(sequence=jam_seq)
 
     def play_click(self):
         """Play a short 'click' sound for UI interaction."""
-        self._tone(pulses=1, pulse_duration=0.03, gap_duration=0, frequency_hz=1500)
+        # Short haptic click (1800Hz for 0.015 seconds)
+        click_seq = [(1800, 0.015, 0.0)]
+        self._tone(sequence=click_seq)
 
     def cleanup(self):
         """Clean up GPIO resources used by the buzzer."""
