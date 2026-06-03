@@ -62,10 +62,11 @@
             <section class="card spectrum-card" id="spectrum-card">
                 <div class="card-head">
                     <span class="card-title">LIVE RF SPECTRUM</span>
-                    <div class="card-controls" style="display: flex; gap: 8px;">
-                        <button id="web-calib-btn" class="btn btn-accent" style="padding: 4px 10px; font-size: 0.6rem;">CALIB</button>
-                        <button id="web-gain-dec-btn" class="btn" style="padding: 4px 10px; font-size: 0.6rem;">GAIN -</button>
-                        <button id="web-gain-inc-btn" class="btn" style="padding: 4px 10px; font-size: 0.6rem;">GAIN +</button>
+                    <div class="card-controls" style="display: flex; gap: 8px; align-items: center;">
+                        <button id="web-calib-btn" class="btn btn-accent">CALIB</button>
+                        <button id="web-gain-dec-btn" class="btn">GAIN -</button>
+                        <span id="web-gain-val" class="gain-badge" style="font-family: var(--font-mono); font-weight: 700; font-size: 0.8rem; color: var(--accent); background: var(--accent-dim); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--accent); min-width: 65px; text-align: center; display: inline-block;">7.7 dB</span>
+                        <button id="web-gain-inc-btn" class="btn">GAIN +</button>
                     </div>
                     <span class="card-unit">dBFS vs Frequency</span>
                 </div>

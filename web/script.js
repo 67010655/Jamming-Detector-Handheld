@@ -698,7 +698,11 @@ async function fetchStatus() {
             setDomText('bearing-val', bearingStr);
             setDomText('ss-bearing', bearingStr);
         }
-        if (data.gain !== undefined) setDomText('ss-gain', data.gain.toFixed(1) + ' dB');
+        if (data.gain !== undefined) {
+            const gainStr = data.gain.toFixed(1) + ' dB';
+            setDomText('ss-gain', gainStr);
+            setDomText('web-gain-val', gainStr);
+        }
 
         // Update real-time bearing history
         if (data.bearing !== undefined && data.metrics) {

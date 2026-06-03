@@ -310,8 +310,8 @@ tr:nth-child(even) td { background: var(--table-row-alt); }
 
 /* Buttons */
 .btn {
-    padding: 6px 16px; border-radius: var(--radius-sm); font-weight: 700;
-    font-size: 0.65rem; letter-spacing: 0.5px; border: 1px solid var(--border);
+    padding: 8px 18px; border-radius: var(--radius-sm); font-weight: 700;
+    font-size: 0.72rem; letter-spacing: 0.5px; border: 1px solid var(--border);
     cursor: pointer; transition: all 0.2s var(--ease); background: transparent; color: var(--text-2);
 }
 .btn:hover {
