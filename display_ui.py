@@ -474,7 +474,7 @@ class DisplayUI:
                 vw, vh = self._get_text_size(mv, self._f_value)
                 draw.text((mx + (col_w - vw)//2, met_y + 16), mv, fill=mcolor, font=self._f_value)
                 
-                unit = "dBm" if i < 2 else "dB"
+                unit = "dBFS" if i < 2 else "dB"
                 uw, _ = self._get_text_size(unit, self._f_small)
                 draw.text((mx + (col_w - uw)//2, met_y + 40), unit, fill=mcolor, font=self._f_small)
 

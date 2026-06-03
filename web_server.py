@@ -30,10 +30,12 @@ class ServerState:
         self.power_spectrum = []
         self.uptime = 0
         self.bearing = 0
+        self.latitude = 0.0
+        self.longitude = 0.0
         self.gain = config.GAIN
         self.current_time = '00:00:00'
 
-    def update(self, metrics, power, uptime, bearing=0, gain=7.7):
+    def update(self, metrics, power, uptime, bearing=0, gain=7.7, latitude=0.0, longitude=0.0):
         try:
             power_array = np.asarray(power, dtype=np.float64).ravel()
             power_array = power_array[np.isfinite(power_array)]
@@ -55,6 +57,8 @@ class ServerState:
             self.metrics = metrics
             self.uptime = uptime
             self.bearing = bearing
+            self.latitude = latitude
+            self.longitude = longitude
             self.gain = gain
             self.current_time = time.strftime('%H:%M:%S')
             self.power_spectrum = spectrum
@@ -66,6 +70,8 @@ class ServerState:
                 'spectrum': self.power_spectrum,
                 'uptime': self.uptime,
                 'bearing': self.bearing,
+                'latitude': self.latitude,
+                'longitude': self.longitude,
                 'gain': self.gain,
                 'current_time': self.current_time,
             }
@@ -90,6 +96,8 @@ def status():
         "spectrum": snap['spectrum'],
         "uptime": snap['uptime'],
         "bearing": snap['bearing'],
+        "latitude": snap['latitude'],
+        "longitude": snap['longitude'],
         "gain": snap['gain'],
         "real_time": snap['current_time'],
         "real_date": time.strftime('%d %b %Y')
@@ -122,7 +130,7 @@ def export_csv():
 
         buffer = io.StringIO()
         writer = csv.writer(buffer)
-        writer.writerow(["ID", "Date", "Time", "Uptime", "State", "Score", "Peak_Power", "Floor_Rise", "Noise_Floor", "Bearing"])
+        writer.writerow(["ID", "Date", "Time", "Uptime", "State", "Score", "Peak_Power", "Floor_Rise", "Noise_Floor", "Bearing", "Latitude", "Longitude"])
         yield buffer.getvalue()
 
         for row in data:
@@ -141,6 +149,8 @@ def export_csv():
             peak_p = row.get('peak_p')
             floor_rise = row.get('floor_rise')
             noise_floor = row.get('noise_floor')
+            lat = row.get('latitude')
+            lon = row.get('longitude')
 
             writer.writerow([
                 row.get('id', ''),
@@ -153,6 +163,8 @@ def export_csv():
                 f"{floor_rise:.2f}" if isinstance(floor_rise, (int, float)) else '',
                 f"{noise_floor:.2f}" if isinstance(noise_floor, (int, float)) else '',
                 row.get('bearing_deg', 0),
+                f"{lat:.6f}" if isinstance(lat, (int, float)) else '',
+                f"{lon:.6f}" if isinstance(lon, (int, float)) else '',
             ])
             yield buffer.getvalue()
 
@@ -227,5 +239,5 @@ def start_server(port=8080, detector_app=None):
 
     raise RuntimeError(f"Dashboard server did not become ready on port {port}")
 
-def update_state(metrics, power, uptime, bearing=0, gain=7.7):
-    state.update(metrics, power, uptime, bearing=bearing, gain=gain)
+def update_state(metrics, power, uptime, bearing=0, gain=7.7, latitude=0.0, longitude=0.0):
+    state.update(metrics, power, uptime, bearing=bearing, gain=gain, latitude=latitude, longitude=longitude)

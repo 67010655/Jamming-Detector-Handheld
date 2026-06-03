@@ -32,7 +32,9 @@ def init_db():
                 peak_p REAL,
                 floor_rise REAL,
                 noise_floor REAL,
-                bearing_deg INTEGER DEFAULT 0
+                bearing_deg INTEGER DEFAULT 0,
+                latitude REAL,
+                longitude REAL
             )
         ''')
 
@@ -45,6 +47,18 @@ def init_db():
                 cursor.execute("ALTER TABLE events ADD COLUMN bearing_deg INTEGER DEFAULT 0")
             except Exception as e:
                 print(f"[DATABASE] Migration failed: {e}")
+        if 'latitude' not in columns:
+            print("[DATABASE] Migrating schema: Adding missing 'latitude' column")
+            try:
+                cursor.execute("ALTER TABLE events ADD COLUMN latitude REAL")
+            except Exception as e:
+                print(f"[DATABASE] Migration failed: {e}")
+        if 'longitude' not in columns:
+            print("[DATABASE] Migrating schema: Adding missing 'longitude' column")
+            try:
+                cursor.execute("ALTER TABLE events ADD COLUMN longitude REAL")
+            except Exception as e:
+                print(f"[DATABASE] Migration failed: {e}")
 
         conn.commit()
         print(f"[DATABASE] Initialized: {DB_NAME}")
@@ -52,7 +66,7 @@ def init_db():
         if conn:
             conn.close()
 
-def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing_deg=0):
+def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing_deg=0, latitude=None, longitude=None):
     """Records a detection event into the database and prunes old records."""
     conn = None
     try:
@@ -61,9 +75,9 @@ def log_event(state, score, peak_p, floor_rise, noise_floor, uptime_sec, bearing
         # Use local time with ISO 8601 format
         local_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor.execute('''
-            INSERT INTO events (timestamp, uptime_sec, state, score, peak_p, floor_rise, noise_floor, bearing_deg)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (local_time, uptime_sec, state, score, peak_p, floor_rise, noise_floor, bearing_deg))
+            INSERT INTO events (timestamp, uptime_sec, state, score, peak_p, floor_rise, noise_floor, bearing_deg, latitude, longitude)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (local_time, uptime_sec, state, score, peak_p, floor_rise, noise_floor, bearing_deg, latitude, longitude))
         
         # Prune database: Keep only the latest 1000 non-startup records
         # Startup records are kept permanently to preserve session baselines
