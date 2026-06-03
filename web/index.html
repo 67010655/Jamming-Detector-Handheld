@@ -62,6 +62,11 @@
             <section class="card spectrum-card" id="spectrum-card">
                 <div class="card-head">
                     <span class="card-title">LIVE RF SPECTRUM</span>
+                    <div class="card-controls" style="display: flex; gap: 8px;">
+                        <button id="web-calib-btn" class="btn btn-accent" style="padding: 4px 10px; font-size: 0.6rem;">CALIB</button>
+                        <button id="web-gain-dec-btn" class="btn" style="padding: 4px 10px; font-size: 0.6rem;">GAIN -</button>
+                        <button id="web-gain-inc-btn" class="btn" style="padding: 4px 10px; font-size: 0.6rem;">GAIN +</button>
+                    </div>
                     <span class="card-unit">dBFS vs Frequency</span>
                 </div>
                 <div class="spectrum-wrap">
@@ -111,6 +116,9 @@
                             <span class="score-label">INTENSITY</span>
                         </div>
                     </div>
+                </div>
+                <div class="radar-wrap" style="width: 170px; height: 170px; margin: 10px auto; position: relative;">
+                    <canvas id="radarCanvas" role="img" aria-label="Jamming direction finder radar"></canvas>
                 </div>
                 <div class="threat-stats">
                     <div class="threat-stat">

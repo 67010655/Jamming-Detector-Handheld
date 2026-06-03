@@ -16,6 +16,7 @@ const $id = id => document.getElementById(id);
 const spectrumCanvas = $id('spectrumCanvas');
 const marginCanvas   = $id('marginCanvas');
 const waterfallCanvas = $id('waterfallCanvas');
+const radarCanvas     = $id('radarCanvas');
 
 // ── State ──
 let marginHistory  = [];
@@ -23,6 +24,9 @@ let waterfallData  = [];
 let lastWfTime     = 0;
 let allLogs        = [];
 let activeFilter   = 'ALL';
+let radarHistory   = [];
+let currentBearingVal = 0;
+let currentStateVal = 'SCANNING';
 let isDark         = true;
 let spectrumBgCanvas = null;
 let spectrumBgKey = '';
@@ -70,6 +74,57 @@ function loadTheme() {
 }
 
 $id('theme-toggle').addEventListener('click', toggleTheme);
+
+// ── Web Remote Controls ──
+$id('web-calib-btn').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/recalibrate', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+            alert('Calibration requested successfully!');
+        } else {
+            alert(data.error || 'Calibration request failed.');
+        }
+    } catch (e) {
+        alert('Calibration request failed. Check dashboard connection.');
+    }
+});
+
+$id('web-gain-dec-btn').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/gain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ delta: -2.0 })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+            console.log('Gain adjusted to: ' + data.gain + ' dB');
+        } else {
+            alert(data.error || 'Gain adjustment failed.');
+        }
+    } catch (e) {
+        alert('Gain adjustment failed. Check dashboard connection.');
+    }
+});
+
+$id('web-gain-inc-btn').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/api/gain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ delta: 2.0 })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+            console.log('Gain adjusted to: ' + data.gain + ' dB');
+        } else {
+            alert(data.error || 'Gain adjustment failed.');
+        }
+    } catch (e) {
+        alert('Gain adjustment failed. Check dashboard connection.');
+    }
+});
 
 // ── Ultra-Smooth Client Clock (Local time, avoids server time jitters) ──
 function updateClock() {
@@ -204,6 +259,15 @@ function getSpectrumBackground(w, h, cc) {
         const db = -20 * i;
         bgCtx.fillText(`${db}`, 4, (h / 5) * i - 3);
     }
+
+    // Draw Frequency Marks on X-axis
+    bgCtx.textAlign = 'left';
+    bgCtx.fillText('1574.91 MHz', 4, h - 6);
+    bgCtx.textAlign = 'center';
+    bgCtx.fillText('1575.42 MHz (L1)', w / 2, h - 6);
+    bgCtx.textAlign = 'right';
+    bgCtx.fillText('1575.93 MHz', w - 4, h - 6);
+    bgCtx.textAlign = 'left'; // Reset to default
 
     spectrumBgCanvas = bg;
     spectrumBgKey = key;
@@ -425,6 +489,143 @@ function drawWaterfallFull() {
     });
 }
 
+// ═══ DRAW POLAR RADAR DIRECTION FINDER ═══
+function drawRadar(bearing, state) {
+    if (!radarCanvas) return;
+    const ctx = radarCanvas.getContext('2d');
+    const w = radarCanvas.width, h = radarCanvas.height;
+    if (w === 0 || h === 0) return;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Colors
+    const isDark = document.body.dataset.theme === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)';
+    const textColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)';
+
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.min(cx, cy) - 15;
+
+    // Draw concentric circles
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    [1, 0.66, 0.33].forEach(ratio => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * ratio, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+
+    // Device heading (bearing) is facing straight up at 12 o'clock.
+    const theta = bearing || 0;
+
+    // Draw North, East, South, West labels and grid lines
+    const cardinals = [
+        { angle: 0, label: 'N', isMain: true },
+        { angle: 90, label: 'E', isMain: true },
+        { angle: 180, label: 'S', isMain: true },
+        { angle: 270, label: 'W', isMain: true }
+    ];
+
+    cardinals.forEach(c => {
+        const angleOnScreenRad = ((c.angle - theta - 90) * Math.PI) / 180;
+        const x = cx + radius * Math.cos(angleOnScreenRad);
+        const y = cy + radius * Math.sin(angleOnScreenRad);
+
+        // Draw line from center to edge
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+
+        // Draw label text slightly outside the outer circle
+        const tx = cx + (radius + 10) * Math.cos(angleOnScreenRad);
+        const ty = cy + (radius + 10) * Math.sin(angleOnScreenRad);
+        ctx.fillStyle = c.isMain ? (isDark ? '#fff' : '#000') : textColor;
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(c.label, tx, ty);
+    });
+
+    // Draw historical bearings
+    radarHistory.forEach(item => {
+        let lineLen = radius * 0.33;
+        let color = '#00e68a'; // Green
+        if (item.state === 'JAMMING') {
+            lineLen = radius;
+            color = '#ef4444'; // Red
+        } else if (item.state === 'WATCH') {
+            lineLen = radius * 0.66;
+            color = '#f0b429'; // Yellow
+        }
+
+        const angleOnScreenRad = ((item.bearing - theta - 90) * Math.PI) / 180;
+        const lx = cx + lineLen * Math.cos(angleOnScreenRad);
+        const ly = cy + lineLen * Math.sin(angleOnScreenRad);
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(lx, ly);
+        ctx.stroke();
+    });
+
+    // Draw persistent strongest jamming bearing from allLogs
+    let strongestJam = null;
+    allLogs.forEach(row => {
+        if (row.state === 'JAMMING') {
+            if (!strongestJam || row.peak_p > strongestJam.peak_p) {
+                strongestJam = row;
+            }
+        }
+    });
+
+    if (strongestJam) {
+        const angleOnScreenRad = ((strongestJam.bearing_deg - theta - 90) * Math.PI) / 180;
+        const lx = cx + radius * Math.cos(angleOnScreenRad);
+        const ly = cy + radius * Math.sin(angleOnScreenRad);
+        ctx.strokeStyle = '#f43f5e'; // Rose/pink
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(lx, ly);
+        ctx.stroke();
+
+        ctx.fillStyle = '#f43f5e';
+        ctx.beginPath();
+        ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Draw device pointer line (Always facing straight UP)
+    ctx.strokeStyle = isDark ? '#fff' : '#000';
+    ctx.lineWidth = 2.0;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx, cy - radius);
+    ctx.stroke();
+
+    // Draw arrow pointer
+    ctx.fillStyle = isDark ? '#fff' : '#000';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - radius);
+    ctx.lineTo(cx - 4, cy - radius + 6);
+    ctx.lineTo(cx + 4, cy - radius + 6);
+    ctx.closePath();
+    ctx.fill();
+
+    // Draw center user dot
+    ctx.fillStyle = isDark ? '#080c10' : '#e5e7eb';
+    ctx.strokeStyle = isDark ? '#fff' : '#000';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+}
+
 // ═══ SESSION STATS ═══
 function updateSession(m) {
     if (!m) return;
@@ -492,11 +693,24 @@ async function fetchStatus() {
 
         if (data.uptime !== undefined) setDomText('uptime-val', fmtUp(data.uptime));
         if (data.bearing !== undefined) {
+            currentBearingVal = data.bearing;
             const bearingStr = Math.round(data.bearing).toString().padStart(3, '0') + '°';
             setDomText('bearing-val', bearingStr);
             setDomText('ss-bearing', bearingStr);
         }
         if (data.gain !== undefined) setDomText('ss-gain', data.gain.toFixed(1) + ' dB');
+
+        // Update real-time bearing history
+        if (data.bearing !== undefined && data.metrics) {
+            radarHistory.push({
+                bearing: data.bearing,
+                peak: data.metrics.peak_p,
+                state: data.metrics.state
+            });
+            if (radarHistory.length > 36) {
+                radarHistory.shift();
+            }
+        }
 
         let waterfallChanged = false;
 
@@ -530,6 +744,7 @@ async function fetchStatus() {
             if (waterfallChanged) {
                 drawWaterfallRow();
             }
+            drawRadar(currentBearingVal, currentStateVal);
         });
         
     } catch (e) { console.warn('Status fetch skipped:', e.message || e); }
@@ -650,9 +865,11 @@ function resizeAll() {
     resizeCanvas(spectrumCanvas);
     resizeCanvas(marginCanvas);
     resizeCanvas(waterfallCanvas);
+    resizeCanvas(radarCanvas);
     drawSpectrum(spectrumDisplayData || lastSpectrumData);
     drawMarginTrend();
     drawWaterfallFull();
+    drawRadar(currentBearingVal, currentStateVal);
 }
 
 // ═══ INIT ═══
