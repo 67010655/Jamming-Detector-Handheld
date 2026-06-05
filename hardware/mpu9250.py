@@ -286,28 +286,7 @@ class MPU9250:
             self._mag_smooth_y = a * my + (1.0 - a) * self._mag_smooth_y
             self._mag_smooth_z = a * mz + (1.0 - a) * self._mag_smooth_z
 
-        # Effective axes (flip to correct 180° mounting)
-        Mx = -self._mag_smooth_x
-        My = -self._mag_smooth_y
-        Mz =  self._mag_smooth_z
-
-        # Tilt compensation using accelerometer roll/pitch
-        accel = self._read_accel()
-        if accel is not None:
-            ax, ay, az = accel
-            norm = math.sqrt(ax*ax + ay*ay + az*az)
-            if norm > 0:
-                ax /= norm; ay /= norm; az /= norm
-            roll  = math.atan2(ay, az)
-            pitch = math.atan2(-ax, math.sqrt(ay*ay + az*az))
-            cr, sr = math.cos(roll),  math.sin(roll)
-            cp, sp = math.cos(pitch), math.sin(pitch)
-            Xh = Mx * cp + Mz * sp
-            Yh = Mx * sr * sp + My * cr - Mz * sr * cp
-            heading = math.degrees(math.atan2(-Yh, Xh)) + self.declination_deg
-        else:
-            heading = math.degrees(math.atan2(-My, Mx)) + self.declination_deg
-
+        heading = math.degrees(math.atan2(-self._mag_smooth_y, -self._mag_smooth_x)) + self.declination_deg
         return heading % 360
 
     def reset_bearing(self):
