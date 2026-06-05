@@ -41,8 +41,8 @@ IMU_GYRO_AXIS = 'X'     # Axis to measure horizontal rotation: 'X', 'Y', or 'Z'
 IMU_INVERT_GYRO = True  # Invert gyro sign so radar ring matches physical turn (left ↔ left)
 
 # ── Sensor Fusion & Compass Setup ──────────────────────────
-IMU_FUSION_MODE = 'GYRO_ONLY'      # Mode: 'COMPLEMENTARY' (Fused 9-axis), 'GYRO_ONLY' (like MPU6050), 'MAG_ONLY' (True Compass only)
-IMU_FUSION_ALPHA = 0.85          # Gyro weight in complementary filter (0.90 to 0.99). Higher = smoother radar, Lower = reacts faster to compass
+IMU_FUSION_MODE = 'COMPLEMENTARY'  # Mode: 'COMPLEMENTARY' (Fused 9-axis), 'GYRO_ONLY' (like MPU6050), 'MAG_ONLY' (True Compass only)
+IMU_FUSION_ALPHA = 0.99          # Gyro weight in complementary filter (0.90 to 0.99). Higher = smoother radar, Lower = reacts faster to compass
 IMU_MAG_SMOOTH_ALPHA = 0.3       # EMA smoothing on raw mag readings (0.05=very smooth/laggy, 0.3=responsive/noisy)
 IMU_MAG_OFFSET_X = -175.0         # Hard-iron offset X (updated via calibration)
 IMU_MAG_OFFSET_Y = 13.0          # Hard-iron offset Y (updated via calibration)

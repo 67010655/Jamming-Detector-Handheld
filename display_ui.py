@@ -805,44 +805,50 @@ class DisplayUI:
         draw.text((lx, ly_top + 46), dir_name,  fill=accent,          font=self._f_brg)
 
     def _draw_mag_mini_compass(self, draw, cx, cy, radius, accent):
-        """Small magnetometer reference compass — shows where magnetic North is."""
+        """Mini mag compass — compass-arrow icon style, white, shows magnetic North."""
         imu = getattr(self.app, 'imu', None)
         mag_h = getattr(imu, 'mag_heading', None) if imu else None
 
-        dim = (100, 100, 120)
         white = (255, 255, 255)
+        dim   = (110, 110, 130)
 
-        # Outer ring
+        # Outer circle
         draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius),
-                     outline=dim, width=1)
+                     outline=white, width=1)
 
         if mag_h is not None:
-            # North arrow direction on screen: if mag says device faces mag_h°,
-            # North is at -(mag_h) relative to device up
-            north_rad = math.radians(-mag_h - 90)
-            nx = cx + int(radius * math.cos(north_rad))
-            ny = cy + int(radius * math.sin(north_rad))
-            south_rad = north_rad + math.pi
-            sx = cx + int((radius * 0.5) * math.cos(south_rad))
-            sy = cy + int((radius * 0.5) * math.sin(south_rad))
-            # Red North arrow, dim South tail
-            draw.line((sx, sy, nx, ny), fill=(220, 60, 60), width=2)
-            draw.ellipse((nx - 2, ny - 2, nx + 2, ny + 2), fill=(220, 60, 60))
-            # N label near arrowhead
-            lx = cx + int((radius + 7) * math.cos(north_rad))
-            ly = cy + int((radius + 7) * math.sin(north_rad))
-            draw.text((lx - 3, ly - 4), "N", fill=(220, 60, 60), font=self._f_footer)
-            # Heading value below circle
+            # Arrow rotation: point toward magnetic North
+            # If device faces mag_h°, North is (0 - mag_h) in compass → convert to screen angle
+            ang = math.radians((0 - mag_h) % 360 - 90)
+
+            def rp(ox, oy):
+                """Rotate a local (ox, oy) offset by ang and translate to (cx, cy)."""
+                return (cx + int(ox * math.cos(ang) - oy * math.sin(ang)),
+                        cy + int(ox * math.sin(ang) + oy * math.cos(ang)))
+
+            r = radius - 3
+            tip       = rp(0,          -int(r * 0.72))
+            r_wing    = rp( int(r*0.30), int(r * 0.20))
+            notch     = rp(0,           int(r * 0.02))
+            l_wing    = rp(-int(r*0.30), int(r * 0.20))
+
+            # Right half filled (bright white), left half outline only — classic compass look
+            draw.polygon([tip, r_wing, notch], fill=white)
+            draw.polygon([tip, l_wing, notch], outline=white, fill=(40, 40, 50))
+
+            # "N" label just inside circle near arrowhead
+            n_x = cx + int((radius - 7) * math.cos(ang))
+            n_y = cy + int((radius - 7) * math.sin(ang))
+            tw, th = self._get_text_size("N", self._f_footer)
+            draw.text((n_x - tw // 2, n_y - th // 2), "N", fill=white, font=self._f_footer)
+
+            # Degree value below circle
             deg_str = f"{int(mag_h) % 360:03d}°"
             tw, _ = self._get_text_size(deg_str, self._f_footer)
             draw.text((cx - tw // 2, cy + radius + 2), deg_str, fill=dim, font=self._f_footer)
         else:
-            draw.text((cx - 6, cy - 4), "?", fill=dim, font=self._f_footer)
-
-        # Label above circle
-        lbl = "MAG"
-        tw, _ = self._get_text_size(lbl, self._f_footer)
-        draw.text((cx - tw // 2, cy - radius - 10), lbl, fill=dim, font=self._f_footer)
+            tw, th = self._get_text_size("?", self._f_footer)
+            draw.text((cx - tw // 2, cy - th // 2), "?", fill=dim, font=self._f_footer)
 
     def _draw_history(self, draw, l, t, r, b, accent, grid, white):
         draw.text((l, t-15), "MARGIN HISTORY", fill=self._dim(white, 0.6), font=self._f_label)
