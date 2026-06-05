@@ -42,12 +42,15 @@ IMU_INVERT_GYRO = True  # Invert gyro sign so radar ring matches physical turn (
 
 # ── Sensor Fusion & Compass Setup ──────────────────────────
 IMU_FUSION_MODE = 'COMPLEMENTARY'  # Mode: 'COMPLEMENTARY' (Fused 9-axis), 'GYRO_ONLY' (like MPU6050), 'MAG_ONLY' (True Compass only)
-IMU_FUSION_ALPHA = 0.99          # Gyro weight in complementary filter (0.90 to 0.99). Higher = smoother radar, Lower = reacts faster to compass
+IMU_FUSION_ALPHA = 0.95          # Gyro weight in complementary filter (0.90 to 0.99). Higher = smoother radar, Lower = reacts faster to compass
 IMU_MAG_SMOOTH_ALPHA = 0.3       # EMA smoothing on raw mag readings (0.05=very smooth/laggy, 0.3=responsive/noisy)
-IMU_MAG_OFFSET_X = -175.0         # Hard-iron offset X (updated via calibration)
-IMU_MAG_OFFSET_Y = 13.0          # Hard-iron offset Y (updated via calibration)
+# Device is mounted VERTICALLY: chip Y axis is vertical (discarded). Heading is
+# computed from the two HORIZONTAL axes X and Z. Offsets below from diagnose_magnetometer.py.
+IMU_MAG_OFFSET_X = -171.0        # Hard-iron offset for horizontal X axis (circle center)
+IMU_MAG_OFFSET_Z = 393.0         # Hard-iron offset for horizontal Z axis (circle center)
+IMU_MAG_INVERT = False           # Flip True if compass rotates the WRONG direction
 IMU_DECLINATION_DEG = -0.5       # Local magnetic declination (e.g. -0.5 deg in Bangkok) to align with True North
-IMU_COMPASS_OFFSET_DEG = -32.0  # Mounting offset: device heading minus iPhone heading (adjust if still off)
+IMU_COMPASS_OFFSET_DEG = 0.0     # Rotate heading so North reads 0 (set after testing one known direction)
 
 LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
 LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)

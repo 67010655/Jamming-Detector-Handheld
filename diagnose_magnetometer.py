@@ -6,8 +6,8 @@ Purpose
 Stop guessing the compass math. This captures raw 3-axis magnetometer data
 while you rotate the device, then tells you mechanically:
 
-  1. Which axis is VERTICAL (stays ~constant during a flat 360° turn) — discard it.
-  2. Which two axes are HORIZONTAL (trace a sine wave) — use these for heading.
+  1. Which axis is VERTICAL (stays ~constant during a flat 360 deg turn) - discard it.
+  2. Which two axes are HORIZONTAL (trace a sine wave) - use these for heading.
   3. The real hard-iron offset (circle center) on the horizontal axes.
   4. Whether the data is a clean circle (good) or a squashed ellipse (soft-iron).
 
@@ -116,7 +116,7 @@ def analyze(samples):
             print("    [WARN] Strong soft-iron distortion (ellipse). A single")
             print("           offset will NOT fully fix heading. Soft-iron scaling needed.")
         else:
-            print("    [OK] Reasonably circular — hard-iron offset should work.")
+            print("    [OK] Reasonably circular - hard-iron offset should work.")
 
     return {"stats": stats, "vertical": vertical, "horizontal": horizontal}
 

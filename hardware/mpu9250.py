@@ -52,7 +52,8 @@ class MPU9250:
         self.fusion_mode = getattr(config, 'IMU_FUSION_MODE', 'COMPLEMENTARY')
         self.fusion_alpha = getattr(config, 'IMU_FUSION_ALPHA', 0.96)
         self.mag_offset_x = getattr(config, 'IMU_MAG_OFFSET_X', 0.0)
-        self.mag_offset_y = getattr(config, 'IMU_MAG_OFFSET_Y', 0.0)
+        self.mag_offset_z = getattr(config, 'IMU_MAG_OFFSET_Z', 0.0)
+        self.mag_invert = getattr(config, 'IMU_MAG_INVERT', False)
         self.declination_deg = getattr(config, 'IMU_DECLINATION_DEG', 0.0)
         self.compass_offset_deg = getattr(config, 'IMU_COMPASS_OFFSET_DEG', 0.0)
         self.mag_smooth_alpha = getattr(config, 'IMU_MAG_SMOOTH_ALPHA', 0.1)
@@ -274,22 +275,24 @@ class MPU9250:
         if raw is None:
             return None
         hx, hy, hz = raw
+        # Device mounted vertically: Y is the vertical axis (ignored). Heading
+        # comes from the two horizontal axes X and Z. (Confirmed by
+        # diagnose_magnetometer.py: X/Z swing ~450, Y stays ~60.)
         mx = float(hx) - self.mag_offset_x
-        my = float(hy) - self.mag_offset_y
-        mz = float(hz)
+        mz = float(hz) - self.mag_offset_z
 
-        # EMA low-pass filter on all three axes
+        # EMA low-pass filter on the two horizontal axes
         if self._mag_smooth_x is None:
             self._mag_smooth_x = mx
-            self._mag_smooth_y = my
             self._mag_smooth_z = mz
         else:
             a = self.mag_smooth_alpha
             self._mag_smooth_x = a * mx + (1.0 - a) * self._mag_smooth_x
-            self._mag_smooth_y = a * my + (1.0 - a) * self._mag_smooth_y
             self._mag_smooth_z = a * mz + (1.0 - a) * self._mag_smooth_z
 
-        heading = math.degrees(math.atan2(-self._mag_smooth_y, -self._mag_smooth_x)) + self.declination_deg + self.compass_offset_deg
+        z = -self._mag_smooth_z if self.mag_invert else self._mag_smooth_z
+        heading = math.degrees(math.atan2(z, self._mag_smooth_x))
+        heading += self.declination_deg + self.compass_offset_deg
         return heading % 360
 
     def reset_bearing(self):
