@@ -54,6 +54,7 @@ class MPU9250:
         self.mag_offset_x = getattr(config, 'IMU_MAG_OFFSET_X', 0.0)
         self.mag_offset_y = getattr(config, 'IMU_MAG_OFFSET_Y', 0.0)
         self.declination_deg = getattr(config, 'IMU_DECLINATION_DEG', 0.0)
+        self.compass_offset_deg = getattr(config, 'IMU_COMPASS_OFFSET_DEG', 0.0)
         self.mag_smooth_alpha = getattr(config, 'IMU_MAG_SMOOTH_ALPHA', 0.1)
         self._mag_smooth_x = None
         self._mag_smooth_y = None
@@ -286,7 +287,7 @@ class MPU9250:
             self._mag_smooth_y = a * my + (1.0 - a) * self._mag_smooth_y
             self._mag_smooth_z = a * mz + (1.0 - a) * self._mag_smooth_z
 
-        heading = math.degrees(math.atan2(-self._mag_smooth_y, -self._mag_smooth_x)) + self.declination_deg
+        heading = math.degrees(math.atan2(-self._mag_smooth_y, -self._mag_smooth_x)) + self.declination_deg + self.compass_offset_deg
         return heading % 360
 
     def reset_bearing(self):

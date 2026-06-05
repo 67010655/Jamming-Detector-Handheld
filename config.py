@@ -47,6 +47,7 @@ IMU_MAG_SMOOTH_ALPHA = 0.3       # EMA smoothing on raw mag readings (0.05=very 
 IMU_MAG_OFFSET_X = -175.0         # Hard-iron offset X (updated via calibration)
 IMU_MAG_OFFSET_Y = 13.0          # Hard-iron offset Y (updated via calibration)
 IMU_DECLINATION_DEG = -0.5       # Local magnetic declination (e.g. -0.5 deg in Bangkok) to align with True North
+IMU_COMPASS_OFFSET_DEG = -32.0  # Mounting offset: device heading minus iPhone heading (adjust if still off)
 
 LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
 LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)
