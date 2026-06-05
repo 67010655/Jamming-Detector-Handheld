@@ -53,6 +53,9 @@ class MPU9250:
         self.mag_offset_x = getattr(config, 'IMU_MAG_OFFSET_X', 0.0)
         self.mag_offset_y = getattr(config, 'IMU_MAG_OFFSET_Y', 0.0)
         self.declination_deg = getattr(config, 'IMU_DECLINATION_DEG', 0.0)
+        self.mag_smooth_alpha = getattr(config, 'IMU_MAG_SMOOTH_ALPHA', 0.1)
+        self._mag_smooth_x = None
+        self._mag_smooth_y = None
         self.bearing_initialized = False
 
         self._init_sensor()
@@ -253,8 +256,16 @@ class MPU9250:
         mx = float(hx) - self.mag_offset_x
         my = float(hy) - self.mag_offset_y
 
-        # Add magnetic declination to align with True geographical North
-        heading = math.degrees(math.atan2(-my, -mx)) + self.declination_deg
+        # EMA low-pass filter to reduce magnetometer noise
+        if self._mag_smooth_x is None:
+            self._mag_smooth_x = mx
+            self._mag_smooth_y = my
+        else:
+            a = self.mag_smooth_alpha
+            self._mag_smooth_x = a * mx + (1.0 - a) * self._mag_smooth_x
+            self._mag_smooth_y = a * my + (1.0 - a) * self._mag_smooth_y
+
+        heading = math.degrees(math.atan2(-self._mag_smooth_y, -self._mag_smooth_x)) + self.declination_deg
         return heading % 360
 
     def reset_bearing(self):
