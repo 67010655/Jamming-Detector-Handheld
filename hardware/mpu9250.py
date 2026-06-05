@@ -254,7 +254,7 @@ class MPU9250:
         my = float(hy) - self.mag_offset_y
 
         # Add magnetic declination to align with True geographical North
-        heading = math.degrees(math.atan2(my, mx)) + self.declination_deg
+        heading = math.degrees(math.atan2(-my, -mx)) + self.declination_deg
         return heading % 360
 
     def reset_bearing(self):
