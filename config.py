@@ -43,7 +43,7 @@ IMU_INVERT_GYRO = True  # Invert gyro sign so radar ring matches physical turn (
 # ── Sensor Fusion & Compass Setup ──────────────────────────
 IMU_FUSION_MODE = 'COMPLEMENTARY'  # Mode: 'COMPLEMENTARY' (Fused 9-axis), 'GYRO_ONLY' (like MPU6050), 'MAG_ONLY' (True Compass only)
 IMU_FUSION_ALPHA = 0.85          # Gyro weight in complementary filter (0.90 to 0.99). Higher = smoother radar, Lower = reacts faster to compass
-IMU_MAG_SMOOTH_ALPHA = 0.1       # EMA smoothing on raw mag readings (0.05=very smooth/laggy, 0.3=responsive/noisy)
+IMU_MAG_SMOOTH_ALPHA = 0.2       # EMA smoothing on raw mag readings (0.05=very smooth/laggy, 0.3=responsive/noisy)
 IMU_MAG_OFFSET_X = -175.0         # Hard-iron offset X (updated via calibration)
 IMU_MAG_OFFSET_Y = 13.0          # Hard-iron offset Y (updated via calibration)
 IMU_DECLINATION_DEG = -0.5       # Local magnetic declination (e.g. -0.5 deg in Bangkok) to align with True North
