@@ -1,5 +1,6 @@
 import time
 import threading
+import math
 import numpy as np
 try:
     import spidev
@@ -442,6 +443,8 @@ class DisplayUI:
             )
             # Label
             draw.text((content_l + 10, hdr_b + 5), "GYRO COMPASS", fill=self._dim(white, 0.4), font=self._f_footer)
+            # Mini magnetometer reference compass — bottom-left corner
+            self._draw_mag_mini_compass(draw, content_l + 36, foot_t - 26, 18, accent)
 
         elif self.view_mode == 2:  # ANALYTICS MODE (History)
             self._draw_history(draw, content_l + 12, hdr_b + 18, rp_l - 12, foot_t - 75, accent, grid, white)
@@ -800,6 +803,46 @@ class DisplayUI:
         draw.text((lx, ly_top),      "HEADING", fill=(160, 160, 180), font=self._f_small)
         draw.text((lx, ly_top + 13), brg_val,   fill=accent,          font=self._f_score_big)
         draw.text((lx, ly_top + 46), dir_name,  fill=accent,          font=self._f_brg)
+
+    def _draw_mag_mini_compass(self, draw, cx, cy, radius, accent):
+        """Small magnetometer reference compass — shows where magnetic North is."""
+        imu = getattr(self.app, 'imu', None)
+        mag_h = getattr(imu, 'mag_heading', None) if imu else None
+
+        dim = (100, 100, 120)
+        white = (255, 255, 255)
+
+        # Outer ring
+        draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius),
+                     outline=dim, width=1)
+
+        if mag_h is not None:
+            # North arrow direction on screen: if mag says device faces mag_h°,
+            # North is at -(mag_h) relative to device up
+            north_rad = math.radians(-mag_h - 90)
+            nx = cx + int(radius * math.cos(north_rad))
+            ny = cy + int(radius * math.sin(north_rad))
+            south_rad = north_rad + math.pi
+            sx = cx + int((radius * 0.5) * math.cos(south_rad))
+            sy = cy + int((radius * 0.5) * math.sin(south_rad))
+            # Red North arrow, dim South tail
+            draw.line((sx, sy, nx, ny), fill=(220, 60, 60), width=2)
+            draw.ellipse((nx - 2, ny - 2, nx + 2, ny + 2), fill=(220, 60, 60))
+            # N label near arrowhead
+            lx = cx + int((radius + 7) * math.cos(north_rad))
+            ly = cy + int((radius + 7) * math.sin(north_rad))
+            draw.text((lx - 3, ly - 4), "N", fill=(220, 60, 60), font=self._f_footer)
+            # Heading value below circle
+            deg_str = f"{int(mag_h) % 360:03d}°"
+            tw, _ = self._get_text_size(deg_str, self._f_footer)
+            draw.text((cx - tw // 2, cy + radius + 2), deg_str, fill=dim, font=self._f_footer)
+        else:
+            draw.text((cx - 6, cy - 4), "?", fill=dim, font=self._f_footer)
+
+        # Label above circle
+        lbl = "MAG"
+        tw, _ = self._get_text_size(lbl, self._f_footer)
+        draw.text((cx - tw // 2, cy - radius - 10), lbl, fill=dim, font=self._f_footer)
 
     def _draw_history(self, draw, l, t, r, b, accent, grid, white):
         draw.text((l, t-15), "MARGIN HISTORY", fill=self._dim(white, 0.6), font=self._f_label)

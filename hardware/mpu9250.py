@@ -59,6 +59,7 @@ class MPU9250:
         self._mag_smooth_x = None
         self._mag_smooth_y = None
         self._mag_smooth_z = None
+        self.mag_heading = None  # last magnetometer heading, exposed for UI reference
         self.bearing_initialized = False
 
         self._init_sensor()
@@ -216,6 +217,7 @@ class MPU9250:
 
         # Fetch absolute magnetometer heading
         mag_heading = self.get_heading_mag()
+        self.mag_heading = mag_heading  # expose for UI mini compass
 
         if self.fusion_mode == 'MAG_ONLY' and mag_heading is not None:
             self.bearing = mag_heading
