@@ -68,7 +68,7 @@ def main():
     while time.time() - start_time < duration:
         raw = imu.read_mag_raw()
         if raw is not None:
-            hx, hy = raw
+            hx, hy, _hz = raw
             x_min = min(x_min, hx)
             x_max = max(x_max, hx)
             y_min = min(y_min, hy)

@@ -29,10 +29,11 @@ class MPU9250:
     _AK8963_CONT2 = 0x16   # Continuous measurement mode 2 (100 Hz, 16-bit output)
 
     # ── MPU9250 registers (subset) ──────────────────────────────────────
-    _PWR_MGMT_1  = 0x6B
-    _GYRO_CONFIG = 0x1B
-    _INT_PIN_CFG = 0x37    # bit 1 = I2C_BYPASS_EN
-    _USER_CTRL   = 0x6A    # bit 5 = I2C_MST_EN (disable to allow bypass)
+    _PWR_MGMT_1   = 0x6B
+    _GYRO_CONFIG  = 0x1B
+    _INT_PIN_CFG  = 0x37   # bit 1 = I2C_BYPASS_EN
+    _USER_CTRL    = 0x6A   # bit 5 = I2C_MST_EN (disable to allow bypass)
+    _ACCEL_XOUT_H = 0x3B   # Accel X high byte (X, Y, Z = 6 bytes total)
 
     def __init__(self, address=None, bus=1):
         configured_address = getattr(config, 'IMU_ADDRESS', None)
@@ -56,6 +57,7 @@ class MPU9250:
         self.mag_smooth_alpha = getattr(config, 'IMU_MAG_SMOOTH_ALPHA', 0.1)
         self._mag_smooth_x = None
         self._mag_smooth_y = None
+        self._mag_smooth_z = None
         self.bearing_initialized = False
 
         self._init_sensor()
@@ -104,6 +106,22 @@ class MPU9250:
         except Exception as e:
             print(f"[IMU9] Magnetometer unavailable at 0x{self._AK8963_ADDR:02x}: {e}")
             return False
+
+    # ── accelerometer ───────────────────────────────────────────────────
+    def _read_accel(self):
+        if self.bus is None:
+            return None
+        try:
+            data = self.bus.read_i2c_block_data(self.address, self._ACCEL_XOUT_H, 6)
+            ax = (data[0] << 8) | data[1]
+            ay = (data[2] << 8) | data[3]
+            az = (data[4] << 8) | data[5]
+            if ax > 32767: ax -= 65536
+            if ay > 32767: ay -= 65536
+            if az > 32767: az -= 65536
+            return float(ax), float(ay), float(az)
+        except Exception:
+            return None
 
     # ── gyro helpers ────────────────────────────────────────────────────
     def _get_gyro_register(self):
@@ -236,11 +254,11 @@ class MPU9250:
 
             hx = (data[1] << 8) | data[0]
             hy = (data[3] << 8) | data[2]
-            if hx > 32767:
-                hx -= 65536
-            if hy > 32767:
-                hy -= 65536
-            return hx, hy
+            hz = (data[5] << 8) | data[4]
+            if hx > 32767: hx -= 65536
+            if hy > 32767: hy -= 65536
+            if hz > 32767: hz -= 65536
+            return hx, hy, hz
         except Exception:
             return None
 
@@ -252,20 +270,44 @@ class MPU9250:
         raw = self.read_mag_raw()
         if raw is None:
             return None
-        hx, hy = raw
+        hx, hy, hz = raw
         mx = float(hx) - self.mag_offset_x
         my = float(hy) - self.mag_offset_y
+        mz = float(hz)
 
-        # EMA low-pass filter to reduce magnetometer noise
+        # EMA low-pass filter on all three axes
         if self._mag_smooth_x is None:
             self._mag_smooth_x = mx
             self._mag_smooth_y = my
+            self._mag_smooth_z = mz
         else:
             a = self.mag_smooth_alpha
             self._mag_smooth_x = a * mx + (1.0 - a) * self._mag_smooth_x
             self._mag_smooth_y = a * my + (1.0 - a) * self._mag_smooth_y
+            self._mag_smooth_z = a * mz + (1.0 - a) * self._mag_smooth_z
 
-        heading = math.degrees(math.atan2(-self._mag_smooth_y, -self._mag_smooth_x)) + self.declination_deg
+        # Effective axes (flip to correct 180° mounting)
+        Mx = -self._mag_smooth_x
+        My = -self._mag_smooth_y
+        Mz =  self._mag_smooth_z
+
+        # Tilt compensation using accelerometer roll/pitch
+        accel = self._read_accel()
+        if accel is not None:
+            ax, ay, az = accel
+            norm = math.sqrt(ax*ax + ay*ay + az*az)
+            if norm > 0:
+                ax /= norm; ay /= norm; az /= norm
+            roll  = math.atan2(ay, az)
+            pitch = math.atan2(-ax, math.sqrt(ay*ay + az*az))
+            cr, sr = math.cos(roll),  math.sin(roll)
+            cp, sp = math.cos(pitch), math.sin(pitch)
+            Xh = Mx * cp + Mz * sp
+            Yh = Mx * sr * sp + My * cr - Mz * sr * cp
+            heading = math.degrees(math.atan2(-Yh, Xh)) + self.declination_deg
+        else:
+            heading = math.degrees(math.atan2(-My, Mx)) + self.declination_deg
+
         return heading % 360
 
     def reset_bearing(self):
