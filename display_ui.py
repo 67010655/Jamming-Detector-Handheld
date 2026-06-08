@@ -836,12 +836,6 @@ class DisplayUI:
             draw.polygon([tip, r_wing, notch], fill=white)
             draw.polygon([tip, l_wing, notch], outline=white, fill=(40, 40, 50))
 
-            # "N" label just inside circle near arrowhead
-            n_x = cx + int((radius - 7) * math.cos(ang))
-            n_y = cy + int((radius - 7) * math.sin(ang))
-            tw, th = self._get_text_size("N", self._f_footer)
-            draw.text((n_x - tw // 2, n_y - th // 2), "N", fill=white, font=self._f_footer)
-
             # Degree value below circle
             deg_str = f"{int(mag_h) % 360:03d}°"
             tw, _ = self._get_text_size(deg_str, self._f_footer)
