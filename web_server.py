@@ -30,12 +30,12 @@ class ServerState:
         self.power_spectrum = []
         self.uptime = 0
         self.bearing = 0
-        self.latitude = 0.0
-        self.longitude = 0.0
+        self.latitude = None
+        self.longitude = None
         self.gain = config.GAIN
         self.current_time = '00:00:00'
 
-    def update(self, metrics, power, uptime, bearing=0, gain=7.7, latitude=0.0, longitude=0.0):
+    def update(self, metrics, power, uptime, bearing=0, gain=7.7, latitude=None, longitude=None):
         try:
             power_array = np.asarray(power, dtype=np.float64).ravel()
             power_array = power_array[np.isfinite(power_array)]
@@ -239,5 +239,5 @@ def start_server(port=8080, detector_app=None):
 
     raise RuntimeError(f"Dashboard server did not become ready on port {port}")
 
-def update_state(metrics, power, uptime, bearing=0, gain=7.7, latitude=0.0, longitude=0.0):
+def update_state(metrics, power, uptime, bearing=0, gain=7.7, latitude=None, longitude=None):
     state.update(metrics, power, uptime, bearing=bearing, gain=gain, latitude=latitude, longitude=longitude)

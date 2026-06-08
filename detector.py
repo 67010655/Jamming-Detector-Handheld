@@ -13,7 +13,6 @@ from buzzer import BuzzerController
 import web_server
 import database_manager
 from hardware.imu import create_imu, normalize_imu_model
-from hardware.gps import GPSReceiver
 
 IMU_MODEL = normalize_imu_model()
 
@@ -62,7 +61,6 @@ class GPSJammerHandheld:
         self.current_state = "SCANNING"
         self.request_calibration = threading.Event()  # Set from touch thread
         self.calibration_source = "local"
-        self.gps = GPSReceiver(preview=self.preview)
         self.shutdown_requested = threading.Event()    # Set from touch thread
         self.reboot_requested = threading.Event()      # Set from touch thread
 
@@ -94,7 +92,6 @@ class GPSJammerHandheld:
             self.ui.draw_splash("STARTING SYSTEM MODULE...", progress=100)
             self.led = LEDController(enabled=True)
             self.buzzer = BuzzerController(enabled=True)
-            self.gps.start()
             time.sleep(0.8)
         else:
             self.noise_floor = config.DEFAULT_NOISE_FLOOR_DB
@@ -102,7 +99,6 @@ class GPSJammerHandheld:
             self.baseline_guard_active = False
             self.led = LEDController(enabled=False)
             self.buzzer = BuzzerController(enabled=False)
-            self.gps.start()
             print("[INFO] Preview mode: synthetic spectrum is enabled.")
 
         # Start background web dashboard
@@ -157,7 +153,7 @@ class GPSJammerHandheld:
             print("[WARN]  Recommend restarting without jammer nearby")
         
         # Log startup baseline to database
-        database_manager.log_event("STARTUP", 0, self.noise_floor, 0.0, self.noise_floor, 0, latitude=self.gps.latitude, longitude=self.gps.longitude)
+        database_manager.log_event("STARTUP", 0, self.noise_floor, 0.0, self.noise_floor, 0)
 
     def _detect_jamming(self, power):
         if self.fixed_nf:
@@ -354,7 +350,7 @@ class GPSJammerHandheld:
 
                 # Update web server state
                 uptime = int(time.time() - self.start_time)
-                web_server.update_state(metrics, power, uptime, bearing=int(self.current_bearing), gain=self.gain_db, latitude=self.gps.latitude, longitude=self.gps.longitude)
+                web_server.update_state(metrics, power, uptime, bearing=int(self.current_bearing), gain=self.gain_db)
 
                 # Log to database intelligently to prevent SD card wear and reduce CPU/IO lag.
                 # Writes immediately on state change, every 30s in SCANNING, and every 3s in active events.
@@ -370,9 +366,7 @@ class GPSJammerHandheld:
                         metrics["floor_rise"],
                         metrics["noise_floor"],
                         uptime,
-                        bearing_deg=int(self.current_bearing),
-                        latitude=self.gps.latitude,
-                        longitude=self.gps.longitude
+                        bearing_deg=int(self.current_bearing)
                     )
                     self.last_log_time = current_time
                     self._last_logged_state = metrics["state"]
@@ -446,9 +440,7 @@ class GPSJammerHandheld:
             0.0,
             self.noise_floor,
             uptime,
-            bearing_deg=int(self.current_bearing),
-            latitude=self.gps.latitude,
-            longitude=self.gps.longitude
+            bearing_deg=int(self.current_bearing)
         )
         # We could also trigger a screen save here if implemented
         
@@ -540,9 +532,6 @@ class GPSJammerHandheld:
         print("\n[SYSTEM] Stopping...")
         uptime = max(0.001, time.time() - self.start_time)
         print(f"[STATS] Uptime: {uptime:.1f}s  Frames: {self.frame_count}  Rate: {self.frame_count / uptime:.1f} FPS")
-
-        if getattr(self, 'gps', None) is not None:
-            self.gps.stop()
 
         if self.led is not None:
             self.led.cleanup()

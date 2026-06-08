@@ -703,10 +703,6 @@ async function fetchStatus() {
             setDomText('ss-gain', gainStr);
             setDomText('web-gain-val', gainStr);
         }
-        if (data.latitude !== undefined && data.longitude !== undefined) {
-            const gpsStr = `${Math.abs(data.latitude).toFixed(6)}° ${data.latitude >= 0 ? 'N' : 'S'}, ${Math.abs(data.longitude).toFixed(6)}° ${data.longitude >= 0 ? 'E' : 'W'}`;
-            setDomText('gps-val', gpsStr);
-        }
 
         // Update real-time bearing history
         if (data.bearing !== undefined && data.metrics) {

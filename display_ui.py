@@ -827,10 +827,10 @@ class DisplayUI:
                         cy + int(ox * math.sin(ang) + oy * math.cos(ang)))
 
             r = radius - 3
-            tip       = rp(0,          -int(r * 0.72))
-            r_wing    = rp( int(r*0.30), int(r * 0.20))
-            notch     = rp(0,           int(r * 0.02))
-            l_wing    = rp(-int(r*0.30), int(r * 0.20))
+            tip       = rp(int(r * 0.72), 0)
+            r_wing    = rp(-int(r * 0.20), int(r * 0.30))
+            notch     = rp(-int(r * 0.02), 0)
+            l_wing    = rp(-int(r * 0.20), -int(r * 0.30))
 
             # Right half filled (bright white), left half outline only — classic compass look
             draw.polygon([tip, r_wing, notch], fill=white)

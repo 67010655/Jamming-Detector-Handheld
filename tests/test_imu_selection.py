@@ -85,10 +85,12 @@ def test_get_heading_mag_applies_offset_and_declination(monkeypatch):
     sensor = mpu9250.MPU9250(address=0x69)
     sensor._mag_enabled = True
     sensor.mag_offset_x = 100.0
-    sensor.mag_offset_y = 50.0
+    sensor.mag_offset_z = 50.0
+    sensor.compass_offset_deg = 0.0
+    sensor.mag_invert = False
     sensor.declination_deg = 5.0
 
-    monkeypatch.setattr(sensor, "read_mag_raw", lambda: (200, 150))
+    monkeypatch.setattr(sensor, "read_mag_raw", lambda: (200, 0, 150))
 
     assert abs(sensor.get_heading_mag() - 50.0) < 0.001
 
