@@ -199,8 +199,8 @@ class GPSJammerHandheld:
                 if self.baseline_guard_active and current_floor < (self.calibrated_base_nf + config.GUARD_RELEASE_THRESHOLD):
                     self.baseline_guard_active = False
 
-        # Apply state override when baseline guard is active to trigger alarms immediately
-        if self.baseline_guard_active:
+        # Apply state override when baseline guard is active to trigger alarms immediately ONLY if above jamming threshold
+        if self.baseline_guard_active and (floor_rise > self.floor_rise_threshold_db or peak_diff > self.peak_threshold_db):
             self.jammer_active = True
             state = "JAMMING"
 

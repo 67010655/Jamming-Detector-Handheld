@@ -322,7 +322,7 @@ Dark and light themes supported via `data-theme` attribute on `<body>` (line 13)
 | Priority | Item | Effort | Impact | Status |
 |----------|------|--------|--------|--------|
 | **P1** | Fix `database_manager.py` connection leak (§4.5) | Small | Prevents connection exhaustion under error scenarios | **RESOLVED** |
-| P1 | Expand test suite to `detector.py` state machine | Medium | Catches logic regressions in SCANNING→WATCH→JAMMING transitions | Open |
+| **P1** | Expand test suite to `detector.py` state machine | Medium | Catches logic regressions in SCANNING→WATCH→JAMMING transitions | **RESOLVED** |
 | P2 | Magnetometer calibration wizard for MPU9250 | Medium | Makes compass heading field-accurate | Open |
 | P3 | Fix particle RAF on hidden tabs (§5.4) | Tiny | Marginal battery savings on mobile | **RESOLVED** |
 | P3 | Split `GPSJammerHandheld` god class | Large | Long-term maintainability if feature scope grows | Open |
