@@ -120,6 +120,30 @@ def generate_screenshots():
     print("[PREVIEW] Rendering Splash: REBOOT...")
     app.ui.draw_splash("RESTARTING SYSTEM...", progress=100)
     Image.open("preview.png").save(os.path.join(out_dir, "splash_reboot.png"))
+
+    # ----------------------------------------------------
+    # Render Dialog: CALIB CHOICE
+    # ----------------------------------------------------
+    print("[PREVIEW] Rendering Dialog: CALIB CHOICE...")
+    app.ui.view_mode = 0
+    app.ui._calib_confirm = True
+    app.ui._calib_confirm_until = time.time() + 9999.0
+    app.ui._pwr_confirm = False
+    app.ui._toast_msg = None
+    app.ui._toast_until = 0
+    app.ui.draw_ui(metrics, power)
+    Image.open("preview.png").save(os.path.join(out_dir, "dialog_calib.png"))
+
+    # ----------------------------------------------------
+    # Render Dialog: PWR CONFIRM
+    # ----------------------------------------------------
+    print("[PREVIEW] Rendering Dialog: PWR CONFIRM...")
+    app.ui.view_mode = 0
+    app.ui._calib_confirm = False
+    app.ui._pwr_confirm = True
+    app.ui._pwr_confirm_until = time.time() + 9999.0
+    app.ui.draw_ui(metrics, power)
+    Image.open("preview.png").save(os.path.join(out_dir, "dialog_pwr.png"))
     
     print("[PREVIEW] All screenshots generated successfully inside preview_example/ folder!")
 

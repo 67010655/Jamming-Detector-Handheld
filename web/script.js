@@ -126,6 +126,22 @@ $id('web-gain-inc-btn').addEventListener('click', async () => {
     }
 });
 
+$id('web-restart-btn').addEventListener('click', async () => {
+    if (confirm('ต้องการรีสตาร์ทกระบวนการรันแอปพลิเคชันหรือไม่?')) {
+        try {
+            const res = await fetch('/api/reboot', { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                alert('ส่งคำสั่งรีสตาร์ทแอปพลิเคชันสำเร็จแล้ว! ระบบจะตัดการทำงานชั่วขณะเพื่อเริ่มระบบใหม่');
+            } else {
+                alert(data.error || 'สั่งรีสตาร์ทล้มเหลว');
+            }
+        } catch (e) {
+            alert('สั่งรีสตาร์ทล้มเหลว ตรวจสอบการเชื่อมต่อแดชบอร์ด');
+        }
+    }
+});
+
 // ── Ultra-Smooth Client Clock (Local time, avoids server time jitters) ──
 function updateClock() {
     const now = new Date();

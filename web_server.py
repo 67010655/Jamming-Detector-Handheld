@@ -210,6 +210,15 @@ def web_adjust_gain():
             return jsonify({"success": False, "error": str(e)}), 400
     return jsonify({"success": False, "error": "App instance not initialized"}), 500
 
+@app.route('/api/reboot', methods=['POST'])
+def web_reboot():
+    global app_instance
+    if app_instance is not None:
+        print(f"[WEB] Remote reboot requested from {request.remote_addr}")
+        threading.Thread(target=app_instance.safe_reboot, daemon=True).start()
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "App instance not initialized"}), 500
+
 def start_server(port=8080, detector_app=None):
     global app_instance
     app_instance = detector_app
