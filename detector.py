@@ -157,7 +157,7 @@ class GPSJammerHandheld:
 
     def _detect_jamming(self, power):
         if self.fixed_nf:
-            self.noise_floor = config.DEFAULT_NOISE_FLOOR_DB
+            self.noise_floor = self.calibrated_base_nf
             
         avg_p = float(np.mean(power))
         peak_p = float(np.max(power))
@@ -213,8 +213,8 @@ class GPSJammerHandheld:
                     self.noise_floor = smooth_noise(self.noise_floor, current_floor, self.alpha_alert)
             # In JAMMING or locked guard state, we do not update noise_floor at all to preserve the baseline
         else:
-            # Fixed mode: optimal chamber baseline forced
-            self.noise_floor = config.DEFAULT_NOISE_FLOOR_DB
+            # Fixed mode: hold the noise floor captured by the user's last calibration.
+            self.noise_floor = self.calibrated_base_nf
         
         self.current_state = state
         self.led.set_state(state)

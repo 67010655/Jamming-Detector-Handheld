@@ -93,3 +93,17 @@ def test_peak_debounce_transitions():
     assert metrics["state"] == "JAMMING"
     assert det.jam_hits == 3
     assert det.jammer_active is True
+
+
+def test_fixed_nf_uses_user_calibrated_baseline_not_default():
+    det = HelperMockDetector()
+    det.fixed_nf = True
+    det.calibrated_base_nf = -82.5
+    det.noise_floor = -95.0
+
+    power = np.full(100, -82.5)
+    metrics = det._detect_jamming(power)
+
+    assert det.noise_floor == pytest.approx(-82.5)
+    assert metrics["noise_floor"] == pytest.approx(-82.5)
+    assert det.noise_floor != pytest.approx(config.DEFAULT_NOISE_FLOOR_DB)
