@@ -443,8 +443,8 @@ class DisplayUI:
             )
             # Label
             draw.text((content_l + 10, hdr_b + 5), "GYRO COMPASS", fill=self._dim(white, 0.4), font=self._f_footer)
-            # Mini magnetometer reference compass — bottom-left corner
-            self._draw_mag_mini_compass(draw, content_l + 36, foot_t - 26, 18, accent)
+            # Mini magnetometer reference compass — bottom-left corner (adjusted cy slightly up to prevent clipping)
+            self._draw_mag_mini_compass(draw, content_l + 36, foot_t - 36, 18, accent)
 
         elif self.view_mode == 2:  # ANALYTICS MODE (History)
             self._draw_history(draw, content_l + 12, hdr_b + 18, rp_l - 12, foot_t - 75, accent, grid, white)
@@ -803,6 +803,12 @@ class DisplayUI:
         draw.text((lx, ly_top),      "HEADING", fill=(160, 160, 180), font=self._f_small)
         draw.text((lx, ly_top + 13), brg_val,   fill=accent,          font=self._f_score_big)
         draw.text((lx, ly_top + 46), dir_name,  fill=accent,          font=self._f_brg)
+
+        # Noise Floor readout below Heading
+        nf = metrics.get("noise_floor", self.app.noise_floor) if metrics else self.app.noise_floor
+        draw.text((lx, ly_top + 76), "NOISE FLOOR", fill=(160, 160, 180), font=self._f_small)
+        nf_str = f"{nf:.1f} dBFS" if nf is not None else "— dBFS"
+        draw.text((lx, ly_top + 89), nf_str, fill=white, font=self._f_brg)
 
     def _draw_mag_mini_compass(self, draw, cx, cy, radius, accent):
         """Mini mag compass — compass-arrow icon style, white, shows magnetic North."""

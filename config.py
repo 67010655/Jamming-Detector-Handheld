@@ -42,17 +42,17 @@ IMU_INVERT_GYRO = True  # Invert gyro sign so radar ring matches physical turn (
 
 # ── Sensor Fusion & Compass Setup ──────────────────────────
 IMU_FUSION_MODE = 'COMPLEMENTARY'  # Mode: 'COMPLEMENTARY' (Fused 9-axis), 'GYRO_ONLY' (like MPU6050), 'MAG_ONLY' (True Compass only)
-IMU_FUSION_ALPHA = 0.95          # Gyro weight in complementary filter (0.90 to 0.99). Higher = smoother radar, Lower = reacts faster to compass
-IMU_FUSION_STILL_ALPHA = 0.75    # When nearly still, trust compass more so heading recenters quickly after fast turns
+IMU_FUSION_ALPHA = 0.85          # Gyro weight while turning. Lower follows compass faster; higher is smoother but lags.
+IMU_FUSION_STILL_ALPHA = 0.55    # When nearly still, trust compass more so heading recenters quickly after fast turns
 IMU_STILL_GYRO_DPS = 8.0         # Gyro rate below this is treated as still/slow movement for faster compass correction
-IMU_MAG_SMOOTH_ALPHA = 0.3       # EMA smoothing on raw mag readings (0.05=very smooth/laggy, 0.3=responsive/noisy)
+IMU_MAG_SMOOTH_ALPHA = 0.55      # EMA smoothing on raw mag readings (higher=more responsive, lower=smoother/laggier)
 # Device is mounted VERTICALLY: chip Y axis is vertical (discarded). Heading is
 # computed from the two HORIZONTAL axes X and Z. Offsets below from diagnose_magnetometer.py.
 IMU_MAG_OFFSET_X = -171.0        # Hard-iron offset for horizontal X axis (circle center)
 IMU_MAG_OFFSET_Z = 393.0         # Hard-iron offset for horizontal Z axis (circle center)
 IMU_MAG_INVERT = True            # Compass rotated wrong way before invert (verified via live_compass.py)
 IMU_DECLINATION_DEG = -0.5       # Local magnetic declination (e.g. -0.5 deg in Bangkok) to align with True North
-IMU_COMPASS_OFFSET_DEG = -179.5  # Rotate heading so North reads 0 (calibrated from N/E live readings)
+IMU_COMPASS_OFFSET_DEG = -174.5  # Rotate heading to reference compass; +5 deg from prior tune to match iPhone readings
 
 LED_RED_PIN = 17        # GPIO17 (Physical Pin 11) for RED LED (JAMMING state)
 LED_YELLOW_PIN = 27     # GPIO27 (Physical Pin 13) for YELLOW LED (WATCH state)
