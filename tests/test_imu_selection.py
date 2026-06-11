@@ -115,6 +115,8 @@ def test_get_heading_mag_applies_offset_and_declination(monkeypatch):
     sensor._mag_enabled = True
     sensor.mag_offset_x = 100.0
     sensor.mag_offset_z = 50.0
+    sensor.mag_scale_x = 1.0
+    sensor.mag_scale_z = 1.0
     sensor.compass_offset_deg = 0.0
     sensor.mag_invert = False
     sensor.declination_deg = 5.0
@@ -122,6 +124,24 @@ def test_get_heading_mag_applies_offset_and_declination(monkeypatch):
     monkeypatch.setattr(sensor, "read_mag_raw", lambda: (200, 0, 150))
 
     assert abs(sensor.get_heading_mag() - 50.0) < 0.001
+
+
+def test_get_heading_mag_applies_soft_iron_scale(monkeypatch):
+    import hardware.mpu9250 as mpu9250
+
+    sensor = mpu9250.MPU9250(address=0x69)
+    sensor._mag_enabled = True
+    sensor.mag_offset_x = 0.0
+    sensor.mag_offset_z = 0.0
+    sensor.mag_scale_x = 0.5
+    sensor.mag_scale_z = 1.0
+    sensor.compass_offset_deg = 0.0
+    sensor.mag_invert = False
+    sensor.declination_deg = 0.0
+
+    monkeypatch.setattr(sensor, "read_mag_raw", lambda: (100, 0, 100))
+
+    assert abs(sensor.get_heading_mag() - 63.43494882292201) < 0.001
 
 
 def test_complementary_filter_bearing_wrapping_and_fusion(monkeypatch):

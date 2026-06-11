@@ -50,6 +50,8 @@ IMU_MAG_SMOOTH_ALPHA = 0.55      # EMA smoothing on raw mag readings (higher=mor
 # computed from the two HORIZONTAL axes X and Z. Offsets below from diagnose_magnetometer.py.
 IMU_MAG_OFFSET_X = -171.0        # Hard-iron offset for horizontal X axis (circle center)
 IMU_MAG_OFFSET_Z = 393.0         # Hard-iron offset for horizontal Z axis (circle center)
+IMU_MAG_SCALE_X = 0.90           # Soft-iron X scale. Lower pulls W/E extremes back when they overshoot reference compass.
+IMU_MAG_SCALE_Z = 1.00           # Soft-iron Z scale. Keep 1.0 unless N/S begins to under/overshoot.
 IMU_MAG_INVERT = True            # Compass rotated wrong way before invert (verified via live_compass.py)
 IMU_DECLINATION_DEG = -0.5       # Local magnetic declination (e.g. -0.5 deg in Bangkok) to align with True North
 IMU_COMPASS_OFFSET_DEG = -174.5  # Rotate heading to reference compass; +5 deg from prior tune to match iPhone readings

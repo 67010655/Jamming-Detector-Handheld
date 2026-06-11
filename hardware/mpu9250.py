@@ -55,6 +55,8 @@ class MPU9250:
         self.still_gyro_dps = getattr(config, 'IMU_STILL_GYRO_DPS', 8.0)
         self.mag_offset_x = getattr(config, 'IMU_MAG_OFFSET_X', 0.0)
         self.mag_offset_z = getattr(config, 'IMU_MAG_OFFSET_Z', 0.0)
+        self.mag_scale_x = getattr(config, 'IMU_MAG_SCALE_X', 1.0)
+        self.mag_scale_z = getattr(config, 'IMU_MAG_SCALE_Z', 1.0)
         self.mag_invert = getattr(config, 'IMU_MAG_INVERT', False)
         self.declination_deg = getattr(config, 'IMU_DECLINATION_DEG', 0.0)
         self.compass_offset_deg = getattr(config, 'IMU_COMPASS_OFFSET_DEG', 0.0)
@@ -285,8 +287,8 @@ class MPU9250:
         # Device mounted vertically: Y is the vertical axis (ignored). Heading
         # comes from the two horizontal axes X and Z. (Confirmed by
         # diagnose_magnetometer.py: X/Z swing ~450, Y stays ~60.)
-        mx = float(hx) - self.mag_offset_x
-        mz = float(hz) - self.mag_offset_z
+        mx = (float(hx) - self.mag_offset_x) * self.mag_scale_x
+        mz = (float(hz) - self.mag_offset_z) * self.mag_scale_z
 
         # EMA low-pass filter on the two horizontal axes
         if self._mag_smooth_x is None:
