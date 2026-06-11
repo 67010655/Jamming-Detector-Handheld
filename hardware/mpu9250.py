@@ -51,6 +51,8 @@ class MPU9250:
         # Load sensor fusion and magnetometer settings from config
         self.fusion_mode = getattr(config, 'IMU_FUSION_MODE', 'COMPLEMENTARY')
         self.fusion_alpha = getattr(config, 'IMU_FUSION_ALPHA', 0.96)
+        self.fusion_still_alpha = getattr(config, 'IMU_FUSION_STILL_ALPHA', self.fusion_alpha)
+        self.still_gyro_dps = getattr(config, 'IMU_STILL_GYRO_DPS', 8.0)
         self.mag_offset_x = getattr(config, 'IMU_MAG_OFFSET_X', 0.0)
         self.mag_offset_z = getattr(config, 'IMU_MAG_OFFSET_Z', 0.0)
         self.mag_invert = getattr(config, 'IMU_MAG_INVERT', False)
@@ -220,10 +222,13 @@ class MPU9250:
         mag_heading = self.get_heading_mag()
         self.mag_heading = mag_heading  # expose for UI mini compass
 
-        if self.fusion_mode == 'MAG_ONLY' and mag_heading is not None:
-            self.bearing = mag_heading
-            self.bearing_initialized = True
-        elif self.fusion_mode == 'COMPLEMENTARY' and mag_heading is not None:
+        if self.fusion_mode == 'MAG_ONLY':
+            if mag_heading is not None:
+                self.bearing = mag_heading
+                self.bearing_initialized = True
+            return self.bearing
+
+        if self.fusion_mode == 'COMPLEMENTARY' and mag_heading is not None:
             # Gyro prediction
             gyro_predicted = (self.bearing + gyro_delta) % 360
             if not self.bearing_initialized:
@@ -234,8 +239,10 @@ class MPU9250:
                 # Shortest angular distance to prevent wrapping spin at 0/360 boundary
                 diff = mag_heading - gyro_predicted
                 diff = (diff + 180) % 360 - 180
-                # Complementary filter fusion
-                self.bearing = (gyro_predicted + (1.0 - self.fusion_alpha) * diff) % 360
+                # Trust the compass more when the unit is nearly still so heading
+                # recenters quickly after fast turns without making active turns jittery.
+                alpha = self.fusion_still_alpha if abs(gyro_rate) <= self.still_gyro_dps else self.fusion_alpha
+                self.bearing = (gyro_predicted + (1.0 - alpha) * diff) % 360
         else:
             # Fallback to pure gyro integration
             self.bearing = (self.bearing + gyro_delta) % 360

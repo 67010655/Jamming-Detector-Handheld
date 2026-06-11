@@ -17,6 +17,16 @@ The system utilizes an **RTL-SDR V3** software-defined radio front-end driven by
 
 ---
 
+## ✅ Current Verification & Handoff Status
+
+- Latest source-grounded review: [CODE_REVIEW.md](CODE_REVIEW.md)
+- Current technical and operational audit: [aviation_and_software_audit_report.md](aviation_and_software_audit_report.md)
+- Field hardware checklist: [FIELD_READINESS_CHECKLIST.md](FIELD_READINESS_CHECKLIST.md)
+- Current software verification snapshot: `python -m pytest -q` passes with **36 tests**, and `python generate_previews.py` completes successfully.
+- Current status wording: **software verified for controlled field validation**. This is not a formal aviation certification or AEROTHAI approval.
+
+---
+
 ## 🛠️ System Architecture & Engineering Design
 
 The project is architected with a strict separation of concerns to maintain deterministic performance on resource-constrained hardware (Raspberry Pi Zero 2W). Heavy digital signal processing (DSP) and hardware interaction loops run in a high-priority Python thread, while a separate server process hosts the REST API, minimizing latency on both the local SPI display and client browsers.

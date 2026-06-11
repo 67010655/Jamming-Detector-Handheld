@@ -49,6 +49,35 @@ def test_mpu9250_direct_default_address_avoids_rtc_collision(monkeypatch):
     assert sensor.address == 0x69
 
 
+def test_mpu9250_loads_adaptive_fusion_config():
+    import config
+    from hardware.mpu9250 import MPU9250
+
+    sensor = MPU9250(address=0x69)
+
+    assert sensor.fusion_alpha == config.IMU_FUSION_ALPHA
+    assert sensor.fusion_still_alpha == config.IMU_FUSION_STILL_ALPHA
+    assert sensor.still_gyro_dps == config.IMU_STILL_GYRO_DPS
+
+
+def test_mag_only_mode_holds_last_heading_when_magnetometer_unavailable(monkeypatch):
+    import hardware.mpu9250 as mpu9250
+
+    sensor = mpu9250.MPU9250(address=0x69)
+    sensor.bus = "mock_bus"
+    sensor._init_success = True
+    sensor.fusion_mode = "MAG_ONLY"
+    sensor.bearing = 10.0
+
+    monkeypatch.setattr(sensor, "get_heading_mag", lambda: None)
+    monkeypatch.setattr(sensor, "_read_gyro_raw", lambda: 393)
+    monkeypatch.setattr(mpu9250.time, "time", lambda: 101.0)
+
+    sensor.last_time = 100.0
+
+    assert sensor.update_bearing() == 10.0
+
+
 def test_mpu9250_keeps_gyro_ready_when_magnetometer_init_fails(monkeypatch):
     import hardware.mpu9250 as mpu9250
 
@@ -103,6 +132,7 @@ def test_complementary_filter_bearing_wrapping_and_fusion(monkeypatch):
     sensor._init_success = True
     sensor.fusion_mode = "COMPLEMENTARY"
     sensor.fusion_alpha = 0.90  # 90% gyro, 10% mag
+    sensor.fusion_still_alpha = 0.90
     sensor.bearing = 359.0
     sensor.bearing_initialized = True
 
@@ -118,4 +148,27 @@ def test_complementary_filter_bearing_wrapping_and_fusion(monkeypatch):
     # diff = 1.0 - 359.0 = -358.0 -> wrapping makes it +2.0
     # complementary output = 359.0 + 0.1 * 2.0 = 359.2
     assert abs(bearing - 359.2) < 0.001
+
+
+def test_complementary_filter_recenters_faster_when_still(monkeypatch):
+    import hardware.mpu9250 as mpu9250
+
+    sensor = mpu9250.MPU9250(address=0x69)
+    sensor.bus = "mock_bus"
+    sensor._init_success = True
+    sensor.fusion_mode = "COMPLEMENTARY"
+    sensor.fusion_alpha = 0.95
+    sensor.fusion_still_alpha = 0.75
+    sensor.still_gyro_dps = 8.0
+    sensor.bearing = 100.0
+    sensor.bearing_initialized = True
+
+    monkeypatch.setattr(sensor, "get_heading_mag", lambda: 120.0)
+    monkeypatch.setattr(sensor, "_read_gyro_raw", lambda: 0)
+    monkeypatch.setattr(mpu9250.time, "time", lambda: 101.0)
+
+    sensor.last_time = 100.0
+    sensor.gyro_z_offset = 0
+
+    assert abs(sensor.update_bearing() - 105.0) < 0.001
 
