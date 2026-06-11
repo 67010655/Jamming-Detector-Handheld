@@ -807,8 +807,9 @@ class DisplayUI:
         # Noise Floor readout below Heading
         nf = metrics.get("noise_floor", self.app.noise_floor) if metrics else self.app.noise_floor
         draw.text((lx, ly_top + 76), "NOISE FLOOR", fill=(160, 160, 180), font=self._f_small)
-        nf_str = f"{nf:.1f} dBFS" if nf is not None else "— dBFS"
-        draw.text((lx, ly_top + 89), nf_str, fill=white, font=self._f_brg)
+        nf_val_str = f"{nf:.1f}" if nf is not None else "—"
+        draw.text((lx, ly_top + 89), nf_val_str, fill=white, font=self._f_value)
+        draw.text((lx, ly_top + 113), "dBFS", fill=(160, 160, 180), font=self._f_small)
 
     def _draw_mag_mini_compass(self, draw, cx, cy, radius, accent):
         """Mini mag compass — compass-arrow icon style, white, shows magnetic North."""
