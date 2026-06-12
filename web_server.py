@@ -219,6 +219,16 @@ def web_reboot():
         return jsonify({"success": True})
     return jsonify({"success": False, "error": "App instance not initialized"}), 500
 
+@app.route('/api/shutdown', methods=['POST'])
+def web_shutdown():
+    global app_instance
+    if app_instance is not None:
+        print(f"[WEB] Remote shutdown requested from {request.remote_addr}")
+        threading.Thread(target=app_instance.safe_power_off, daemon=True).start()
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "App instance not initialized"}), 500
+
+
 def start_server(port=8080, detector_app=None):
     global app_instance
     app_instance = detector_app

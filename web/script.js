@@ -142,6 +142,23 @@ $id('web-restart-btn').addEventListener('click', async () => {
     }
 });
 
+$id('web-shutdown-btn').addEventListener('click', async () => {
+    if (confirm('คุณต้องการปิดเครื่อง (Shutdown) จริงๆ ใช่หรือไม่?')) {
+        try {
+            const res = await fetch('/api/shutdown', { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+                alert('ส่งคำสั่งปิดเครื่องสำเร็จแล้ว! ระบบกำลังเตรียมปิดเครื่อง หน้าจอจะดับใน 5 วินาที');
+            } else {
+                alert(data.error || 'สั่งปิดเครื่องล้มเหลว');
+            }
+        } catch (e) {
+            alert('สั่งปิดเครื่องล้มเหลว ตรวจสอบการเชื่อมต่อแดชบอร์ด');
+        }
+    }
+});
+
+
 // ── Ultra-Smooth Client Clock (Local time, avoids server time jitters) ──
 function updateClock() {
     const now = new Date();
