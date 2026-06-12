@@ -224,7 +224,7 @@ def web_shutdown():
     global app_instance
     if app_instance is not None:
         print(f"[WEB] Remote shutdown requested from {request.remote_addr}")
-        threading.Thread(target=app_instance.safe_power_off, daemon=True).start()
+        app_instance.shutdown_requested.set()
         return jsonify({"success": True})
     return jsonify({"success": False, "error": "App instance not initialized"}), 500
 
